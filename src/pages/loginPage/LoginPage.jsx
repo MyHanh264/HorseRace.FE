@@ -1,27 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { loginUser } from '../../api/auth';
-import {
-  getAccessToken,
-  getHomePathForRole,
-  getStoredAuthRole,
-  parseJwtPayload,
-  setAuthTokens,
-} from '../../utils/token';
+import { useAuth } from '../../context/AuthContext';
+import { getHomePathForRole } from '../../utils/token';
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, Loader2 } from 'lucide-react';
 import './LoginPage.css';
-
-const ROLE_LABELS = {
-  ADMIN: 'Quản trị viên',
-  RACE_REFEREE: 'Trọng tài',
-  HORSE_OWNER: 'Chủ ngựa',
-  JOCKEY: 'Kỵ sĩ',
-  SPECTATOR: 'Khán giả',
-};
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { isAuthenticated, user, login } = useAuth();
 
   const [email, setEmail] = useState(() => location.state?.email || '');
   const [password, setPassword] = useState('');
@@ -29,19 +17,15 @@ export default function LoginPage() {
   const [remember, setRemember] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [otherRoleSuccess, setOtherRoleSuccess] = useState(null);
-
   useEffect(() => {
-    const home = getHomePathForRole(getStoredAuthRole());
-    if (getAccessToken() && home) {
-      navigate(home, { replace: true });
-    }
-  }, [navigate]);
+    if (!isAuthenticated) return;
+    const home = getHomePathForRole(user?.role);
+    if (home) navigate(home, { replace: true });
+  }, [isAuthenticated, user?.role, navigate]);
 
   const onSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setOtherRoleSuccess(null);
 
     if (!email.includes('@')) {
       setError('Email không hợp lệ.');
@@ -55,23 +39,15 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       const data = await loginUser({ email: email.trim(), password });
-      const { accessToken, refreshToken } = data;
+      login(data, remember);
 
-      setAuthTokens({ accessToken, refreshToken, remember });
-
-      const role = getStoredAuthRole();
-      const home = getHomePathForRole(role);
-
+      const home = getHomePathForRole(data.role);
       if (home) {
         navigate(home, { replace: true, state: { loginSuccess: true } });
         return;
       }
 
-      const payload = parseJwtPayload(accessToken);
-      setOtherRoleSuccess({
-        email: payload?.email || email.trim(),
-        roleLabel: ROLE_LABELS[role] || role,
-      });
+      navigate('/', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -100,31 +76,7 @@ export default function LoginPage() {
 
         {/* Login Card */}
         <div className="login-card w-full rounded-xl p-6 sm:p-8 md:p-10 flex flex-col gap-6">
-          {otherRoleSuccess ? (
-            <div className="flex flex-col gap-4 text-center">
-              <div className="text-sm bg-primary/10 border border-primary/30 text-primary rounded-lg p-4 font-semibold">
-                Đăng nhập thành công!
-              </div>
-              <p className="text-xs text-on-surface-variant">
-                Tài khoản <span className="text-secondary font-semibold">{otherRoleSuccess.email}</span> — vai trò{' '}
-                <span className="text-secondary font-semibold">{otherRoleSuccess.roleLabel}</span>.
-              </p>
-              <p className="text-xs text-on-surface-variant/80 italic">
-                Trang chủ cho vai trò này sẽ được bổ sung sau.
-              </p>
-              <button
-                type="button"
-                className="w-full py-3 border border-outline-variant/30 text-xs tracking-wider uppercase font-semibold rounded-lg hover:bg-surface-variant transition-all active:scale-[0.98] cursor-pointer mt-2 text-on-surface bg-transparent"
-                onClick={() => {
-                  setOtherRoleSuccess(null);
-                  setPassword('');
-                }}
-              >
-                Đăng nhập tài khoản khác
-              </button>
-            </div>
-          ) : (
-            <form className="flex flex-col gap-4" onSubmit={onSubmit} noValidate>
+          <form className="flex flex-col gap-4" onSubmit={onSubmit} noValidate>
               {error ? (
                 <div className="text-xs bg-error/15 border border-error/30 text-error rounded-lg p-3 font-semibold">
                   {error}
@@ -226,7 +178,6 @@ export default function LoginPage() {
                 )}
               </button>
             </form>
-          )}
 
           {/* Divider */}
           <div className="flex items-center gap-4">

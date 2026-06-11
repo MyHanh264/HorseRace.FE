@@ -1,3 +1,13 @@
+function getErrorMessage(data, fallback) {
+  return (
+    data?.detail ||
+    data?.title ||
+    data?.error ||
+    data?.message ||
+    fallback
+  );
+}
+
 export async function loginUser({ email, password }) {
   const res = await fetch('/api/auth/login', {
     method: 'POST',
@@ -13,7 +23,7 @@ export async function loginUser({ email, password }) {
   }
 
   if (!res.ok) {
-    throw new Error(data?.error || data?.message || `Đăng nhập thất bại (${res.status})`)
+    throw new Error(getErrorMessage(data, `Đăng nhập thất bại (${res.status})`))
   }
 
   return data
@@ -26,7 +36,7 @@ async function readJsonError(res, fallback) {
   } catch {
     /* empty */
   }
-  throw new Error(data?.error || data?.message || `${fallback} (${res.status})`)
+  throw new Error(getErrorMessage(data, `${fallback} (${res.status})`))
 }
 
 function authHeaders(accessToken) {
@@ -44,6 +54,27 @@ export async function getMyProfile(accessToken) {
   if (!res.ok) await readJsonError(res, 'Không tải được hồ sơ')
   const data = await res.json()
   return data?.user ?? data
+}
+
+export async function refreshAuthToken(refreshToken) {
+  const res = await fetch('/api/auth/refresh-token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken }),
+  })
+
+  let data = null
+  try {
+    data = await res.json()
+  } catch {
+    /* empty */
+  }
+
+  if (!res.ok) {
+    throw new Error(getErrorMessage(data, `Làm mới phiên đăng nhập thất bại (${res.status})`))
+  }
+
+  return data
 }
 
 export async function logoutUser({ accessToken, refreshToken }) {
@@ -72,7 +103,7 @@ export async function forgotPassword(email) {
   }
 
   if (!res.ok) {
-    throw new Error(data?.error || data?.message || `Gửi mã OTP thất bại (${res.status})`)
+    throw new Error(getErrorMessage(data, `Gửi mã OTP thất bại (${res.status})`))
   }
 
   return data
@@ -93,17 +124,26 @@ export async function resetPassword(payload) {
   }
 
   if (!res.ok) {
-    throw new Error(data?.error || data?.message || `Đặt lại mật khẩu thất bại (${res.status})`)
+    throw new Error(getErrorMessage(data, `Đặt lại mật khẩu thất bại (${res.status})`))
   }
 
   return data
 }
 
+const REGISTER_ROUTES = {
+  SPECTATOR: '/api/auth/register/spectator',
+  HORSE_OWNER: '/api/auth/register/horse-owner',
+  JOCKEY: '/api/auth/register/jockey',
+};
+
 export async function registerUser(payload) {
-  const res = await fetch('/api/auth/register', {
+  const { roleCode, ...body } = payload;
+  const url = REGISTER_ROUTES[roleCode] ?? REGISTER_ROUTES.SPECTATOR;
+
+  const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   })
 
   let data = null
@@ -114,7 +154,7 @@ export async function registerUser(payload) {
   }
 
   if (!res.ok) {
-    throw new Error(data?.error || data?.message || `Đăng ký thất bại (${res.status})`)
+    throw new Error(getErrorMessage(data, `Đăng ký thất bại (${res.status})`))
   }
 
   return data
