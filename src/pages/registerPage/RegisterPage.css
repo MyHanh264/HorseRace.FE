@@ -1,0 +1,495 @@
+/* =============================================
+   RegisterPage — Full-viewport split layout
+   Left: image panel | Right: scrollable form
+   ============================================= */
+
+.register-page {
+  --register-green-deep: #052e16;
+  --register-green: #14532d;
+  --register-gold: #c9a227;
+  --register-gold-soft: rgba(201, 162, 39, 0.18);
+  --register-panel: #ffffff;
+  --register-heading: #0f172a;
+  --register-text: #64748b;
+  --register-border: #e2e8f0;
+  --register-error-bg: #fef2f2;
+  --register-error-border: #fecaca;
+  --register-success-bg: #f0fdf4;
+  --register-success-border: #bbf7d0;
+
+  /* Lock to exactly one viewport height — NO page scroll */
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  height: 100vh;
+  height: 100dvh;
+  width: 100%;
+  overflow: hidden;
+  background: var(--register-panel);
+}
+
+/* ── LEFT PANEL: image fills 100% height ── */
+.register-visual {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  background: var(--register-green-deep);
+}
+
+.register-visual-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 30%;
+}
+
+.register-visual-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(5, 46, 22, 0.10) 0%,
+    rgba(5, 46, 22, 0.60) 55%,
+    rgba(5, 46, 22, 0.88) 100%
+  );
+  z-index: 1;
+}
+
+.register-visual-content {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 2rem 2.5rem;
+  color: #f8fafc;
+}
+
+.register-eyebrow {
+  font-size: 0.68rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--register-gold);
+  margin: 0 0 0.5rem;
+  font-weight: 700;
+}
+
+.register-visual-content h1 {
+  margin: 0 0 0.6rem;
+  font-size: clamp(1.5rem, 2.5vw, 2rem);
+  font-weight: 700;
+  line-height: 1.2;
+  color: #fff;
+}
+
+.register-visual-content > p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: rgba(248, 250, 252, 0.82);
+  max-width: 34ch;
+}
+
+/* ── RIGHT PANEL: only this side scrolls ── */
+.register-container {
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 1.5rem 2rem;
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: var(--register-border) transparent;
+}
+
+.register-container::-webkit-scrollbar { width: 4px; }
+.register-container::-webkit-scrollbar-track { background: transparent; }
+.register-container::-webkit-scrollbar-thumb {
+  background: var(--register-border);
+  border-radius: 2px;
+}
+
+/* ── CARD (inner form wrapper) ── */
+.register-card {
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-top: 0.5rem;
+  padding-bottom: 1.5rem;
+}
+
+/* ── CARD HEADER ── */
+.register-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.register-card-header h2 {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--register-heading);
+  line-height: 1.2;
+}
+
+/* ── FORM ── */
+.register-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ── FIELDSET ── */
+.register-fieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.register-fieldset legend {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--register-text);
+  margin-bottom: 0.65rem;
+  display: block;
+}
+
+/* ── ROLE SELECTOR ── */
+.register-role-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.register-role-card {
+  position: relative;
+  padding: 0.75rem 0.85rem;
+  border-radius: 12px;
+  border: 2px solid var(--register-border);
+  background: #f8fafc;
+  cursor: pointer;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.register-role-card:hover {
+  transform: translateY(-2px);
+  background: #f1f5f9;
+  border-color: rgba(201, 162, 39, 0.4);
+}
+
+.register-role-card.is-selected {
+  border-color: var(--register-gold);
+  box-shadow: 0 6px 18px rgba(201, 162, 39, 0.15);
+  background: var(--register-gold-soft);
+}
+
+.register-role-card input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.register-role-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--register-gold-soft);
+  color: var(--register-green);
+  font-size: 0.95rem;
+  margin-bottom: 0.55rem;
+}
+
+.register-role-title {
+  display: block;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--register-heading);
+}
+
+/* ── INPUT GRID ── */
+.register-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.register-field--full {
+  grid-column: 1 / -1;
+}
+
+.register-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.register-field span {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--register-heading);
+}
+
+.register-field input,
+.register-field textarea {
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--register-heading);
+  background: #f8fafc;
+  border: 1px solid var(--register-border);
+  border-radius: 10px;
+  padding: 0.65rem 0.85rem;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.register-field input::placeholder,
+.register-field textarea::placeholder {
+  color: #cbd5e1;
+}
+
+.register-field input:focus,
+.register-field textarea:focus {
+  outline: none;
+  border-color: var(--register-gold);
+  background: #fff;
+  box-shadow: 0 0 0 3px var(--register-gold-soft);
+}
+
+.register-field textarea {
+  min-height: 4rem;
+  resize: vertical;
+}
+
+/* ── PASSWORD WRAP ── */
+.register-input-wrap {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+}
+
+.register-input-wrap input { min-width: 0; }
+
+.register-toggle-pw {
+  border: 1px solid var(--register-border);
+  border-radius: 10px;
+  background: #f8fafc;
+  color: var(--register-heading);
+  padding: 0 0.75rem;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease;
+  white-space: nowrap;
+}
+
+.register-toggle-pw:hover {
+  background: #f1f5f9;
+  border-color: var(--register-gold);
+}
+
+/* ── ALERT ── */
+.register-alert {
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  font-weight: 500;
+}
+
+.register-alert--error {
+  background: var(--register-error-bg);
+  border: 1px solid var(--register-error-border);
+  color: #991b1b;
+}
+
+/* ── BUTTONS ── */
+.register-btn {
+  font: inherit;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 0.75rem 1.1rem;
+  cursor: pointer;
+  border: none;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+}
+
+.register-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.register-btn--primary {
+  width: 100%;
+  color: #fff;
+  background: linear-gradient(135deg, var(--register-green), #1f6e41);
+  box-shadow: 0 4px 14px rgba(20, 83, 45, 0.25);
+}
+
+.register-btn--primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(20, 83, 45, 0.35);
+}
+
+.register-btn--ghost {
+  color: var(--register-heading);
+  background: transparent;
+  border: 1px solid var(--register-border);
+}
+
+.register-btn--ghost:hover {
+  background: #f8fafc;
+  border-color: var(--register-gold);
+  transform: translateY(-1px);
+}
+
+/* ── ACTIONS ── */
+.register-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.register-footnote {
+  margin: 0;
+  color: var(--register-text);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+/* ── SUCCESS CARD ── */
+.register-success-card {
+  padding: 1.5rem;
+  border-radius: 12px;
+  background: var(--register-success-bg);
+  border: 1px solid var(--register-success-border);
+}
+
+.register-success-badge {
+  display: inline-flex;
+  margin-bottom: 0.75rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.16);
+  color: #166534;
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.register-success-card h3 {
+  margin: 0 0 0.6rem;
+  color: var(--register-heading);
+  font-size: 1.25rem;
+}
+
+.register-success-card p {
+  margin: 0 0 1.25rem;
+  color: var(--register-text);
+  line-height: 1.7;
+  font-size: 0.92rem;
+}
+
+.register-success-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+/* ── MOBILE: stack vertically ── */
+@media (max-width: 1023px) {
+  .register-page {
+    grid-template-columns: 1fr;
+    grid-template-rows: 200px 1fr;
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  .register-visual {
+    height: 200px;
+  }
+
+  .register-container {
+    height: auto;
+    overflow-y: visible;
+    padding: 1.5rem 1.25rem;
+    align-items: flex-start;
+  }
+
+  .register-card {
+    max-width: 100%;
+    padding-top: 0;
+  }
+
+  .register-role-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .register-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── DARK MODE ── */
+@media (prefers-color-scheme: dark) {
+  .register-page {
+    --register-panel: #0f172a;
+    --register-heading: #f8fafc;
+    --register-text: #cbd5e1;
+    --register-border: #334155;
+    --register-error-bg: rgba(248, 113, 113, 0.14);
+    --register-error-border: rgba(248, 113, 113, 0.35);
+  }
+
+  .register-role-card {
+    background: #1f2937;
+    border-color: #374151;
+  }
+
+  .register-role-card:hover {
+    background: #2d3748;
+    border-color: var(--register-gold);
+  }
+
+  .register-role-card.is-selected {
+    background: var(--register-gold-soft);
+  }
+
+  .register-field input,
+  .register-field textarea,
+  .register-toggle-pw {
+    background: #1f2937;
+    border-color: #374151;
+    color: #f8fafc;
+  }
+
+  .register-field input::placeholder,
+  .register-field textarea::placeholder {
+    color: #6b7280;
+  }
+
+  .register-field input:focus,
+  .register-field textarea:focus {
+    background: #111827;
+    border-color: var(--register-gold);
+  }
+
+  .register-btn--ghost {
+    color: #f8fafc;
+    border-color: #374151;
+  }
+
+  .register-btn--ghost:hover {
+    background: #1f2937;
+  }
+}
