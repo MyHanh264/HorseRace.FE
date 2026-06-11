@@ -1,7 +1,11 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import { UPCOMING_RACES, TOP_HORSES, TOP_JOCKEYS } from "../../constants";
 import RaceCard from "../../components/RaceCard";
 import Footer from "../../components/layout/Footer";
+import Navbar from "../../components/layout/Navbar";
+import { useAuth } from "../../context/AuthContext";
+import { getHomePathForRole } from "../../utils/token";
 import {
   Calendar,
   MapPin,
@@ -15,9 +19,28 @@ import {
   Flag,
 } from "lucide-react";
 
-export default function Dashboard({ onNavigate, currentUser }) {
+export default function Dashboard() {
+  const navigate = useNavigate();
+  const { isAuthenticated, user } = useAuth();
   const [activeRankTab, setActiveRankTab] = React.useState("combined");
   const [searchRank, setSearchRank] = React.useState("");
+
+  const onNavigate = (page) => {
+    if (page === "signup") {
+      navigate("/register");
+    } else if (page === "login") {
+      navigate("/login");
+    } else if (page === "dashboard") {
+      navigate("/");
+    } else if (page === "racedetails") {
+      const home = getHomePathForRole(user?.role);
+      if (isAuthenticated && home) {
+        navigate(home);
+      } else {
+        navigate("/login");
+      }
+    }
+  };
 
   const filteredHorses = TOP_HORSES.filter(
     (h) =>
@@ -31,81 +54,34 @@ export default function Dashboard({ onNavigate, currentUser }) {
 
   return (
     <div className="flex-grow pb-16 flex flex-col min-h-screen">
-      {/* Navigation Bar */}
-      <header className="w-full bg-background/80 backdrop-blur-md border-b border-outline-variant/10 sticky top-0 z-50">
-        <div className="max-w-[1200px] mx-auto px-6 sm:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-8">
-            <button
-              onClick={() => onNavigate("dashboard")}
-              className="font-serif text-2xl text-primary font-bold tracking-tight hover:opacity-90 active:scale-98 transition-all bg-transparent border-none cursor-pointer"
-            >
-              GrandStride
-            </button>
-
-            <nav className="hidden md:flex items-center gap-6">
-              <button
-                onClick={() => onNavigate("racedetails")}
-                className="text-on-surface-variant hover:text-primary text-xs font-semibold uppercase tracking-wider transition-all flex items-center gap-1.5 bg-transparent border-none cursor-pointer"
-              >
-                <Target className="w-4 h-4 text-primary" />
-                Giải đấu
-              </button>
-              <button
-                onClick={() => onNavigate("racedetails")}
-                className="text-on-surface-variant hover:text-primary text-xs font-semibold uppercase tracking-wider transition-all flex items-center gap-1.5 bg-transparent border-none cursor-pointer"
-              >
-                <Flag className="w-4 h-4 text-primary" />
-                Lịch đua
-              </button>
-              <button
-                onClick={() =>
-                  alert(
-                    "Bảng xếp hạng lưu giữ kết quả từ năm 2024 đến năm 2026. Báo cáo chi tiết đang chuẩn bị tải!"
-                  )
-                }
-                className="text-on-surface-variant hover:text-primary text-xs font-semibold uppercase tracking-wider transition-all flex items-center gap-1.5 bg-transparent border-none cursor-pointer"
-              >
-                <Trophy className="w-4 h-4 text-primary" />
-                Bảng xếp hạng
-              </button>
-            </nav>
-          </div>
-
-          <div className="flex items-center gap-4">
-            {currentUser ? (
-              <>
-                <span className="text-xs text-on-surface-variant hidden sm:inline">
-                  Xin chào,{" "}
-                  <strong className="text-primary">
-                    {currentUser.fullName}
-                  </strong>
-                </span>
-                <button
-                  onClick={() => onNavigate("racedetails")}
-                  className="bg-primary text-on-primary px-4 py-2 rounded-lg text-xs font-semibold uppercase hover:brightness-110 active:scale-98 transition-all border-none cursor-pointer"
-                >
-                  Vào Chuồng Ngựa
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={() => onNavigate("login")}
-                  className="border border-outline-variant/50 text-on-surface px-4 py-2 rounded-lg text-xs font-semibold uppercase hover:bg-surface-container transition-all bg-transparent cursor-pointer"
-                >
-                  Đăng nhập
-                </button>
-                <button
-                  onClick={() => onNavigate("signup")}
-                  className="bg-primary text-on-primary px-4 py-2 rounded-lg text-xs font-semibold uppercase hover:brightness-110 active:scale-98 transition-all border-none cursor-pointer"
-                >
-                  Đăng ký
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
+      <Navbar />
+      <div className="max-w-[1200px] mx-auto px-6 sm:px-8 py-3 hidden md:flex items-center gap-6 border-b border-outline-variant/10">
+        <button
+          onClick={() => onNavigate("racedetails")}
+          className="text-on-surface-variant hover:text-primary text-xs font-semibold uppercase tracking-wider transition-all flex items-center gap-1.5 bg-transparent border-none cursor-pointer"
+        >
+          <Target className="w-4 h-4 text-primary" />
+          Giải đấu
+        </button>
+        <button
+          onClick={() => onNavigate("racedetails")}
+          className="text-on-surface-variant hover:text-primary text-xs font-semibold uppercase tracking-wider transition-all flex items-center gap-1.5 bg-transparent border-none cursor-pointer"
+        >
+          <Flag className="w-4 h-4 text-primary" />
+          Lịch đua
+        </button>
+        <button
+          onClick={() =>
+            alert(
+              "Bảng xếp hạng lưu giữ kết quả từ năm 2024 đến năm 2026. Báo cáo chi tiết đang chuẩn bị tải!"
+            )
+          }
+          className="text-on-surface-variant hover:text-primary text-xs font-semibold uppercase tracking-wider transition-all flex items-center gap-1.5 bg-transparent border-none cursor-pointer"
+        >
+          <Trophy className="w-4 h-4 text-primary" />
+          Bảng xếp hạng
+        </button>
+      </div>
 
       {/* Hero Section */}
       <section className="relative w-full h-[75vh] min-h-[550px] max-h-[750px] flex items-center justify-center overflow-hidden">
@@ -143,11 +119,11 @@ export default function Dashboard({ onNavigate, currentUser }) {
             </button>
             <button
               onClick={() =>
-                currentUser ? onNavigate("racedetails") : onNavigate("signup")
+                isAuthenticated ? onNavigate("racedetails") : onNavigate("signup")
               }
               className="bg-transparent border border-outline-variant text-on-surface hover:text-white hover:bg-surface-container text-sm font-semibold tracking-wider uppercase px-8 py-4 rounded-lg cursor-pointer transition-all active:scale-[0.98] text-center shrink-0"
             >
-              {currentUser ? "Vào Chuồng Ngựa" : "Đăng Ký Ngay"}
+              {isAuthenticated ? "Vào Chuồng Ngựa" : "Đăng Ký Ngay"}
             </button>
           </div>
         </div>

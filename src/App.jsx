@@ -1,15 +1,22 @@
-import "./App.css";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
-import RequireRole from "./components/RequireRole";
-import ForgotPasswordPage from "./pages/loginPage/ForgotPasswordPage";
-import LoginPage from "./pages/loginPage/LoginPage";
-import ResetPasswordPage from "./pages/loginPage/ResetPasswordPage";
-import RegisterPage from "./pages/registerPage/RegisterPage";
-import LandingDashboard from "./pages/customer/LandingDashboard";
+import './App.css'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import AuthSessionSync from './components/AuthSessionSync'
+import RequireRole from './components/RequireRole'
+import ForgotPasswordPage from './pages/loginPage/ForgotPasswordPage'
+import LoginPage from './pages/loginPage/LoginPage'
+import ResetPasswordPage from './pages/loginPage/ResetPasswordPage'
+import RegisterPage from './pages/registerPage/RegisterPage'
+import LandingDashboard from './pages/customer/LandingDashboard'
+import AdminDashboard from './pages/admin/AdminDashboard'
+import SpectatorDashboard from './pages/spectator/SpectatorDashboard'
+import JockeyDashboard from './pages/jockey/JockeyDashboard'
+import HorseOwnerDashboard from './pages/horse-owner/HorseOwnerDashboard'
+import RefereeDashboard from './pages/referee/RefereeDashboard'
 
 function App() {
   return (
     <BrowserRouter>
+      <AuthSessionSync />
       <Routes>
         <Route path="/" element={<LandingDashboard />} />
 
@@ -18,52 +25,49 @@ function App() {
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/register" element={<RegisterPage />} />
 
-        {/* <Route
+        <Route
           path="/admin"
           element={
             <RequireRole role="ADMIN">
-              <AdminLayout />
+              <AdminDashboard />
             </RequireRole>
           }
-        > */}
-        {/* <Route index element={<DashboardAdmin />} />
-        </Route>
+        />
         <Route
           path="/spectator"
           element={
             <RequireRole role="SPECTATOR">
-              <SpectatorLayout />
+              <SpectatorDashboard />
             </RequireRole>
           }
-        >
-          <Route index element={<SpectatorHomePage />} />
-          <Route path="profile" element={<SpectatorProfilePage />} />
-        </Route>
+        />
         <Route
           path="/jockey"
           element={
             <RequireRole role="JOCKEY">
-              <JockeyLayout />
+              <JockeyDashboard />
             </RequireRole>
           }
-        >
-          <Route index element={<JockeyHomePage />} />
-          <Route path="profile" element={<JockeyProfilePage />} />
-        </Route>
+        />
         <Route
           path="/horse-owner"
           element={
             <RequireRole role="HORSE_OWNER">
-              <HorseOwnerLayout />
+              <HorseOwnerDashboard />
             </RequireRole>
           }
-        >
-          <Route index element={<HorseOwnerHomePage />} />
-          <Route path="profile" element={<HorseOwnerProfilePage />} />
-        </Route> */}
+        />
+        <Route
+          path="/referee"
+          element={
+            <RequireRole role="REFEREE">
+              <RefereeDashboard />
+            </RequireRole>
+          }
+        />
       </Routes>
     </BrowserRouter>
-  );
+  )
 }
 
-export default App;
+export default App

@@ -158,28 +158,59 @@ export default function RegisterPage() {
 
           {success ? (
             <div className="register-success-card" role="status">
-              <div className="register-success-badge">Thành công</div>
-              <h3>Đăng ký hoàn tất</h3>
-              <p>
-                Chào <strong>{success.fullName}</strong>. Email của bạn là{" "}
-                <strong>{success.email}</strong>. Hãy đăng nhập để tiếp tục.
-              </p>
-              <div className="register-success-actions">
-                <Link
-                  className="register-btn register-btn--primary"
-                  to="/login"
-                  state={{ email: success.email }}
-                >
-                  Đăng nhập ngay
-                </Link>
-                <button
-                  type="button"
-                  className="register-btn register-btn--ghost"
-                  onClick={() => setSuccess(null)}
-                >
-                  Đăng ký tài khoản khác
-                </button>
-              </div>
+              {success.requiresApproval ? (
+                <>
+                  <div className="register-success-badge">Đang chờ duyệt</div>
+                  <h3>Đăng ký thành công</h3>
+                  <p>
+                    Tài khoản của <strong>{success.fullName}</strong> (
+                    <strong>{success.email}</strong>) đang chờ quản trị viên phê
+                    duyệt. Bạn sẽ nhận được thông báo khi tài khoản được kích
+                    hoạt.
+                  </p>
+                  <div className="register-success-actions">
+                    <Link
+                      className="register-btn register-btn--primary"
+                      to="/login"
+                      state={{ email: success.email }}
+                    >
+                      Về trang đăng nhập
+                    </Link>
+                    <button
+                      type="button"
+                      className="register-btn register-btn--ghost"
+                      onClick={() => setSuccess(null)}
+                    >
+                      Đăng ký tài khoản khác
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="register-success-badge">Thành công</div>
+                  <h3>Đăng ký hoàn tất</h3>
+                  <p>
+                    Chào <strong>{success.fullName}</strong>. Email của bạn là{" "}
+                    <strong>{success.email}</strong>. Hãy đăng nhập để tiếp tục.
+                  </p>
+                  <div className="register-success-actions">
+                    <Link
+                      className="register-btn register-btn--primary"
+                      to="/login"
+                      state={{ email: success.email }}
+                    >
+                      Đăng nhập ngay
+                    </Link>
+                    <button
+                      type="button"
+                      className="register-btn register-btn--ghost"
+                      onClick={() => setSuccess(null)}
+                    >
+                      Đăng ký tài khoản khác
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <form className="register-form" onSubmit={onSubmit} noValidate>

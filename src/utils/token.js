@@ -2,6 +2,14 @@ export function normalizeRole(role) {
   return role ? String(role).trim().toUpperCase() : null
 }
 
+const ROLE_CLAIM =
+  'http://schemas.microsoft.com/ws/2008/06/identity/claims/role'
+
+export function getRoleFromPayload(payload) {
+  if (!payload) return null
+  return normalizeRole(payload.role || payload[ROLE_CLAIM])
+}
+
 export function getHomePathForRole(role) {
   switch (normalizeRole(role)) {
     case 'ADMIN':
@@ -12,6 +20,8 @@ export function getHomePathForRole(role) {
       return '/jockey'
     case 'HORSE_OWNER':
       return '/horse-owner'
+    case 'REFEREE':
+      return '/referee'
     default:
       return null
   }
@@ -51,5 +61,9 @@ export function parseJwtPayload(token) {
 }
 
 export function getStoredAuthRole() {
-  return normalizeRole(parseJwtPayload(getAccessToken())?.role)
+  return getRoleFromPayload(parseJwtPayload(getAccessToken()))
+}
+
+export function isRememberedSession() {
+  return Boolean(localStorage.getItem('accessToken'))
 }
