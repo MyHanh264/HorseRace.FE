@@ -8,11 +8,16 @@ export default function DashboardLayout({ children, title }) {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navbar />
-      <main className="flex-grow max-w-[1200px] w-full mx-auto px-6 sm:px-8 py-8">
-        {title ? (
-          <h1 className="font-serif text-2xl text-primary font-bold mb-6">{title}</h1>
-        ) : null}
-        {children}
+      <main className="flex-grow w-full px-6 sm:px-8 py-8">
+        <div className="max-w-[1280px] mx-auto">
+          {title ? (
+            <div className="mb-8 animate-fade-in-up">
+              <h1 className="font-serif text-3xl text-on-surface font-bold tracking-tight">{title}</h1>
+              <div className="mt-2 h-[3px] w-16 rounded-full bg-gradient-to-r from-primary to-secondary" />
+            </div>
+          ) : null}
+          {children}
+        </div>
       </main>
       <Footer onNavigate={(page) => page === 'dashboard' && navigate('/')} />
     </div>
