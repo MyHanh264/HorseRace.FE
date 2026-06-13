@@ -1,19 +1,17 @@
 export default function Footer({ onNavigate }) {
   return (
-    <footer className="bg-surface-container-lowest border-t border-outline-variant/30 py-12 mt-auto">
-      <div className="flex flex-col md:flex-row justify-between items-center px-6 sm:px-8 max-w-[1200px] mx-auto gap-6">
+    <footer className="bg-[rgba(6,15,22,0.95)] border-t border-outline-variant/30 py-10 mt-auto">
+      <div className="flex flex-col md:flex-row justify-between items-center px-6 sm:px-8 max-w-[1280px] mx-auto gap-6">
+        {/* Brand */}
         <div className="flex flex-col items-center md:items-start gap-2">
-          {/* Logo */}
           <button
-            onClick={() => onNavigate("dashboard")}
-            className="font-serif text-3xl text-primary font-bold tracking-tight hover:brightness-110 active:scale-98 transition-all cursor-pointer"
+            onClick={() => onNavigate && onNavigate('dashboard')}
+            className="font-serif text-2xl text-primary font-bold tracking-tight hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer bg-transparent border-none p-0"
           >
             GrandStride
           </button>
-
-          <p className="font-sans text-xs text-on-tertiary-container/80 text-center md:text-left">
-            © {new Date().getFullYear()} GrandStride. Bảo lưu mọi quyền. Đồng
-            hành cùng nhà vô địch.
+          <p className="font-sans text-xs text-on-surface-variant/60 text-center md:text-left leading-relaxed">
+            © {new Date().getFullYear()} GrandStride. Bảo lưu mọi quyền.
           </p>
         </div>
 
@@ -22,52 +20,45 @@ export default function Footer({ onNavigate }) {
           <a
             href="#"
             onClick={(e) => {
-              e.preventDefault();
-              alert("Điều khoản dịch vụ: Bản sao giả lập hệ thống");
+              e.preventDefault()
+              alert('Điều khoản dịch vụ: Bản sao giả lập hệ thống')
             }}
-            className="text-xs text-on-tertiary-container hover:text-secondary hover:underline transition-colors transition-opacity duration-300"
+            className="text-xs text-on-surface-variant hover:text-secondary transition-colors duration-200 no-underline"
           >
             Điều Khoản Dịch Vụ
           </a>
-
           <a
             href="#"
             onClick={(e) => {
-              e.preventDefault();
-              alert("Chính sách bảo mật: Bản sao chính sách mô phỏng");
+              e.preventDefault()
+              alert('Chính sách bảo mật: Bản sao chính sách mô phỏng')
             }}
-            className="text-xs text-on-tertiary-container hover:text-secondary hover:underline transition-colors transition-opacity duration-300"
+            className="text-xs text-on-surface-variant hover:text-secondary transition-colors duration-200 no-underline"
           >
             Chính Sách Bảo Mật
           </a>
-
           <a
             href="#"
             onClick={(e) => {
-              e.preventDefault();
-              alert(
-                "Nếu cần hỗ trợ kỹ thuật hoặc góp ý, hãy gửi mail về support@grandstride.com"
-              );
+              e.preventDefault()
+              alert('Hỗ trợ kỹ thuật: support@grandstride.com')
             }}
-            className="text-xs text-on-tertiary-container hover:text-secondary hover:underline transition-colors transition-opacity duration-300"
+            className="text-xs text-on-surface-variant hover:text-secondary transition-colors duration-200 no-underline"
           >
             Liên Hệ Hỗ Trợ
           </a>
-
           <a
             href="#"
             onClick={(e) => {
-              e.preventDefault();
-              alert(
-                "Quy định đua ngựa chính thức: Áp dụng đầy đủ quy tắc tính trọng tải & thể thức nài ngựa."
-              );
+              e.preventDefault()
+              alert('Quy định đua ngựa chính thức: Áp dụng đầy đủ quy tắc tính trọng tải & thể thức nài ngựa.')
             }}
-            className="text-xs text-on-tertiary-container hover:text-secondary hover:underline transition-colors transition-opacity duration-300"
+            className="text-xs text-on-surface-variant hover:text-secondary transition-colors duration-200 no-underline"
           >
             Luật Đua Ngựa
           </a>
         </nav>
       </div>
     </footer>
-  );
+  )
 }
