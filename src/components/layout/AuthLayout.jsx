@@ -1,41 +1,41 @@
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import Header from "./Header";
-import Footer from "./Footer";
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import Header from './Header'
+import Footer from './Footer'
 
 const pathToPage = {
-  "/login": "signin",
-  "/register": "signup",
-  "/forgot-password": "signin",
-  "/reset-password": "signin",
-};
+  '/login': 'signin',
+  '/register': 'signup',
+  '/forgot-password': 'signin',
+  '/reset-password': 'signin',
+}
 
 export default function AuthLayout() {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate = useNavigate()
+  const location = useLocation()
 
-  const currentPage = pathToPage[location.pathname] || "signin";
+  const currentPage = pathToPage[location.pathname] || 'signin'
 
   const handleNavigate = (page) => {
     switch (page) {
-      case "dashboard":
-        navigate("/");
-        break;
-      case "signin":
-        navigate("/login");
-        break;
-      case "signup":
-        navigate("/register");
-        break;
-      case "racedetails":
-        navigate("/login");
-        break;
+      case 'dashboard':
+        navigate('/')
+        break
+      case 'signin':
+        navigate('/login')
+        break
+      case 'signup':
+        navigate('/register')
+        break
+      case 'racedetails':
+        navigate('/login')
+        break
       default:
-        navigate("/");
+        navigate('/')
     }
-  };
+  }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-on-background">
+    <div className="min-h-screen flex flex-col bg-background text-on-surface">
       <Header
         currentPage={currentPage}
         onNavigate={handleNavigate}
@@ -47,5 +47,5 @@ export default function AuthLayout() {
       </main>
       <Footer onNavigate={handleNavigate} />
     </div>
-  );
+  )
 }

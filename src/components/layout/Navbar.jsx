@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { LogOut, UserCircle } from 'lucide-react'
+import { LogOut, UserCircle, ChevronDown, LayoutDashboard, Home } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { getHomePathForRole } from '../../utils/token'
 
@@ -8,12 +8,17 @@ export default function Navbar({ brandLink = '/' }) {
   const navigate = useNavigate()
   const { user, isAuthenticated, logout } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
   const menuRef = useRef(null)
+  const userMenuRef = useRef(null)
 
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         setMenuOpen(false)
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setUserMenuOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -21,64 +26,80 @@ export default function Navbar({ brandLink = '/' }) {
   }, [])
 
   const handleLogout = async () => {
-    setMenuOpen(false)
+    setUserMenuOpen(false)
     await logout()
     navigate('/', { replace: true })
   }
 
   const handleDashboard = () => {
+    setUserMenuOpen(false)
     const home = getHomePathForRole(user?.role)
     if (home) navigate(home)
   }
 
   return (
-    <header className="w-full bg-background/80 backdrop-blur-md border-b border-outline-variant/10 sticky top-0 z-50">
-      <div className="max-w-[1200px] mx-auto px-6 sm:px-8 py-4 flex items-center justify-between">
+    <header className="w-full bg-[rgba(11,20,28,0.85)] backdrop-blur-xl border-b border-[rgba(64,73,65,0.6)] sticky top-0 z-50">
+      <div className="max-w-[1280px] mx-auto px-6 sm:px-8 py-4 flex items-center justify-between">
+        {/* Brand */}
         <Link
           to={brandLink}
-          className="font-serif text-2xl text-primary font-bold tracking-tight hover:opacity-90 no-underline"
+          className="font-serif text-2xl text-primary font-bold tracking-tight hover:brightness-110 no-underline transition-all"
         >
           GrandStride
         </Link>
 
-        <div className="flex items-center gap-4">
+        {/* Right side */}
+        <div className="flex items-center gap-3">
           {isAuthenticated ? (
-            <div className="relative" ref={menuRef}>
+            <div className="relative" ref={userMenuRef}>
               <button
                 type="button"
-                onClick={() => setMenuOpen((open) => !open)}
-                className="flex items-center gap-2 text-on-surface-variant hover:text-primary bg-transparent border-none cursor-pointer p-1"
+                onClick={() => setUserMenuOpen((open) => !open)}
+                className="flex items-center gap-2 text-on-surface hover:text-primary bg-transparent border border-transparent hover:border-outline-variant rounded-lg px-3 py-2 cursor-pointer transition-all"
                 aria-label="Tài khoản"
               >
-                <UserCircle className="w-8 h-8" />
-                <span className="hidden sm:inline text-sm">{user?.fullName || user?.email}</span>
+                <div className="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center overflow-hidden border border-outline-variant">
+                  <UserCircle className="w-5 h-5 text-on-surface-variant" />
+                </div>
+                <div className="hidden sm:flex flex-col items-start">
+                  <span className="text-xs font-semibold text-on-surface leading-tight">{user?.fullName || 'Người dùng'}</span>
+                  <span className="text-[10px] text-primary font-medium uppercase tracking-wider">{user?.role}</span>
+                </div>
+                <ChevronDown className={`w-4 h-4 text-on-surface-variant transition-transform duration-200 ${userMenuOpen ? 'rotate-180' : ''}`} />
               </button>
 
-              {menuOpen ? (
-                <div className="absolute right-0 mt-2 w-52 bg-surface-container border border-outline-variant/30 rounded-lg shadow-lg py-2 z-50">
-                  <div className="px-4 py-2 border-b border-outline-variant/20">
-                    <p className="text-sm font-semibold text-on-surface truncate">
-                      {user?.fullName || 'Người dùng'}
-                    </p>
-                    <p className="text-xs text-on-surface-variant truncate">{user?.email}</p>
-                    <p className="text-xs text-primary mt-1">{user?.role}</p>
+              {userMenuOpen ? (
+                <div className="absolute right-0 mt-2 w-56 rounded-xl bg-surface-container border border-outline-variant shadow-xl shadow-black/30 overflow-hidden z-50 animate-fade-in-up">
+                  <div className="px-4 py-3 border-b border-outline-variant/50">
+                    <p className="text-sm font-semibold text-on-surface truncate">{user?.fullName || 'Người dùng'}</p>
+                    <p className="text-xs text-on-surface-variant truncate mt-0.5">{user?.email}</p>
+                    <span className="inline-flex mt-2 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-primary/15 text-primary border border-primary/25">
+                      {user?.role}
+                    </span>
                   </div>
                   {getHomePathForRole(user?.role) ? (
                     <button
                       type="button"
-                      onClick={() => {
-                        setMenuOpen(false)
-                        handleDashboard()
-                      }}
-                      className="w-full text-left px-4 py-2 text-sm text-on-surface hover:bg-surface-container-high bg-transparent border-none cursor-pointer"
+                      onClick={handleDashboard}
+                      className="w-full text-left px-4 py-2.5 text-sm text-on-surface hover:bg-surface-container-high flex items-center gap-3 transition-colors cursor-pointer bg-transparent border-none"
                     >
+                      <LayoutDashboard className="w-4 h-4 text-primary" />
                       Vào dashboard
                     </button>
                   ) : null}
                   <button
                     type="button"
+                    onClick={() => { setUserMenuOpen(false); navigate('/'); }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-on-surface-variant hover:bg-surface-container-high flex items-center gap-3 transition-colors cursor-pointer bg-transparent border-none"
+                  >
+                    <Home className="w-4 h-4 text-on-surface-variant" />
+                    Trang chủ
+                  </button>
+                  <div className="border-t border-outline-variant/50" />
+                  <button
+                    type="button"
                     onClick={handleLogout}
-                    className="w-full text-left px-4 py-2 text-sm text-error hover:bg-error/10 flex items-center gap-2 bg-transparent border-none cursor-pointer"
+                    className="w-full text-left px-4 py-2.5 text-sm text-error hover:bg-error/10 flex items-center gap-3 transition-colors cursor-pointer bg-transparent border-none"
                   >
                     <LogOut className="w-4 h-4" />
                     Đăng xuất
@@ -90,13 +111,13 @@ export default function Navbar({ brandLink = '/' }) {
             <>
               <Link
                 to="/login"
-                className="border border-outline-variant/50 text-on-surface px-4 py-2 rounded-lg text-xs font-semibold uppercase hover:bg-surface-container no-underline"
+                className="hidden sm:inline-flex items-center gap-1.5 border border-outline-variant text-on-surface-variant hover:text-on-surface hover:border-outline px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all no-underline hover:bg-surface-container"
               >
                 Đăng nhập
               </Link>
               <Link
                 to="/register"
-                className="bg-primary text-on-primary px-4 py-2 rounded-lg text-xs font-semibold uppercase hover:brightness-110 no-underline"
+                className="inline-flex items-center gap-1.5 bg-primary text-on-primary hover:brightness-110 px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all no-underline shadow-lg shadow-primary/20"
               >
                 Đăng ký
               </Link>
