@@ -17,7 +17,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "https://localhost:7257",
+        target: "https://horseracemanagementsystem.onrender.com",
         changeOrigin: true,
         secure: false,
       },
