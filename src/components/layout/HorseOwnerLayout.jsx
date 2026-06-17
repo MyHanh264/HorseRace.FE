@@ -64,7 +64,9 @@ export default function HorseOwnerLayout() {
               <div className="text-sm font-medium truncate">
                 {user?.fullName}
               </div>
-              <div className="text-xs text-gray-400">Owner ID: {user?.userId}</div>
+              <div className="text-xs text-gray-400">
+                Owner ID: {user?.userId}
+              </div>
             </div>
           </div>
         </div>

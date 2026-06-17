@@ -59,3 +59,19 @@ export async function submitEntry(payload) {
   if (!res.ok) throw new Error(`Đăng ký entry thất bại (${res.status})`);
   return res.json();
 }
+//Lấy danh sách các cuộc đua để hiển thị trong form đăng kí entry
+export async function getRaces() {
+  const res = await fetch(`${BASE_URL}/api/races`, {
+    headers: authHeader(),
+  });
+  if (!res.ok) throw new Error(`Lỗi lấy danh sách races (${res.status})`);
+  return res.json();
+}
+//Lấy danh sách các giải đấu để hiển thị trong form đăng kí entry
+export async function getTournaments() {
+  const res = await fetch(`${BASE_URL}/api/tournaments`, {
+    headers: authHeader(),
+  });
+  if (!res.ok) throw new Error(`Lỗi lấy tournaments (${res.status})`);
+  return res.json();
+}
