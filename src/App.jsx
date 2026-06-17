@@ -29,6 +29,7 @@ import HorseOwnerDashboard from "./pages/horse-owner/HorseOwnerDashboard";
 import HorseOwnerLayout from "./components/layout/HorseOwnerLayout";
 import MyHorsesPage from "./pages/horse-owner/MyHorsesPage";
 import MyEntriesPage from "./pages/horse-owner/MyEntriesPage";
+import HorseDetailPage from "./pages/horse-owner/HorseDetailPage";
 
 function App() {
   return (
@@ -93,6 +94,7 @@ function App() {
         >
           <Route index element={<HorseOwnerDashboard />} />
           <Route path="horses" element={<MyHorsesPage />} />
+          <Route path="horses/:horseId" element={<HorseDetailPage />} />
           <Route path="entries" element={<MyEntriesPage />} />
         </Route>
       </Routes>
