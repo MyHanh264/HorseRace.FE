@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
 import { getMyHorses } from "../../api/horseOwner";
 import RegisterHorseModal from "./RegisterHorseModal";
-import ViewHorseModal from "./ViewHorseModal";
 import EditHorseModal from "./EditHorseModal";
+import ViewHorseModal from "./ViewHorseModal";
+import { useNavigate } from "react-router-dom";
 
 const TABS = ["All", "Approved", "Pending", "Rejected"];
 
@@ -14,41 +15,44 @@ const STATUS_BADGE = {
 };
 
 export default function MyHorsesPage() {
-  const [horses, setHorses] = useState(null); // null = loading
+  const [horses, setHorses] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("All");
   const [showModal, setShowModal] = useState(false);
-  const [viewHorseId, setViewHorseId] = useState(null);
   const [editHorseId, setEditHorseId] = useState(null);
+  const [viewHorseId, setViewHorseId] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const navigate = useNavigate();
 
-  const fetchHorses = useCallback(() => {
+  const fetchHorses = () => {
+    setLoading(true);
+    setRefreshKey((k) => k + 1);
+  };
+
+  useEffect(() => {
     getMyHorses()
       .then((data) => {
         const list = Array.isArray(data)
           ? data
           : (data?.data ?? data?.horses ?? data?.items ?? []);
         setHorses(list);
+        setLoading(false);
       })
       .catch((err) => {
         console.error("getMyHorses failed:", err);
         setHorses([]);
+        setLoading(false);
       });
-  }, []);
+  }, [refreshKey]);
 
-  useEffect(() => {
-    fetchHorses();
-  }, [fetchHorses]);
-
-  const loading = horses === null;
   const filtered =
-    activeTab === "All"
-      ? (horses ?? [])
-      : (horses ?? []).filter((h) => h.status === activeTab);
+    activeTab === "All" ? horses : horses.filter((h) => h.status === activeTab);
 
   return (
     <div className="p-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-white">My Horses</h1>
+        <h1 className="text-2xl font-bold">My Horses</h1>
         <button
           onClick={() => setShowModal(true)}
           className="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-400 text-black font-semibold px-4 py-2 rounded-lg text-sm"
@@ -114,9 +118,7 @@ export default function MyHorsesPage() {
 
               {/* Info */}
               <div className="p-4">
-                <div className="font-bold text-lg truncate text-white">
-                  {horse.name}
-                </div>
+                <div className="font-bold text-lg truncate">{horse.name}</div>
                 <div className="text-sm text-gray-400">{horse.breed}</div>
 
                 {horse.status === "Rejected" && horse.rejectionReason && (
@@ -133,7 +135,9 @@ export default function MyHorsesPage() {
                     Edit
                   </button>
                   <button
-                    onClick={() => setViewHorseId(horse.horseId)}
+                    onClick={() =>
+                      navigate(`/horse-owner/horses/${horse.horseId}`)
+                    }
                     className="flex-1 border border-emerald-500 text-emerald-400 hover:bg-emerald-600/20 text-sm py-1.5 rounded-lg transition-colors"
                   >
                     View
@@ -151,16 +155,8 @@ export default function MyHorsesPage() {
           onClose={() => setShowModal(false)}
           onSuccess={() => {
             setShowModal(false);
-            setHorses(null);
             fetchHorses();
           }}
-        />
-      )}
-
-      {viewHorseId && (
-        <ViewHorseModal
-          horseId={viewHorseId}
-          onClose={() => setViewHorseId(null)}
         />
       )}
 
@@ -172,6 +168,13 @@ export default function MyHorsesPage() {
             setEditHorseId(null);
             fetchHorses();
           }}
+        />
+      )}
+
+      {viewHorseId && (
+        <ViewHorseModal
+          horseId={viewHorseId}
+          onClose={() => setViewHorseId(null)}
         />
       )}
     </div>

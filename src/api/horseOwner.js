@@ -7,7 +7,7 @@ function authHeader() {
 }
 
 export async function getMyHorses() {
-  const res = await fetch(`${BASE_URL}/api/horses/my-horses`, {
+  const res = await fetch(`${BASE_URL}/api/horses`, {
     headers: authHeader(),
   });
   if (!res.ok) throw new Error(`Lỗi lấy danh sách ngựa (${res.status})`);
