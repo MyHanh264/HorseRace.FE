@@ -75,3 +75,23 @@ export async function getTournaments() {
   if (!res.ok) throw new Error(`Lỗi lấy tournaments (${res.status})`);
   return res.json();
 }
+//Lấy danh sách các lời mời tham gia giải đấu cho horse owner
+export async function getInvitations() {
+  const res = await fetch(`${BASE_URL}/api/jockey-invitations`, {
+    headers: authHeader(),
+  });
+  if (!res.ok) throw new Error(`Lỗi lấy invitations (${res.status})`);
+  return res.json();
+}
+//Xóa lời mời tham gia giải đấu
+export async function deleteInvitation(invitationId) {
+  const res = await fetch(
+    `${BASE_URL}/api/jockey-invitations/${invitationId}`,
+    {
+      method: "DELETE",
+      headers: authHeader(),
+    },
+  );
+  if (!res.ok) throw new Error(`Xóa invitation thất bại (${res.status})`);
+  return res.json();
+}
