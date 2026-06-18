@@ -1,20 +1,47 @@
 import { useState, useEffect } from "react";
 import { X, Trash2 } from "lucide-react";
 import { getInvitations, deleteInvitation } from "../../api/horseOwner";
+import SendInvitationModal from "./SendInvitationModal";
 
 const STATUS_BADGE = {
-  Accepted: "bg-emerald-500/20 text-emerald-400 border border-emerald-700",
-  Pending: "bg-yellow-500/20 text-yellow-400 border border-yellow-700",
-  Declined: "bg-red-500/20 text-red-400 border border-red-700",
+  Accepted: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40",
+  Pending: "bg-yellow-500/20 text-yellow-400 border border-yellow-500/40",
+  Declined: "bg-red-500/20 text-red-400 border border-red-500/40",
+};
+
+const ROW_ACCENT = {
+  Accepted: "border-l-2 border-l-emerald-500",
+  Pending: "border-l-2 border-l-transparent",
+  Declined: "border-l-2 border-l-transparent",
 };
 
 const TABS = ["Sent", "Pending Response"];
+
+function HorseAvatar() {
+  return (
+    <div className="w-8 h-8 rounded-full bg-[#2a3350] border border-white/10 flex items-center justify-center flex-shrink-0">
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        className="text-gray-400"
+      >
+        <circle cx="12" cy="8" r="4" />
+        <path d="M6 20v-1a6 6 0 0 1 12 0v1" />
+      </svg>
+    </div>
+  );
+}
 
 export default function InvitationsPage() {
   const [invitations, setInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("Sent");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     getInvitations()
@@ -51,7 +78,6 @@ export default function InvitationsPage() {
     });
   };
 
-  // Filter theo tab
   const filtered =
     activeTab === "Pending Response"
       ? invitations.filter((i) => i.status === "Pending")
@@ -67,13 +93,16 @@ export default function InvitationsPage() {
             Manage riding requests and confirm jockey bookings.
           </p>
         </div>
-        <button className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-2 rounded-lg text-sm transition-colors">
+        <button
+          onClick={() => setShowModal(true)}
+          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm transition-colors"
+        >
           + Send Invitation
         </button>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-0 mb-6 border-b border-white/10 mt-6">
+      <div className="flex gap-0 mt-6 mb-5 border-b border-white/10">
         {TABS.map((tab) => (
           <button
             key={tab}
@@ -91,23 +120,24 @@ export default function InvitationsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-[#1a2035] rounded-xl border border-white/10 overflow-hidden">
+      <div className="bg-[#161d2e] rounded-xl border border-white/8 overflow-hidden">
         {/* Table header */}
-        <div className="grid grid-cols-6 px-6 py-3 border-b border-white/10 text-xs text-gray-500 uppercase tracking-wider">
-          <div className="col-span-2">Race</div>
+        <div className="grid grid-cols-[2.2fr_1.6fr_1.6fr_1.1fr_1fr_1fr] px-6 py-3 border-b border-white/8 text-xs text-gray-500 uppercase tracking-wider">
+          <div>Race</div>
           <div>Horse</div>
           <div>Jockey Name</div>
           <div>Sent Date</div>
-          <div>Status / Action</div>
+          <div>Status</div>
+          <div className="text-right">Action</div>
         </div>
 
-        {/* Rows */}
+        {/* Body */}
         {loading ? (
           <div className="space-y-2 p-4">
             {[1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="h-14 bg-white/5 rounded-lg animate-pulse"
+                className="h-16 bg-white/5 rounded-lg animate-pulse"
               />
             ))}
           </div>
@@ -119,27 +149,35 @@ export default function InvitationsPage() {
           filtered.map((inv) => (
             <div
               key={inv.invitationId}
-              className="grid grid-cols-6 px-6 py-4 items-center border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors"
+              className={`grid grid-cols-[2.2fr_1.6fr_1.6fr_1.1fr_1fr_1fr] px-6 py-4 items-center
+                border-b border-white/5 last:border-0 hover:bg-white/[0.03] transition-colors
+                ${ROW_ACCENT[inv.status] ?? "border-l-2 border-l-transparent"}`}
             >
               {/* Race */}
-              <div className="col-span-2">
-                <p className="text-white text-sm font-medium">—</p>
-                <p className="text-gray-500 text-xs">Race info TBA</p>
+              <div>
+                <p className="text-white text-sm font-semibold">
+                  {inv.raceName ?? "—"}
+                </p>
+                <p className="text-gray-500 text-xs mt-0.5">
+                  {inv.surface && inv.distance
+                    ? `${inv.surface} • ${inv.distance}`
+                    : "Race info TBA"}
+                </p>
               </div>
 
               {/* Horse */}
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center text-xs">
-                  🐎
-                </div>
+              <div className="flex items-center gap-2.5">
+                <HorseAvatar />
                 <p className="text-gray-300 text-sm">
-                  Horse #{inv.horseOwnerId}
+                  {inv.horseName ?? `Horse #${inv.horseOwnerId}`}
                 </p>
               </div>
 
               {/* Jockey Name */}
               <div>
-                <p className="text-gray-300 text-sm">Jockey #{inv.jockeyId}</p>
+                <p className="text-gray-300 text-sm">
+                  {inv.jockeyName ?? `Jockey #${inv.jockeyId}`}
+                </p>
               </div>
 
               {/* Sent Date */}
@@ -149,34 +187,37 @@ export default function InvitationsPage() {
                 </p>
               </div>
 
-              {/* Status + Action */}
-              <div className="flex items-center gap-2">
+              {/* Status */}
+              <div>
                 <span
-                  className={`text-xs px-2.5 py-0.5 rounded-full border ${STATUS_BADGE[inv.status] ?? "bg-gray-500/20 text-gray-400 border-gray-600"}`}
+                  className={`text-xs px-2.5 py-0.5 rounded-md border font-medium uppercase tracking-wide
+                    ${STATUS_BADGE[inv.status] ?? "bg-gray-500/20 text-gray-400 border-gray-600/40"}`}
                 >
                   {inv.status}
                 </span>
+              </div>
 
-                {/* Action buttons */}
+              {/* Action */}
+              <div className="flex items-center justify-end gap-2">
                 {inv.status === "Accepted" && (
-                  <button className="bg-yellow-500 hover:bg-yellow-400 text-black text-xs font-semibold px-3 py-1 rounded-lg transition-colors">
+                  <button className="bg-yellow-500 hover:bg-yellow-400 text-black text-xs font-bold px-4 py-1.5 rounded-lg transition-colors">
                     Confirm
                   </button>
                 )}
                 {inv.status === "Pending" && (
                   <button
                     onClick={() => handleDelete(inv.invitationId)}
-                    className="text-gray-400 hover:text-red-400 transition-colors"
+                    className="w-8 h-8 rounded-full border border-white/10 bg-white/5 hover:border-red-500/40 hover:bg-red-500/10 flex items-center justify-center text-gray-400 hover:text-red-400 transition-colors"
                   >
-                    <X size={16} />
+                    <X size={14} />
                   </button>
                 )}
                 {inv.status === "Declined" && (
                   <button
                     onClick={() => handleDelete(inv.invitationId)}
-                    className="text-gray-400 hover:text-red-400 transition-colors"
+                    className="w-8 h-8 rounded-lg border border-white/10 bg-white/5 hover:border-red-500/40 hover:bg-red-500/10 flex items-center justify-center text-gray-400 hover:text-red-400 transition-colors"
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={14} />
                   </button>
                 )}
               </div>
@@ -184,6 +225,21 @@ export default function InvitationsPage() {
           ))
         )}
       </div>
+
+      {/* Modal */}
+      {showModal && (
+        <SendInvitationModal
+          onClose={() => {
+            setShowModal(false);
+            setLoading(true);
+            setRefreshKey((k) => k + 1);
+          }}
+          onSuccess={() => {
+            setLoading(true);
+            setRefreshKey((k) => k + 1);
+          }}
+        />
+      )}
     </div>
   );
 }
