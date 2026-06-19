@@ -21,6 +21,7 @@ import SpectatorDashboard from "./pages/spectator/SpectatorDashboard";
 // Jockey
 import JockeyDashboard from "./pages/jockey/JockeyDashboard";
 import JockeyProfilePage from "./pages/jockey/JockeyProfilePage";
+import JockeyInvitationPage from "./pages/jockey/JockeyInvitationPage";
 import JockeyLayout from "./components/layout/JockeyLayout";
 
 // Referee
@@ -77,6 +78,7 @@ function App() {
           }
         >
           <Route index element={<JockeyDashboard />} />
+          <Route path="invitations" element={<JockeyInvitationPage />} />
           <Route path="profile" element={<JockeyProfilePage />} />
         </Route>
 

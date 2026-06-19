@@ -1,38 +1,44 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
-import { LayoutDashboard, Mail, User } from "lucide-react";
+import { LayoutDashboard, Mail, Flag, BarChart2, User } from "lucide-react";
 
 const navItems = [
   { to: "/jockey", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/jockey/invitations", label: "Invitations", icon: Mail },
+  { to: "/jockey/invitations", label: "My Invitations", icon: Mail },
+  { to: "/jockey/races", label: "My Races", icon: Flag },
+  { to: "/jockey/leaderboard", label: "Leaderboard", icon: BarChart2 },
   { to: "/jockey/profile", label: "Profile", icon: User },
 ];
 
 export default function JockeyLayout() {
-  const { user } = useAuth();
 
   return (
     <div className="flex h-screen bg-[#0f1117] text-white">
-      <aside className="w-52 flex flex-col bg-[#161b27] border-r border-white/10">
-        {/* Brand */}
-        <div className="p-5 border-b border-white/10">
-          <div className="font-bold text-lg text-white">GrandStride</div>
-          <div className="text-xs text-gray-400">Jockey</div>
+      <aside className="w-52 flex flex-col bg-[#0d1117] border-r border-white/10 flex-shrink-0">
+        {/* Avatar + brand */}
+        <div className="flex flex-col items-center pt-8 pb-6 px-4 border-b border-white/10">
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-600/40 to-yellow-900/40 border-2 border-yellow-500/50 flex items-center justify-center text-3xl mb-3">
+            🏇
+          </div>
+          <p className="text-yellow-400 font-bold text-base">GrandStride</p>
+          <p className="text-gray-400 text-xs mt-0.5">Elite Jockey</p>
+          <span className="mt-2 text-xs px-3 py-0.5 rounded-full border border-yellow-500/40 text-yellow-400">
+            Jockey Role
+          </span>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 py-4 space-y-1 px-2">
+        <nav className="flex-1 py-4 space-y-0.5 px-2">
           {navItems.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
               to={to}
               end={end}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors
+                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors border-l-2
                 ${
                   isActive
-                    ? "bg-yellow-500/20 text-yellow-400"
-                    : "text-gray-400 hover:bg-white/5 hover:text-white"
+                    ? "border-l-yellow-400 bg-yellow-500/10 text-yellow-400"
+                    : "border-l-transparent text-gray-400 hover:bg-white/5 hover:text-white"
                 }`
               }
             >
@@ -42,20 +48,10 @@ export default function JockeyLayout() {
           ))}
         </nav>
 
-        {/* User info */}
+        {/* Bottom badge */}
         <div className="p-4 border-t border-white/10">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full bg-yellow-500 flex items-center justify-center text-xs font-bold text-black">
-              {user?.fullName?.[0] ?? "J"}
-            </div>
-            <div>
-              <div className="text-sm font-medium truncate">
-                {user?.fullName}
-              </div>
-              <div className="text-xs text-gray-400">
-                Jockey ID: {user?.userId}
-              </div>
-            </div>
+          <div className="w-full text-center text-xs px-3 py-1.5 rounded-lg border border-yellow-500/30 text-yellow-400">
+            Jockey Role
           </div>
         </div>
       </aside>
