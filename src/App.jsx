@@ -31,6 +31,7 @@ import MyHorsesPage from "./pages/horse-owner/MyHorsesPage";
 import MyEntriesPage from "./pages/horse-owner/MyEntriesPage";
 import HorseDetailPage from "./pages/horse-owner/HorseDetailPage";
 import InvitationsPage from "./pages/horse-owner/InvitationsPage";
+import OwnerProfilePage from "./pages/horse-owner/OwnerProfilePage";
 
 function App() {
   return (
@@ -98,6 +99,7 @@ function App() {
           <Route path="horses/:horseId" element={<HorseDetailPage />} />
           <Route path="entries" element={<MyEntriesPage />} />
           <Route path="invitations" element={<InvitationsPage />} />
+          <Route path="profile" element={<OwnerProfilePage />} />
         </Route>
       </Routes>
     </BrowserRouter>
