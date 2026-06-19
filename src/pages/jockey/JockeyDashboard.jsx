@@ -1,12 +1,9 @@
 import { useState, useEffect } from "react";
-import { NavLink } from "react-router-dom";
 import {
   Bell,
   Settings,
-  LayoutDashboard,
   Mail,
   Flag,
-  BarChart2,
   User,
   Trophy,
   Star,
@@ -28,15 +25,6 @@ function fmtDate(d) {
     month: "short",
   });
 }
-
-// ─── Nav items ────────────────────────────────────────────────────────────────
-const navItems = [
-  { to: "/jockey", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/jockey/invitations", label: "My Invitations", icon: Mail },
-  { to: "/jockey/races", label: "My Races", icon: Flag },
-  { to: "/jockey/leaderboard", label: "Leaderboard", icon: BarChart2 },
-  { to: "/jockey/profile", label: "Profile", icon: User },
-];
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 function StatCard({ label, value, sub, subColor, badge, icon: Icon }) {
@@ -210,61 +198,22 @@ export default function JockeyDashboard() {
       : null;
 
   return (
-    <div className="flex h-screen bg-[#0a0d14] text-white overflow-hidden">
-      {/* ══════════ Sidebar ══════════ */}
-      <aside className="w-52 flex flex-col bg-[#0d1117] border-r border-white/10 flex-shrink-0">
-        {/* Avatar + brand */}
-        <div className="flex flex-col items-center pt-8 pb-6 px-4 border-b border-white/10">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-600/40 to-yellow-900/40 border-2 border-yellow-500/50 flex items-center justify-center text-3xl mb-3">
-            🏇
-          </div>
-          <p className="text-yellow-400 font-bold text-base">GrandStride</p>
-          <p className="text-gray-400 text-xs mt-0.5">Elite Jockey</p>
-          <span className="mt-2 text-xs px-3 py-0.5 rounded-full border border-yellow-500/40 text-yellow-400">
-            Jockey Role
-          </span>
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Top bar */}
+      <header className="flex items-center justify-end gap-2 px-8 py-3.5 border-b border-white/8 flex-shrink-0">
+        <button className="w-8 h-8 rounded-lg hover:bg-white/8 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
+          <Bell size={16} />
+        </button>
+        <button className="w-8 h-8 rounded-lg hover:bg-white/8 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
+          <Settings size={16} />
+        </button>
+        <div className="w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center text-xs font-bold text-black ml-1">
+          {user?.fullName?.[0] ?? "J"}
         </div>
+      </header>
 
-        {/* Nav */}
-        <nav className="flex-1 py-4 space-y-0.5 px-2">
-          {navItems.map(({ to, label, icon: Icon, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors border-l-2
-                ${
-                  isActive
-                    ? "border-l-yellow-400 bg-yellow-500/10 text-yellow-400"
-                    : "border-l-transparent text-gray-400 hover:bg-white/5 hover:text-white"
-                }`
-              }
-            >
-              <Icon size={16} />
-              {label}
-            </NavLink>
-          ))}
-        </nav>
-      </aside>
-
-      {/* ══════════ Main ══════════ */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top bar */}
-        <header className="flex items-center justify-end gap-2 px-8 py-3.5 border-b border-white/8 flex-shrink-0">
-          <button className="w-8 h-8 rounded-lg hover:bg-white/8 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
-            <Bell size={16} />
-          </button>
-          <button className="w-8 h-8 rounded-lg hover:bg-white/8 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
-            <Settings size={16} />
-          </button>
-          <div className="w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center text-xs font-bold text-black ml-1">
-            {user?.fullName?.[0] ?? "J"}
-          </div>
-        </header>
-
-        {/* Scrollable content */}
-        <main className="flex-1 overflow-auto p-8 space-y-6">
+      {/* Scrollable content */}
+      <main className="flex-1 overflow-auto p-8 space-y-6">
           {/* Welcome */}
           <div>
             <h1 className="text-2xl font-bold text-white">Dashboard Overview</h1>
@@ -382,8 +331,7 @@ export default function JockeyDashboard() {
               </div>
             </div>
           </div>
-        </main>
-      </div>
+      </main>
     </div>
   );
 }

@@ -21,6 +21,7 @@ import SpectatorDashboard from "./pages/spectator/SpectatorDashboard";
 // Jockey
 import JockeyDashboard from "./pages/jockey/JockeyDashboard";
 import JockeyProfilePage from "./pages/jockey/JockeyProfilePage";
+import JockeyLayout from "./components/layout/JockeyLayout";
 
 // Referee
 import RefereeDashboard from "./pages/referee/RefereeDashboard";
@@ -71,18 +72,13 @@ function App() {
           path="/jockey"
           element={
             <RequireRole role="JOCKEY">
-              <JockeyDashboard />
+              <JockeyLayout />
             </RequireRole>
           }
-        />
-        <Route
-          path="/jockey/profile"
-          element={
-            <RequireRole role="JOCKEY">
-              <JockeyProfilePage />
-            </RequireRole>
-          }
-        />
+        >
+          <Route index element={<JockeyDashboard />} />
+          <Route path="profile" element={<JockeyProfilePage />} />
+        </Route>
 
         {/* Referee */}
         <Route
