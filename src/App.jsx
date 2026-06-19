@@ -14,7 +14,8 @@ import LandingDashboard from "./pages/customer/LandingDashboard";
 
 // Admin
 import AdminLayout from "./components/layout/AdminLayout";
-import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminAnalyticsPage from "./pages/admin/AdminAnalyticsPage";
+import AdminUsersPage from "./pages/admin/AdminUsersPage";
 
 // Spectator
 import SpectatorDashboard from "./pages/spectator/SpectatorDashboard";
@@ -25,6 +26,7 @@ import JockeyProfilePage from "./pages/jockey/JockeyProfilePage";
 import JockeyInvitationPage from "./pages/jockey/JockeyInvitationPage";
 import JockeyRacesPage from "./pages/jockey/JockeyRacesPage";
 import JockeyLayout from "./components/layout/JockeyLayout";
+import JockeyLeaderboardPage from "./pages/jockey/JockeyLeaderboardPage";
 
 // Referee
 import RefereeDashboard from "./pages/referee/RefereeDashboard";
@@ -59,14 +61,14 @@ function App() {
             </RequireRole>
           }
         >
-          <Route index element={<AdminDashboard />} />
-          <Route path="users" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang quản lý người dùng đang được phát triển.</div>} />
+          <Route index element={<AdminAnalyticsPage />} />
+          <Route path="users" element={<AdminUsersPage />} />
           <Route path="horses" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang quản lý ngựa đua đang được phát triển.</div>} />
           <Route path="tournaments" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang quản lý giải đấu đang được phát triển.</div>} />
           <Route path="races" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang quản lý chặng đua đang được phát triển.</div>} />
           <Route path="discrepancies" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang xử lý sai lệch đang được phát triển.</div>} />
           <Route path="violations" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang vi phạm kỷ luật đang được phát triển.</div>} />
-          <Route path="points" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang quản lý ví điểm đang được phát triển.</div>} />
+          <Route path="point-management" element={<div className="text-sm p-8" style={{color:"#8B949E"}}>Point Management page coming soon.</div>} />
         </Route>
 
         {/* Spectator */}
@@ -91,6 +93,7 @@ function App() {
           <Route index element={<JockeyDashboard />} />
           <Route path="invitations" element={<JockeyInvitationPage />} />
           <Route path="races" element={<JockeyRacesPage />} />
+          <Route path="leaderboard" element={<JockeyLeaderboardPage />} />
           <Route path="profile" element={<JockeyProfilePage />} />
         </Route>
 

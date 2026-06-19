@@ -1,5 +1,5 @@
 import { Outlet } from "react-router-dom";
-import SidebarAdmin from "./SidebarAdmin";
+import SidebarAdmin from "./AdminSidebar";
 import AdminHeader from "./AdminHeader";
 
 export default function AdminLayout() {
@@ -12,7 +12,7 @@ export default function AdminLayout() {
       <SidebarAdmin />
 
       {/* Main content area */}
-      <div className="flex-1 flex flex-col min-w-0 ml-68">
+      <div className="flex-1 flex flex-col min-w-0 ml-[200px]">
         <AdminHeader />
 
         <main

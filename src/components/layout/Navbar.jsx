@@ -50,7 +50,7 @@ export default function Navbar({ brandLink = '/' }) {
         {/* Brand */}
         <Link
           to={brandLink}
-          className="font-serif text-2xl text-primary font-bold tracking-tight hover:brightness-110 no-underline transition-all"
+          className="font-serif text-2xl text-white font-bold tracking-tight hover:opacity-80 no-underline transition-all"
         >
           GrandStride
         </Link>
