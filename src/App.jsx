@@ -13,6 +13,7 @@ import RegisterPage from "./pages/registerPage/RegisterPage";
 import LandingDashboard from "./pages/customer/LandingDashboard";
 
 // Admin
+import AdminLayout from "./components/layout/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 
 // Spectator
@@ -20,6 +21,8 @@ import SpectatorDashboard from "./pages/spectator/SpectatorDashboard";
 
 // Jockey
 import JockeyDashboard from "./pages/jockey/JockeyDashboard";
+import JockeyProfilePage from "./pages/jockey/JockeyProfilePage";
+import JockeyLayout from "./components/layout/JockeyLayout";
 
 // Referee
 import RefereeDashboard from "./pages/referee/RefereeDashboard";
@@ -50,10 +53,19 @@ function App() {
           path="/admin"
           element={
             <RequireRole role="ADMIN">
-              <AdminDashboard />
+              <AdminLayout />
             </RequireRole>
           }
-        />
+        >
+          <Route index element={<AdminDashboard />} />
+          <Route path="users" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang quản lý người dùng đang được phát triển.</div>} />
+          <Route path="horses" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang quản lý ngựa đua đang được phát triển.</div>} />
+          <Route path="tournaments" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang quản lý giải đấu đang được phát triển.</div>} />
+          <Route path="races" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang quản lý chặng đua đang được phát triển.</div>} />
+          <Route path="discrepancies" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang xử lý sai lệch đang được phát triển.</div>} />
+          <Route path="violations" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang vi phạm kỷ luật đang được phát triển.</div>} />
+          <Route path="points" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang quản lý ví điểm đang được phát triển.</div>} />
+        </Route>
 
         {/* Spectator */}
         <Route
@@ -70,10 +82,13 @@ function App() {
           path="/jockey"
           element={
             <RequireRole role="JOCKEY">
-              <JockeyDashboard />
+              <JockeyLayout />
             </RequireRole>
           }
-        />
+        >
+          <Route index element={<JockeyDashboard />} />
+          <Route path="profile" element={<JockeyProfilePage />} />
+        </Route>
 
         {/* Referee */}
         <Route

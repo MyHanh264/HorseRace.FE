@@ -85,12 +85,12 @@
   --color-surface-dim: var(--color-surface-dim);
   --color-surface-bright: var(--color-surface-bright);
   --color-surface-container-lowest: var(--color-surface-container-lowest);
-  --color-surface-container-low: var(--color-surface-container-low);
-  --color-surface-container: var(--color-surface-container);
-  --color-surface-container-high: var(--color-surface-container-high);
+  --color-surface-container-low:    var(--color-surface-container-low);
+  --color-surface-container:        var(--color-surface-container);
+  --color-surface-container-high:   var(--color-surface-container-high);
   --color-surface-container-highest: var(--color-surface-container-highest);
-  --color-on-surface: var(--color-on-surface);
-  --color-on-surface-variant: var(--color-on-surface-variant);
+  --color-on-surface:               var(--color-on-surface);
+  --color-on-surface-variant:       var(--color-on-surface-variant);
   --color-outline: var(--color-outline);
   --color-outline-variant: var(--color-outline-variant);
 
@@ -113,6 +113,17 @@
   --color-on-error: var(--color-on-error);
   --color-error-container: var(--color-error-container);
   --color-on-error-container: var(--color-on-error-container);
+
+  /* Admin GitHub Dark */
+  --color-admin-bg:   #0D1117;
+  --color-admin-bg2:  #161B22;
+  --color-admin-bg3:  #21262D;
+  --color-admin-bg4:  #30363D;
+  --color-admin-text: #E6EDF3;
+  --color-admin-muted:#8B949E;
+  --color-admin-blue: #58A6FF;
+  --color-admin-cyan: #22D3EE;
+  --color-admin-red:  #F85149;
 }
 
 /* ==========================================================================
@@ -1197,8 +1208,116 @@ a, button { -webkit-tap-highlight-color: transparent; }
 }
 
 /* ==========================================================================
-   16. UTILITIES
+   17. ADMIN LAYOUT — GitHub Dark Theme
    ========================================================================== */
+
+:root {
+  /* GitHub Dark palette overrides */
+  --color-surface-container-lowest: #0D1117;
+  --color-surface-container-low:    #0D1117;
+  --color-surface-container:        #161B22;
+  --color-surface-container-high:   #21262D;
+  --color-surface-container-highest:#30363D;
+  --color-on-surface:               #E6EDF3;
+  --color-on-surface-variant:       #8B949E;
+
+  --color-primary:                  #58A6FF;
+  --color-on-primary:               #0D1117;
+  --color-primary-container:        #388BFD26;
+  --color-on-primary-container:    #58A6FF;
+
+  --color-secondary:                #22D3EE;
+  --color-on-secondary:             #0D1117;
+
+  --color-error:                    #F85149;
+  --color-on-error:                 #0D1117;
+  --color-error-container:          #F8514926;
+  --color-on-error-container:        #F85149;
+
+  --color-outline-variant:          #30363D;
+}
+
+/* Admin sidebar link states */
+.admin-sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  color: var(--color-on-surface-variant);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background 0.15s ease, color 0.15s ease;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  text-decoration: none;
+}
+.admin-sidebar-link:hover {
+  background: rgba(141, 214, 166, 0.08);
+  color: var(--color-on-surface);
+}
+.admin-sidebar-link.active {
+  background: var(--color-primary-container);
+  color: var(--color-on-primary-container);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px rgba(56, 139, 253, 0.2);
+}
+.admin-sidebar-link.active:hover {
+  background: rgba(56, 139, 253, 0.18);
+}
+
+/* Admin card variant */
+.admin-card {
+  background: var(--color-surface-container);
+  border: 1px solid var(--color-outline-variant);
+  border-radius: 12px;
+  transition: border-color 0.2s ease;
+}
+.admin-card:hover {
+  border-color: rgba(88, 166, 255, 0.35);
+}
+
+/* Admin table */
+.admin-page-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.admin-page-table th {
+  background: var(--color-surface-container-high);
+  color: var(--color-on-surface-variant);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-outline-variant);
+}
+.admin-page-table td {
+  padding: 12px 14px;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(48, 54, 61, 0.5);
+  color: var(--color-on-surface);
+  font-size: 0.875rem;
+}
+.admin-page-table tbody tr:hover {
+  background: rgba(88, 166, 255, 0.04);
+}
+.admin-page-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Ambient glow for CTA */
+.admin-ambient-glow {
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.15);
+}
+
+/* ============================================================
+   UTILITIES
+   ============================================================ */
 
 .no-scrollbar {
   -ms-overflow-style: none;
