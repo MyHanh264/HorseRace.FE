@@ -79,7 +79,7 @@ function InputField({
   );
 }
 
-function PasswordField({ placeholder, value, onChange }) {
+function PasswordField({ placeholder, value, onChange, autoComplete }) {
   const [show, setShow] = useState(false);
   return (
     <div className="flex items-center gap-3 px-4 py-3 rounded-lg border bg-[#0d1424] border-white/10 hover:border-white/20 focus-within:border-emerald-500/50 text-sm transition-colors">
@@ -89,6 +89,7 @@ function PasswordField({ placeholder, value, onChange }) {
         value={value}
         onChange={onChange}
         placeholder={placeholder}
+        autoComplete={autoComplete ?? "new-password"}
         className="flex-1 bg-transparent outline-none text-gray-200 placeholder-gray-600"
       />
       <button
@@ -346,6 +347,7 @@ export default function JockeyProfilePage() {
                   placeholder="••••••••"
                   value={currentPw}
                   onChange={(e) => setCurrentPw(e.target.value)}
+                  autoComplete="current-password"
                 />
               </div>
               <div>
@@ -354,6 +356,7 @@ export default function JockeyProfilePage() {
                   placeholder=""
                   value={newPw}
                   onChange={(e) => setNewPw(e.target.value)}
+                  autoComplete="new-password"
                 />
               </div>
               <button
