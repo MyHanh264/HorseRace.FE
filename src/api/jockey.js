@@ -91,3 +91,12 @@ export async function deleteJockeyInvitation(invitationId) {
   if (!res.ok) throw new Error(`Xóa invitation thất bại (${res.status})`);
   return res.json();
 }
+
+// Lấy danh sách races
+export async function getRaces() {
+  const res = await fetch(`${BASE_URL}/api/races`, {
+    headers: authHeader(),
+  });
+  if (!res.ok) throw new Error(`Lỗi lấy races (${res.status})`);
+  return res.json();
+}
