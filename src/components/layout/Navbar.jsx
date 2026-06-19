@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { LogOut, UserCircle, ChevronDown, LayoutDashboard, Home } from 'lucide-react'
+import { LogOut, UserCircle, ChevronDown, LayoutDashboard, Home, User } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { getHomePathForRole } from '../../utils/token'
 
@@ -35,6 +35,18 @@ export default function Navbar({ brandLink = '/' }) {
     setUserMenuOpen(false)
     const home = getHomePathForRole(user?.role)
     if (home) navigate(home)
+  }
+
+  const getProfilePath = (role) => {
+    if (role === 'JOCKEY') return '/jockey/profile'
+    if (role === 'HORSE_OWNER') return '/horse-owner/profile'
+    return null
+  }
+
+  const handleProfile = () => {
+    setUserMenuOpen(false)
+    const path = getProfilePath(user?.role)
+    if (path) navigate(path)
   }
 
   return (
@@ -85,6 +97,16 @@ export default function Navbar({ brandLink = '/' }) {
                     >
                       <LayoutDashboard className="w-4 h-4 text-primary" />
                       Vào dashboard
+                    </button>
+                  ) : null}
+                  {getProfilePath(user?.role) ? (
+                    <button
+                      type="button"
+                      onClick={handleProfile}
+                      className="w-full text-left px-4 py-2.5 text-sm text-on-surface hover:bg-surface-container-high flex items-center gap-3 transition-colors cursor-pointer bg-transparent border-none"
+                    >
+                      <User className="w-4 h-4 text-primary" />
+                      Hồ sơ cá nhân
                     </button>
                   ) : null}
                   <button
