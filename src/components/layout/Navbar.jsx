@@ -7,16 +7,11 @@ import { getHomePathForRole } from '../../utils/token'
 export default function Navbar({ brandLink = '/' }) {
   const navigate = useNavigate()
   const { user, isAuthenticated, logout } = useAuth()
-  const [menuOpen, setMenuOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
-  const menuRef = useRef(null)
   const userMenuRef = useRef(null)
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setMenuOpen(false)
-      }
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
         setUserMenuOpen(false)
       }
