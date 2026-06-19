@@ -20,6 +20,7 @@ import SpectatorDashboard from "./pages/spectator/SpectatorDashboard";
 
 // Jockey
 import JockeyDashboard from "./pages/jockey/JockeyDashboard";
+import JockeyProfilePage from "./pages/jockey/JockeyProfilePage";
 
 // Referee
 import RefereeDashboard from "./pages/referee/RefereeDashboard";
@@ -71,6 +72,14 @@ function App() {
           element={
             <RequireRole role="JOCKEY">
               <JockeyDashboard />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/jockey/profile"
+          element={
+            <RequireRole role="JOCKEY">
+              <JockeyProfilePage />
             </RequireRole>
           }
         />
