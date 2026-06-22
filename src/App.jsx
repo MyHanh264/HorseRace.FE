@@ -16,6 +16,8 @@ import LandingDashboard from "./pages/customer/LandingDashboard";
 import AdminLayout from "./components/layout/AdminLayout";
 import AdminAnalyticsPage from "./pages/admin/AdminAnalyticsPage";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
+import AdminTournamentsPage from "./pages/admin/AdminTournamentsPage";
+import AdminRacesPage from "./pages/admin/AdminRacesPage";
 
 // Spectator
 import SpectatorDashboard from "./pages/spectator/SpectatorDashboard";
@@ -64,8 +66,8 @@ function App() {
           <Route index element={<AdminAnalyticsPage />} />
           <Route path="users" element={<AdminUsersPage />} />
           <Route path="horses" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang quản lý ngựa đua đang được phát triển.</div>} />
-          <Route path="tournaments" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang quản lý giải đấu đang được phát triển.</div>} />
-          <Route path="races" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang quản lý chặng đua đang được phát triển.</div>} />
+          <Route path="tournaments" element={<AdminTournamentsPage />} />
+          <Route path="races" element={<AdminRacesPage />} />
           <Route path="discrepancies" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang xử lý sai lệch đang được phát triển.</div>} />
           <Route path="violations" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang vi phạm kỷ luật đang được phát triển.</div>} />
           <Route path="point-management" element={<div className="text-sm p-8" style={{color:"#8B949E"}}>Point Management page coming soon.</div>} />
