@@ -43,7 +43,7 @@ import OwnerProfilePage from "./pages/horse-owner/OwnerProfilePage";
 function App() {
   return (
     <BrowserRouter>
-      <AuthSessionSync /> {/* ← đứng một mình, không bọc Routes */}
+      <AuthSessionSync /> {/* ← standalone, does not wrap Routes */}
       <Routes>
         {/* Public */}
         <Route path="/" element={<LandingDashboard />} />
@@ -63,11 +63,11 @@ function App() {
         >
           <Route index element={<AdminAnalyticsPage />} />
           <Route path="users" element={<AdminUsersPage />} />
-          <Route path="horses" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang quản lý ngựa đua đang được phát triển.</div>} />
-          <Route path="tournaments" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang quản lý giải đấu đang được phát triển.</div>} />
-          <Route path="races" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang quản lý chặng đua đang được phát triển.</div>} />
-          <Route path="discrepancies" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang xử lý sai lệch đang được phát triển.</div>} />
-          <Route path="violations" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang vi phạm kỷ luật đang được phát triển.</div>} />
+          <Route path="horses" element={<div className="text-sm" style={{color:"#8B949E"}}>Horse management page coming soon.</div>} />
+          <Route path="tournaments" element={<div className="text-sm" style={{color:"#8B949E"}}>Tournament management page coming soon.</div>} />
+          <Route path="races" element={<div className="text-sm" style={{color:"#8B949E"}}>Race management page coming soon.</div>} />
+          <Route path="discrepancies" element={<div className="text-sm" style={{color:"#8B949E"}}>Discrepancy resolution page coming soon.</div>} />
+          <Route path="violations" element={<div className="text-sm" style={{color:"#8B949E"}}>Violation management page coming soon.</div>} />
           <Route path="point-management" element={<div className="text-sm p-8" style={{color:"#8B949E"}}>Point Management page coming soon.</div>} />
         </Route>
 

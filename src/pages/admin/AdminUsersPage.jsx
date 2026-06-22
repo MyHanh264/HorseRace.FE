@@ -11,7 +11,7 @@ import {
 
 function formatDate(value) {
   if (!value) return "—";
-  return new Date(value).toLocaleString("vi-VN");
+  return new Date(value).toLocaleString("en-GB");
 }
 
 function getRoleBadgeClass(role) {
@@ -44,7 +44,7 @@ export default function AdminDashboard() {
       setError(
         err instanceof Error
           ? err.message
-          : "Không tải được danh sách chờ duyệt",
+          : "Failed to load pending users.",
       );
     } finally {
       setLoading(false);
@@ -55,7 +55,7 @@ export default function AdminDashboard() {
     let active = true;
     getPendingUsers()
       .then((data) => { if (active) setUsers(Array.isArray(data) ? data : []); })
-      .catch((err) => { if (active) setError(err instanceof Error ? err.message : "Không tải được danh sách chờ duyệt"); })
+      .catch((err) => { if (active) setError(err instanceof Error ? err.message : "Failed to load pending users."); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
@@ -67,7 +67,7 @@ export default function AdminDashboard() {
       await approveUser(userId);
       await loadUsers();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Duyệt tài khoản thất bại");
+      setError(err instanceof Error ? err.message : "Failed to approve account.");
     } finally {
       setActionId(null);
     }
@@ -83,7 +83,7 @@ export default function AdminDashboard() {
       await loadUsers();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Từ chối tài khoản thất bại",
+        err instanceof Error ? err.message : "Failed to reject account.",
       );
     } finally {
       setActionId(null);
@@ -113,10 +113,10 @@ export default function AdminDashboard() {
             </div>
             <div>
               <h1 className="font-serif text-2xl font-bold text-on-surface">
-                Bảng Quản Trị
+                Admin Dashboard
               </h1>
               <p className="text-on-surface-variant text-sm">
-                Duyệt tài khoản Chủ ngựa và Kỵ sĩ đang chờ phê duyệt.
+                Review and approve pending Horse Owner and Jockey accounts.
               </p>
             </div>
           </div>
@@ -137,7 +137,7 @@ export default function AdminDashboard() {
                 {users.length}
               </p>
               <p className="text-xs text-on-surface-variant font-medium uppercase tracking-wider">
-                Chờ duyệt
+                Pending Approval
               </p>
             </div>
           </div>
@@ -151,7 +151,7 @@ export default function AdminDashboard() {
             <div>
               <p className="text-2xl font-bold text-on-surface font-mono">—</p>
               <p className="text-xs text-on-surface-variant font-medium uppercase tracking-wider">
-                Đã duyệt hôm nay
+                Approved Today
               </p>
             </div>
           </div>
@@ -165,7 +165,7 @@ export default function AdminDashboard() {
             <div>
               <p className="text-2xl font-bold text-on-surface font-mono">—</p>
               <p className="text-xs text-on-surface-variant font-medium uppercase tracking-wider">
-                Đã từ chối hôm nay
+                Rejected Today
               </p>
             </div>
           </div>
@@ -184,7 +184,7 @@ export default function AdminDashboard() {
           <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/50" />
           <input
             type="text"
-            placeholder="Tìm kiếm theo tên, email hoặc vai trò..."
+            placeholder="Search by name, email, or role..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-surface-container-lowest border border-outline-variant/40 text-sm rounded-xl pl-11 pr-4 py-3 text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40"
@@ -197,7 +197,7 @@ export default function AdminDashboard() {
             <div className="flex flex-col items-center gap-3">
               <div className="w-10 h-10 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
               <span className="text-on-surface-variant text-sm">
-                Đang tải danh sách...
+                Loading users...
               </span>
             </div>
           </div>
@@ -207,12 +207,12 @@ export default function AdminDashboard() {
               <CircleCheck className="w-8 h-8 text-primary/60" />
             </div>
             <h3 className="font-serif text-xl font-bold text-on-surface mb-2">
-              {searchQuery ? "Không tìm thấy kết quả" : "Tất cả đã được xử lý"}
+              {searchQuery ? "No results found" : "All caught up!"}
             </h3>
             <p className="text-on-surface-variant text-sm">
               {searchQuery
-                ? "Thử từ khóa khác."
-                : "Không có tài khoản nào đang chờ duyệt."}
+                ? "Try a different keyword."
+                : "No accounts are awaiting approval."}
             </p>
           </div>
         ) : (
@@ -223,13 +223,13 @@ export default function AdminDashboard() {
                   <th>
                     <div className="flex items-center gap-2">
                       <UserPlus className="w-3.5 h-3.5 text-on-surface-variant/60" />
-                      Họ tên
+                      Full Name
                     </div>
                   </th>
                   <th>Email</th>
-                  <th>Vai trò</th>
-                  <th>Ngày đăng ký</th>
-                  <th>Thao tác</th>
+                  <th>Role</th>
+                  <th>Registration Date</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -269,7 +269,7 @@ export default function AdminDashboard() {
                             type="text"
                             value={rejectReason}
                             onChange={(e) => setRejectReason(e.target.value)}
-                            placeholder="Lý do từ chối (tuỳ chọn)"
+                            placeholder="Rejection reason (optional)"
                             className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2 text-xs text-on-surface focus:outline-none focus:border-error transition-all placeholder:text-on-surface-variant/40"
                           />
                           <div className="flex gap-2">
@@ -280,7 +280,7 @@ export default function AdminDashboard() {
                               className="gs-btn gs-btn-danger gs-btn-sm flex items-center gap-1.5"
                             >
                               <CircleCheck className="w-3.5 h-3.5" />
-                              Xác nhận
+                              Confirm
                             </button>
                             <button
                               type="button"
@@ -290,7 +290,7 @@ export default function AdminDashboard() {
                               }}
                               className="gs-btn gs-btn-ghost gs-btn-sm"
                             >
-                              Huỷ
+                              Cancel
                             </button>
                           </div>
                         </div>
@@ -307,7 +307,7 @@ export default function AdminDashboard() {
                             ) : (
                               <CircleCheck className="w-3.5 h-3.5" />
                             )}
-                            Duyệt
+                            Approve
                           </button>
                           <button
                             type="button"
@@ -316,7 +316,7 @@ export default function AdminDashboard() {
                             className="gs-btn gs-btn-danger gs-btn-sm flex items-center gap-1.5"
                           >
                             <XCircle className="w-3.5 h-3.5" />
-                            Từ chối
+                            Reject
                           </button>
                         </div>
                       )}

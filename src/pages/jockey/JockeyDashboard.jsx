@@ -9,6 +9,7 @@ import {
   Star,
   Calendar,
   ChevronRight,
+  TrendingUp,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -17,7 +18,7 @@ import {
   updateJockeyInvitation,
 } from "../../api/jockey";
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
+// Chức năng: Định dạng ngày từ chuỗi ISO
 function fmtDate(d) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("en-GB", {
@@ -27,26 +28,50 @@ function fmtDate(d) {
 }
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
-function StatCard({ label, value, sub, subColor, badge, icon: Icon }) {
+const STAT_META = {
+  invitations: {
+    accentColor: "bg-yellow-400",
+    iconBg: "bg-yellow-400/10",
+    iconColor: "text-yellow-400",
+  },
+  races: {
+    accentColor: "bg-primary",
+    iconBg: "bg-primary/10",
+    iconColor: "text-primary",
+  },
+  wins: {
+    accentColor: "bg-secondary",
+    iconBg: "bg-secondary/10",
+    iconColor: "text-secondary",
+  },
+  points: {
+    accentColor: "bg-sky-400",
+    iconBg: "bg-sky-400/10",
+    iconColor: "text-sky-400",
+  },
+};
+
+function StatCard({ id, label, value, sub, subColor, badge, icon: Icon }) {
+  const { accentColor, iconBg, iconColor } = STAT_META[id] ?? STAT_META.invitations;
   return (
-    <div className="bg-[#141920] border border-white/10 rounded-xl p-5 flex flex-col gap-3">
+    <div className="gs-stat-card">
+      <div
+        className="absolute top-0 left-0 right-0 h-[2px] rounded-t-[14px]"
+        style={{ background: accentColor, opacity: 0.6 }}
+      />
       <div className="flex items-start justify-between">
-        <span className="text-gray-400 text-sm leading-snug">{label}</span>
-        <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0">
-          <Icon size={16} className="text-gray-400" />
+        <span className="gs-stat-card-label">{label}</span>
+        <div className={`gs-stat-card-icon-wrap ${iconBg}`}>
+          <span className={iconColor}><Icon size={16} /></span>
         </div>
       </div>
       <div>
-        <p className="text-4xl font-bold text-white tracking-tight">
-          {value ?? "—"}
-        </p>
+        <p className="gs-stat-card-value">{value ?? "—"}</p>
         {badge && (
-          <span className="inline-block mt-2 text-xs px-2.5 py-0.5 rounded-md bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 font-medium">
-            {badge}
-          </span>
+          <span className="gs-badge gs-badge-secondary mt-1.5">{badge}</span>
         )}
         {sub && !badge && (
-          <p className={`text-xs mt-1.5 font-medium ${subColor ?? "text-gray-500"}`}>
+          <p className={`gs-stat-card-sub ${subColor ?? "text-[var(--color-on-surface-variant)]"}`}>
             {sub}
           </p>
         )}
@@ -63,21 +88,18 @@ function InvitationCard({ inv, onAccept, onDecline, accepting, declining }) {
 
   return (
     <div
-      className={`bg-[#0d1117] border rounded-xl p-4 flex items-start gap-4 transition-opacity
-        ${isPending ? "border-white/10" : "border-white/5"}
+      className={`gs-dash-card p-4 flex items-start gap-4 transition-opacity
         ${isDeclined ? "opacity-50" : ""}`}
     >
-      {/* Horse avatar */}
-      <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-gray-700 to-gray-800 border border-white/10 flex items-center justify-center text-2xl flex-shrink-0">
+      <div className="gs-list-row-avatar bg-[var(--color-surface-container-high)] text-lg">
         🐎
       </div>
 
-      {/* Info */}
       <div className="flex-1 min-w-0">
-        <p className="text-yellow-400 font-bold text-base truncate">
+        <p className="gs-list-row-name text-secondary font-bold">
           {inv.horseName ?? `Horse #${inv.horseId ?? "?"}`}
         </p>
-        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-xs text-gray-400">
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-xs text-[var(--color-on-surface-variant)]">
           <span className="flex items-center gap-1">
             <User size={10} />
             {inv.ownerName ?? `Owner #${inv.horseOwnerId}`}
@@ -94,39 +116,38 @@ function InvitationCard({ inv, onAccept, onDecline, accepting, declining }) {
           )}
         </div>
         {inv.odds && (
-          <span className="inline-block mt-2 text-xs px-2 py-0.5 rounded bg-white/8 text-gray-400">
+          <span className="inline-block mt-2 text-xs px-2 py-0.5 rounded bg-[var(--color-surface-container-high)] text-[var(--color-on-surface-variant)]">
             Odds: {inv.odds}
           </span>
         )}
         {isAccepted && (
-          <span className="inline-block mt-2 text-xs px-2.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-medium">
+          <span className="gs-badge gs-badge-primary mt-2">
             Accepted
           </span>
         )}
       </div>
 
-      {/* Actions */}
       {isPending && (
         <div className="flex flex-col gap-2 flex-shrink-0">
           <button
             onClick={() => onAccept(inv.invitationId)}
             disabled={accepting === inv.invitationId}
-            className="px-5 py-1.5 bg-yellow-500 hover:bg-yellow-400 disabled:opacity-60 text-black text-xs font-bold rounded-lg transition-colors"
+            className="gs-btn gs-btn-primary gs-btn-sm w-[80px]"
           >
             {accepting === inv.invitationId ? "…" : "Accept"}
           </button>
           <button
             onClick={() => onDecline(inv.invitationId)}
             disabled={declining === inv.invitationId}
-            className="px-5 py-1.5 border border-white/20 text-gray-300 text-xs font-semibold rounded-lg hover:bg-white/5 disabled:opacity-60 transition-colors"
+            className="gs-btn gs-btn-ghost gs-btn-sm w-[80px]"
           >
             {declining === inv.invitationId ? "…" : "Decline"}
           </button>
         </div>
       )}
       {isDeclined && (
-        <span className="flex-shrink-0 text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-500">
-          Expired
+        <span className="gs-badge gs-badge-neutral text-xs flex-shrink-0">
+          Declined
         </span>
       )}
     </div>
@@ -198,92 +219,95 @@ export default function JockeyDashboard() {
       : null;
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Top bar */}
-      <header className="flex items-center justify-end gap-2 px-8 py-3.5 border-b border-white/8 flex-shrink-0">
-        <button className="w-8 h-8 rounded-lg hover:bg-white/8 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
-          <Bell size={16} />
+    <main className="gs-main">
+      {/* Topbar */}
+      <div className="gs-topbar">
+        <button className="gs-topbar-icon-btn">
+          <Bell size={15} />
         </button>
-        <button className="w-8 h-8 rounded-lg hover:bg-white/8 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
-          <Settings size={16} />
+        <button className="gs-topbar-icon-btn">
+          <Settings size={15} />
         </button>
-        <div className="w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center text-xs font-bold text-black ml-1">
+        <div className="gs-topbar-avatar">
           {user?.fullName?.[0] ?? "J"}
         </div>
-      </header>
+      </div>
 
-      {/* Scrollable content */}
-      <main className="flex-1 overflow-auto p-8 space-y-6">
-          {/* Welcome */}
-          <div>
-            <h1 className="text-2xl font-bold text-white">Dashboard Overview</h1>
-            <p className="text-gray-400 text-sm mt-1">
-              Welcome back,{" "}
-              <span className="text-yellow-400">{firstName}</span>. Your{" "}
-              <span className="text-yellow-400">upcoming schedule</span> and{" "}
-              <span className="text-yellow-400">invitations</span>.
-            </p>
-          </div>
+      {/* Page header */}
+      <div className="gs-page-header">
+        <div>
+          <div className="gs-page-title-greeting text-secondary">Dashboard Overview</div>
+          <h1 className="gs-page-title">Welcome back, {firstName}</h1>
+          <p className="gs-page-subtitle">
+            Your upcoming schedule and latest invitations.
+          </p>
+        </div>
+      </div>
 
-          {/* Stat cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard
-              label="Pending Invitations"
-              icon={Mail}
-              value={loading ? "—" : pending.length}
-              badge={!loading && pending.length > 0 ? "Action Required" : null}
-              sub={!loading && pending.length === 0 ? "All clear" : null}
-              subColor="text-gray-500"
-            />
-            <StatCard
-              label="Upcoming Races"
-              icon={Flag}
-              value={0}
-              sub="Next: TBA"
-              subColor="text-emerald-400"
-            />
-            <StatCard
-              label="Career Wins"
-              icon={Trophy}
-              value={loading ? "—" : (profile?.totalWins ?? 0)}
-              sub={winRate ? `↑ ${winRate}% win rate` : null}
-              subColor="text-emerald-400"
-            />
-            <StatCard
-              label="Career Prize Points"
-              icon={Star}
-              value="—"
-              sub="Coming soon"
-              subColor="text-gray-500"
-            />
-          </div>
+      <div className="portal-content space-y-5">
+        {/* Stat cards */}
+        <div className="gs-grid-4">
+          <StatCard
+            id="invitations"
+            label="Pending Invitations"
+            icon={Mail}
+            value={loading ? "—" : pending.length}
+            badge={!loading && pending.length > 0 ? "Action Required" : null}
+            sub={!loading && pending.length === 0 ? "All clear" : null}
+            subColor="text-[var(--color-on-surface-variant)]"
+          />
+          <StatCard
+            id="races"
+            label="Upcoming Races"
+            icon={Flag}
+            value={0}
+            sub="Next: TBA"
+            subColor="text-primary"
+          />
+          <StatCard
+            id="wins"
+            label="Career Wins"
+            icon={Trophy}
+            value={loading ? "—" : (profile?.totalWins ?? 0)}
+            sub={winRate ? `${winRate}% win rate` : null}
+            subColor="text-primary"
+          />
+          <StatCard
+            id="points"
+            label="Prize Points"
+            icon={Star}
+            value="—"
+            sub="Coming soon"
+            subColor="text-[var(--color-on-surface-variant)]"
+          />
+        </div>
 
-          {/* Two-column grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-5">
-            {/* Invitation Inbox */}
-            <div className="bg-[#141920] border border-white/8 rounded-xl p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-white font-bold text-base">
-                  Invitation Inbox
-                </h2>
-                <button className="text-yellow-400 hover:text-yellow-300 text-sm flex items-center gap-1 transition-colors">
-                  View All <ChevronRight size={14} />
-                </button>
-              </div>
-
+        {/* Two-column grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
+          {/* Invitation Inbox */}
+          <div className="gs-dash-card">
+            <div className="gs-dash-card-header">
+              <h2 className="gs-dash-card-title">Invitation Inbox</h2>
+              <button className="text-primary hover:text-[var(--color-on-primary-container)] text-xs font-semibold transition-colors flex items-center gap-1">
+                View All <ChevronRight size={13} />
+              </button>
+            </div>
+            <div className="gs-dash-card-body">
               {loading ? (
                 <div className="space-y-3">
                   {[1, 2, 3].map((i) => (
-                    <div
-                      key={i}
-                      className="h-24 bg-white/5 rounded-xl animate-pulse"
-                    />
+                    <div key={i} className="gs-skeleton h-24" />
                   ))}
                 </div>
               ) : invitations.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-14 gap-3">
-                  <Mail size={28} className="text-gray-700" />
-                  <p className="text-gray-500 text-sm">No invitations yet.</p>
+                <div className="gs-empty-state">
+                  <div className="gs-empty-state-icon">
+                    <Mail size={24} className="text-[var(--color-on-surface-variant)]" />
+                  </div>
+                  <div className="gs-empty-state-title">No invitations yet</div>
+                  <div className="gs-empty-state-desc">
+                    You will see race invitations here when horse owners reach out.
+                  </div>
                 </div>
               ) : (
                 <div className="flex flex-col gap-3">
@@ -300,38 +324,66 @@ export default function JockeyDashboard() {
                 </div>
               )}
             </div>
+          </div>
 
-            {/* Right column */}
-            <div className="flex flex-col gap-4">
-              {/* Upcoming Races placeholder */}
-              <div className="bg-[#141920] border border-white/8 rounded-xl p-5 flex-1">
-                <h2 className="text-white font-bold text-base mb-4">
-                  My Upcoming Races
-                </h2>
-                <div className="flex flex-col items-center justify-center py-10 gap-3">
-                  <Flag size={28} className="text-gray-700" />
-                  <p className="text-gray-500 text-sm text-center">
-                    Race schedule coming soon.
-                  </p>
+          {/* Right column */}
+          <div className="flex flex-col gap-4">
+            {/* Upcoming Races */}
+            <div className="gs-dash-card flex-1">
+              <div className="gs-dash-card-header">
+                <h2 className="gs-dash-card-title">My Upcoming Races</h2>
+              </div>
+              <div className="gs-dash-card-body">
+                <div className="gs-empty-state">
+                  <div className="gs-empty-state-icon">
+                    <Flag size={24} className="text-[var(--color-on-surface-variant)]" />
+                  </div>
+                  <div className="gs-empty-state-title">No upcoming races</div>
+                  <div className="gs-empty-state-desc">
+                    Race schedule coming soon. Accept invitations to get started.
+                  </div>
                 </div>
               </div>
+            </div>
 
-              {/* Jockey Masterclass card */}
-              <div className="bg-emerald-950/60 border border-emerald-500/25 rounded-xl p-5">
-                <h3 className="text-emerald-400 font-bold text-sm mb-1">
-                  Jockey Masterclass
-                </h3>
-                <p className="text-gray-400 text-xs leading-relaxed mb-4">
-                  Review recent race telemetry and improve your gate break
-                  timing.
-                </p>
-                <button className="text-xs px-4 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-semibold transition-colors">
-                  View Analysis
-                </button>
+            {/* Performance card */}
+            <div className="gs-dash-card" style={{
+              background: "linear-gradient(135deg, rgba(141,214,166,0.05) 0%, var(--color-surface-container-low) 100%)",
+              border: "1px solid rgba(141,214,166,0.2)",
+            }}>
+              <div className="gs-dash-card-body">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="gs-stat-card-icon-wrap bg-primary/10">
+                    <TrendingUp size={16} className="text-primary" />
+                  </div>
+                  <h3 className="gs-dash-card-title text-primary">Performance</h3>
+                </div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[var(--color-on-surface-variant)] text-xs font-semibold uppercase tracking-wider">Career Win Rate</span>
+                  <span className="text-secondary font-bold text-lg font-mono">{winRate ?? "—"}%</span>
+                </div>
+                <div className="w-full bg-[var(--color-surface-container-high)] rounded-full h-2">
+                  <div
+                    className="h-2 rounded-full transition-all duration-700"
+                    style={{
+                      width: winRate ? `${winRate}%` : "0%",
+                      background: "linear-gradient(90deg, var(--color-primary), var(--color-secondary))",
+                    }}
+                  />
+                </div>
+                <div className="flex items-center justify-between mt-3">
+                  <span className="text-[var(--color-on-surface-variant)] text-xs font-semibold uppercase tracking-wider">Total Races</span>
+                  <span className="text-[var(--color-on-surface)] font-bold text-sm">{loading ? "—" : (profile?.totalRaces ?? 0)}</span>
+                </div>
+                <div className="flex items-center justify-between mt-2">
+                  <span className="text-[var(--color-on-surface-variant)] text-xs font-semibold uppercase tracking-wider">Total Wins</span>
+                  <span className="text-secondary font-bold text-sm">{loading ? "—" : (profile?.totalWins ?? 0)}</span>
+                </div>
               </div>
             </div>
           </div>
-      </main>
-    </div>
+        </div>
+      </div>
+    </main>
   );
 }

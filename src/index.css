@@ -1331,3 +1331,647 @@ a, button { -webkit-tap-highlight-color: transparent; }
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/* ==========================================================================
+   18. PREMIUM PORTAL LAYOUT
+   ========================================================================== */
+
+/* Portal page wrapper */
+.portal-page {
+  background: var(--color-surface-container-low);
+  min-height: 100vh;
+}
+
+/* Portal page header */
+.portal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.5rem 2rem;
+  background: var(--color-surface-container-low);
+  border-bottom: 1px solid rgba(64, 73, 65, 0.4);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(12px);
+}
+
+.portal-header-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--color-on-surface);
+  letter-spacing: -0.02em;
+}
+
+.portal-header-subtitle {
+  font-size: 0.8rem;
+  color: var(--color-on-surface-variant);
+  margin-top: 0.15rem;
+}
+
+/* Portal main content */
+.portal-content {
+  padding: 1.75rem 2rem;
+  max-width: 1400px;
+}
+
+/* ==========================================================================
+   19. PREMIUM SIDEBAR (GrandStride Portal Sidebar)
+   ========================================================================== */
+
+.gs-sidebar {
+  width: 220px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface-container-low);
+  border-right: 1px solid rgba(64, 73, 65, 0.4);
+  flex-shrink: 0;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 40;
+  overflow: hidden;
+}
+
+.gs-sidebar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+  opacity: 0.6;
+}
+
+.gs-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.25rem 1rem 1.1rem;
+  border-bottom: 1px solid rgba(64, 73, 65, 0.4);
+}
+
+.gs-sidebar-brand-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, var(--color-primary-container), rgba(141, 214, 166, 0.1));
+  border: 1px solid rgba(141, 214, 166, 0.2);
+  box-shadow: 0 2px 8px rgba(141, 214, 166, 0.1);
+}
+
+.gs-sidebar-brand-name {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--color-primary);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.gs-sidebar-brand-role {
+  font-size: 0.65rem;
+  color: var(--color-on-surface-variant);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-weight: 600;
+  margin-top: 0.1rem;
+}
+
+.gs-sidebar-nav {
+  flex: 1;
+  padding: 0.75rem 0.5rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-outline-variant) transparent;
+}
+
+.gs-sidebar-section-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--color-on-surface-variant);
+  opacity: 0.6;
+  padding: 0.5rem 0.75rem 0.25rem;
+}
+
+.gs-sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--color-on-surface-variant);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  text-decoration: none;
+  margin-bottom: 0.1rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.gs-sidebar-link::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 0;
+  background: var(--color-primary);
+  border-radius: 0 3px 3px 0;
+  transition: height 0.2s ease;
+}
+
+.gs-sidebar-link:hover {
+  background: rgba(141, 214, 166, 0.06);
+  color: var(--color-on-surface);
+}
+
+.gs-sidebar-link:hover::before {
+  height: 18px;
+}
+
+.gs-sidebar-link.active {
+  background: rgba(141, 214, 166, 0.1);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.gs-sidebar-link.active::before {
+  height: 24px;
+}
+
+.gs-sidebar-link.active .gs-sidebar-icon {
+  color: var(--color-primary);
+}
+
+.gs-sidebar-icon {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: color 0.2s ease;
+}
+
+.gs-sidebar-footer {
+  padding: 0.75rem 0.5rem;
+  border-top: 1px solid rgba(64, 73, 65, 0.4);
+}
+
+.gs-sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  margin-bottom: 0.25rem;
+}
+
+.gs-sidebar-user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 800;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, var(--color-primary-container), rgba(141, 214, 166, 0.15));
+  color: var(--color-on-primary-container);
+  border: 1px solid rgba(141, 214, 166, 0.25);
+  letter-spacing: 0;
+}
+
+.gs-sidebar-user-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-on-surface);
+  line-height: 1.2;
+}
+
+.gs-sidebar-user-email {
+  font-size: 0.68rem;
+  color: var(--color-on-surface-variant);
+  opacity: 0.7;
+  line-height: 1.2;
+}
+
+.gs-sidebar-logout {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: rgba(255, 180, 171, 0.7);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+}
+
+.gs-sidebar-logout:hover {
+  background: rgba(255, 71, 87, 0.08);
+  color: var(--color-error);
+}
+
+.gs-sidebar-logout-icon {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Main area offset for sidebar */
+.gs-main {
+  margin-left: 220px;
+  flex: 1;
+  min-height: 100vh;
+  background: var(--color-surface-container-low);
+  overflow-x: hidden;
+}
+
+/* ==========================================================================
+   20. PREMIUM DASHBOARD CARDS
+   ========================================================================== */
+
+.gs-dash-card {
+  background: var(--color-surface-container-low);
+  border: 1px solid rgba(64, 73, 65, 0.4);
+  border-radius: 16px;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.gs-dash-card:hover {
+  border-color: rgba(141, 214, 166, 0.25);
+  box-shadow: 0 8px 32px -8px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(141, 214, 166, 0.04);
+  transform: translateY(-1px);
+}
+
+.gs-dash-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid rgba(64, 73, 65, 0.3);
+}
+
+.gs-dash-card-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-on-surface);
+  letter-spacing: -0.01em;
+}
+
+.gs-dash-card-body {
+  padding: 1.25rem 1.5rem;
+}
+
+.gs-dash-card-footer {
+  padding: 0.875rem 1.5rem;
+  border-top: 1px solid rgba(64, 73, 65, 0.3);
+}
+
+/* Stat card for dashboards */
+.gs-stat-card {
+  background: var(--color-surface-container-low);
+  border: 1px solid rgba(64, 73, 65, 0.4);
+  border-radius: 14px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.gs-stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 14px 14px 0 0;
+}
+
+.gs-stat-card:hover {
+  border-color: rgba(141, 214, 166, 0.25);
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.35);
+  transform: translateY(-1px);
+}
+
+.gs-stat-card-icon-wrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.gs-stat-card-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-on-surface-variant);
+}
+
+.gs-stat-card-value {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: var(--color-on-surface);
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.gs-stat-card-sub {
+  font-size: 0.72rem;
+  font-weight: 500;
+  margin-top: 0.25rem;
+}
+
+/* ==========================================================================
+   21. PREMIUM PAGE HEADER
+   ========================================================================== */
+
+.gs-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.5rem 2rem;
+  background: linear-gradient(
+    to bottom,
+    rgba(141, 214, 166, 0.03) 0%,
+    transparent 100%
+  );
+  border-bottom: 1px solid rgba(64, 73, 65, 0.3);
+  margin: -1.75rem -2rem 0 -2rem;
+  margin-bottom: 1.75rem;
+}
+
+.gs-page-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1.65rem;
+  font-weight: 700;
+  color: var(--color-on-surface);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.gs-page-title-greeting {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.3rem;
+}
+
+.gs-page-subtitle {
+  font-size: 0.82rem;
+  color: var(--color-on-surface-variant);
+  margin-top: 0.3rem;
+  line-height: 1.5;
+}
+
+/* ==========================================================================
+   22. PREMIUM LIST ROW
+   ========================================================================== */
+
+.gs-list-row {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(64, 73, 65, 0.25);
+  transition: background 0.15s ease;
+}
+
+.gs-list-row:last-child {
+  border-bottom: none;
+}
+
+.gs-list-row:hover {
+  background: rgba(141, 214, 166, 0.03);
+  margin: 0 -0.5rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  border-radius: 10px;
+  border-bottom-color: transparent;
+}
+
+.gs-list-row:last-child:hover {
+  border-bottom: none;
+}
+
+.gs-list-row-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+  flex-shrink: 0;
+  border: 1px solid rgba(64, 73, 65, 0.4);
+}
+
+.gs-list-row-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.gs-list-row-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-on-surface);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gs-list-row-sub {
+  font-size: 0.75rem;
+  color: var(--color-on-surface-variant);
+  margin-top: 0.15rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ==========================================================================
+   23. RESPONSIVE GRID HELPERS
+   ========================================================================== */
+
+.gs-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.gs-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 1024px) {
+  .gs-grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .gs-grid-2 { grid-template-columns: repeat(1, 1fr); }
+}
+
+@media (max-width: 640px) {
+  .gs-grid-4 { grid-template-columns: repeat(1, 1fr); }
+  .gs-sidebar { width: 0; }
+  .gs-main { margin-left: 0; }
+  .portal-content { padding: 1rem; }
+  .gs-page-header { padding: 1rem; margin: -1rem -1rem 1rem -1rem; }
+}
+
+/* ==========================================================================
+   24. PORTAL TOPBAR (Dashboard top action bar)
+   ========================================================================== */
+
+.gs-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.75rem 2rem;
+  background: var(--color-surface-container-low);
+  border-bottom: 1px solid rgba(64, 73, 65, 0.4);
+  margin: -1.75rem -2rem 0 -2rem;
+}
+
+.gs-topbar-icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-on-surface-variant);
+  background: transparent;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.gs-topbar-icon-btn:hover {
+  background: rgba(141, 214, 166, 0.08);
+  color: var(--color-primary);
+  border-color: rgba(141, 214, 166, 0.15);
+}
+
+.gs-topbar-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--color-primary-container), rgba(141, 214, 166, 0.15));
+  color: var(--color-on-primary-container);
+  border: 1px solid rgba(141, 214, 166, 0.25);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.gs-topbar-avatar:hover {
+  box-shadow: 0 0 0 3px rgba(141, 214, 166, 0.15);
+  transform: scale(1.05);
+}
+
+/* ==========================================================================
+   25. EMPTY STATE
+   ========================================================================== */
+
+.gs-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  gap: 0.75rem;
+  text-align: center;
+}
+
+.gs-empty-state-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface-container-high);
+  border: 1px solid rgba(64, 73, 65, 0.4);
+  margin-bottom: 0.25rem;
+}
+
+.gs-empty-state-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-on-surface);
+}
+
+.gs-empty-state-desc {
+  font-size: 0.82rem;
+  color: var(--color-on-surface-variant);
+  max-width: 280px;
+  line-height: 1.6;
+}
+
+/* ==========================================================================
+   26. LOADING SKELETON
+   ========================================================================== */
+
+.gs-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-container-high) 0%,
+    rgba(45, 54, 62, 0.6) 50%,
+    var(--color-surface-container-high) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 10px;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

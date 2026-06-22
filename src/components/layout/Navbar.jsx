@@ -63,13 +63,13 @@ export default function Navbar({ brandLink = '/' }) {
                 type="button"
                 onClick={() => setUserMenuOpen((open) => !open)}
                 className="flex items-center gap-2 text-on-surface hover:text-primary bg-transparent border border-transparent hover:border-outline-variant rounded-lg px-3 py-2 cursor-pointer transition-all"
-                aria-label="Tài khoản"
+                aria-label="Account"
               >
                 <div className="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center overflow-hidden border border-outline-variant">
                   <UserCircle className="w-5 h-5 text-on-surface-variant" />
                 </div>
                 <div className="hidden sm:flex flex-col items-start">
-                  <span className="text-xs font-semibold text-on-surface leading-tight">{user?.fullName || 'Người dùng'}</span>
+                  <span className="text-xs font-semibold text-on-surface leading-tight">{user?.fullName || 'User'}</span>
                   <span className="text-[10px] text-primary font-medium uppercase tracking-wider">{user?.role}</span>
                 </div>
                 <ChevronDown className={`w-4 h-4 text-on-surface-variant transition-transform duration-200 ${userMenuOpen ? 'rotate-180' : ''}`} />
@@ -78,7 +78,7 @@ export default function Navbar({ brandLink = '/' }) {
               {userMenuOpen ? (
                 <div className="absolute right-0 mt-2 w-56 rounded-xl bg-surface-container border border-outline-variant shadow-xl shadow-black/30 overflow-hidden z-50 animate-fade-in-up">
                   <div className="px-4 py-3 border-b border-outline-variant/50">
-                    <p className="text-sm font-semibold text-on-surface truncate">{user?.fullName || 'Người dùng'}</p>
+                    <p className="text-sm font-semibold text-on-surface truncate">{user?.fullName || 'User'}</p>
                     <p className="text-xs text-on-surface-variant truncate mt-0.5">{user?.email}</p>
                     <span className="inline-flex mt-2 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-primary/15 text-primary border border-primary/25">
                       {user?.role}
@@ -91,7 +91,7 @@ export default function Navbar({ brandLink = '/' }) {
                       className="w-full text-left px-4 py-2.5 text-sm text-on-surface hover:bg-surface-container-high flex items-center gap-3 transition-colors cursor-pointer bg-transparent border-none"
                     >
                       <LayoutDashboard className="w-4 h-4 text-primary" />
-                      Vào dashboard
+                      Go to Dashboard
                     </button>
                   ) : null}
                   {getProfilePath(user?.role) ? (
@@ -101,7 +101,7 @@ export default function Navbar({ brandLink = '/' }) {
                       className="w-full text-left px-4 py-2.5 text-sm text-on-surface hover:bg-surface-container-high flex items-center gap-3 transition-colors cursor-pointer bg-transparent border-none"
                     >
                       <User className="w-4 h-4 text-primary" />
-                      Hồ sơ cá nhân
+                      My Profile
                     </button>
                   ) : null}
                   <button
@@ -110,7 +110,7 @@ export default function Navbar({ brandLink = '/' }) {
                     className="w-full text-left px-4 py-2.5 text-sm text-on-surface-variant hover:bg-surface-container-high flex items-center gap-3 transition-colors cursor-pointer bg-transparent border-none"
                   >
                     <Home className="w-4 h-4 text-on-surface-variant" />
-                    Trang chủ
+                    Home
                   </button>
                   <div className="border-t border-outline-variant/50" />
                   <button
@@ -119,7 +119,7 @@ export default function Navbar({ brandLink = '/' }) {
                     className="w-full text-left px-4 py-2.5 text-sm text-error hover:bg-error/10 flex items-center gap-3 transition-colors cursor-pointer bg-transparent border-none"
                   >
                     <LogOut className="w-4 h-4" />
-                    Đăng xuất
+                    Sign Out
                   </button>
                 </div>
               ) : null}
@@ -130,13 +130,13 @@ export default function Navbar({ brandLink = '/' }) {
                 to="/login"
                 className="hidden sm:inline-flex items-center gap-1.5 border border-outline-variant text-on-surface-variant hover:text-on-surface hover:border-outline px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all no-underline hover:bg-surface-container"
               >
-                Đăng nhập
+                Sign In
               </Link>
               <Link
                 to="/register"
                 className="inline-flex items-center gap-1.5 bg-primary text-on-primary hover:brightness-110 px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all no-underline shadow-lg shadow-primary/20"
               >
-                Đăng ký
+                Register
               </Link>
             </>
           )}
