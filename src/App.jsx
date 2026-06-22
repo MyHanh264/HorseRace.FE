@@ -16,6 +16,9 @@ import LandingDashboard from "./pages/customer/LandingDashboard";
 import AdminLayout from "./components/layout/AdminLayout";
 import AdminAnalyticsPage from "./pages/admin/AdminAnalyticsPage";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
+import AdminHorsesPage from "./pages/admin/AdminHorsesPage";
+import AdminTournamentsPage from "./pages/admin/AdminTournamentsPage";
+import AdminRacesPage from "./pages/admin/AdminRacesPage";
 
 // Spectator
 import SpectatorDashboard from "./pages/spectator/SpectatorDashboard";
@@ -63,9 +66,9 @@ function App() {
         >
           <Route index element={<AdminAnalyticsPage />} />
           <Route path="users" element={<AdminUsersPage />} />
-          <Route path="horses" element={<div className="text-sm" style={{color:"#8B949E"}}>Horse management page coming soon.</div>} />
-          <Route path="tournaments" element={<div className="text-sm" style={{color:"#8B949E"}}>Tournament management page coming soon.</div>} />
-          <Route path="races" element={<div className="text-sm" style={{color:"#8B949E"}}>Race management page coming soon.</div>} />
+          <Route path="horses" element={<AdminHorsesPage />} />
+          <Route path="tournaments" element={<AdminTournamentsPage />} />
+          <Route path="races" element={<AdminRacesPage />} />
           <Route path="discrepancies" element={<div className="text-sm" style={{color:"#8B949E"}}>Discrepancy resolution page coming soon.</div>} />
           <Route path="violations" element={<div className="text-sm" style={{color:"#8B949E"}}>Violation management page coming soon.</div>} />
           <Route path="point-management" element={<div className="text-sm p-8" style={{color:"#8B949E"}}>Point Management page coming soon.</div>} />
