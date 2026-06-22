@@ -17,7 +17,7 @@ export default function ForgotPasswordPage() {
     setError('')
 
     if (!email.includes('@')) {
-      setError('Email không hợp lệ.')
+      setError('Please enter a valid email address.')
       return
     }
 
@@ -67,10 +67,10 @@ export default function ForgotPasswordPage() {
             GrandStride
           </button>
           <p className="font-serif text-2xl text-on-surface font-semibold tracking-wide mt-1">
-            Quên Mật Khẩu
+            Forgot Password
           </p>
           <p className="text-xs text-on-surface-variant mt-2 font-medium uppercase tracking-widest">
-            Khôi Phục Quyền Truy Cập
+            Recover Account Access
           </p>
         </div>
 
@@ -85,20 +85,20 @@ export default function ForgotPasswordPage() {
               <div className="auth-alert auth-alert--success flex items-start gap-3">
                 <ShieldCheck className="w-5 h-5 shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-bold">Đã gửi mã OTP thành công!</p>
-                  <p className="mt-1 text-xs opacity-80">Kiểm tra email và thư mục Spam.</p>
+                  <p className="font-bold">OTP code sent successfully!</p>
+                  <p className="mt-1 text-xs opacity-80">Check your email and Spam folder.</p>
                 </div>
               </div>
               <p className="text-xs text-on-surface-variant leading-relaxed">
-                Mã OTP đã được gửi đến email <span className="text-secondary font-bold">{email.trim()}</span>.
-                Mã có hiệu lực trong 10 phút.
+                An OTP code has been sent to <span className="text-secondary font-bold">{email.trim()}</span>.
+                The code is valid for 10 minutes.
               </p>
               <button
                 type="button"
                 className="auth-btn auth-btn--primary flex items-center justify-center gap-2"
                 onClick={goToReset}
               >
-                Nhập mã OTP & Đặt mật khẩu mới
+                Enter OTP & Set New Password
               </button>
               <button
                 type="button"
@@ -109,10 +109,10 @@ export default function ForgotPasswordPage() {
                 {submitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin text-on-surface-variant" />
-                    Đang gửi lại...
+                    Resending...
                   </>
                 ) : (
-                  <>Gửi lại mã OTP</>
+                  <>Resend OTP Code</>
                 )}
               </button>
             </div>
@@ -123,7 +123,7 @@ export default function ForgotPasswordPage() {
               ) : null}
 
               <div className="auth-form-field">
-                <span htmlFor="email">Email đăng ký</span>
+                <span htmlFor="email">Registered Email</span>
                 <div className="relative input-focus-gold border border-outline-variant/30 rounded-xl bg-surface-container-lowest flex items-center px-4">
                   <Mail className="w-5 h-5 text-on-surface-variant/60 mr-3 shrink-0" />
                   <input
@@ -148,10 +148,10 @@ export default function ForgotPasswordPage() {
                 {submitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Đang Gửi...
+                    Sending...
                   </>
                 ) : (
-                  <>Gửi mã OTP qua email</>
+                  <>Send OTP Code via Email</>
                 )}
               </button>
             </form>
@@ -159,12 +159,12 @@ export default function ForgotPasswordPage() {
 
           <div className="text-center pt-2 border-t border-outline-variant/10">
             <p className="text-xs text-on-surface-variant">
-              Tạo tài khoản mới?{' '}
+              Create a new account?{' '}
               <button
                 onClick={() => navigate('/register')}
                 className="text-secondary font-bold hover:underline cursor-pointer bg-transparent border-none transition-colors"
               >
-                Đăng ký ngay
+                Register now
               </button>
             </p>
           </div>
@@ -175,7 +175,7 @@ export default function ForgotPasswordPage() {
           className="mt-6 mx-auto flex items-center gap-2 text-on-surface-variant/60 hover:text-primary transition-colors duration-200 cursor-pointer bg-transparent border-none text-xs font-semibold uppercase tracking-wider"
         >
           <ArrowLeft className="w-4 h-4" />
-          Quay lại đăng nhập
+          Back to Sign In
         </button>
       </main>
     </div>
