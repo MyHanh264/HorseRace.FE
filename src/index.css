@@ -342,6 +342,18 @@ a, button { -webkit-tap-highlight-color: transparent; }
   border: 1px solid var(--color-outline-variant);
 }
 
+.gs-badge-success {
+  background: rgba(52, 211, 153, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.3);
+}
+
+.gs-badge-warning {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
 /* ==========================================================================
    8. BUTTONS
    ========================================================================== */
@@ -401,6 +413,16 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .gs-btn-danger:hover {
   background: rgba(255, 71, 87, 0.25);
   border-color: rgba(255, 71, 87, 0.5);
+}
+
+.gs-btn-success {
+  background: rgba(52, 211, 153, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.3);
+}
+.gs-btn-success:hover {
+  background: rgba(52, 211, 153, 0.25);
+  border-color: rgba(52, 211, 153, 0.5);
 }
 
 .gs-btn-ghost {
