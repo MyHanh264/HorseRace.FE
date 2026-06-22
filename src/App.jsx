@@ -20,7 +20,13 @@ import AdminTournamentsPage from "./pages/admin/AdminTournamentsPage";
 import AdminRacesPage from "./pages/admin/AdminRacesPage";
 
 // Spectator
+import SpectatorLayout from "./components/layout/SpectatorLayout";
 import SpectatorDashboard from "./pages/spectator/SpectatorDashboard";
+import RacesBettingPage from "./pages/spectator/RacesBettingPage";
+import MyPredictionsPage from "./pages/spectator/MyPredictionsPage";
+import PointWalletPage from "./pages/spectator/PointWalletPage";
+import LeaderboardPage from "./pages/spectator/LeaderboardPage";
+import SpectatorProfilePage from "./pages/spectator/SpectatorProfilePage";
 
 // Jockey
 import JockeyDashboard from "./pages/jockey/JockeyDashboard";
@@ -78,10 +84,17 @@ function App() {
           path="/spectator"
           element={
             <RequireRole role="SPECTATOR">
-              <SpectatorDashboard />
+              <SpectatorLayout />
             </RequireRole>
           }
-        />
+        >
+          <Route index element={<SpectatorDashboard />} />
+          <Route path="races" element={<RacesBettingPage />} />
+          <Route path="predictions" element={<MyPredictionsPage />} />
+          <Route path="wallet" element={<PointWalletPage />} />
+          <Route path="leaderboard" element={<LeaderboardPage />} />
+          <Route path="profile" element={<SpectatorProfilePage />} />
+        </Route>
 
         {/* Jockey */}
         <Route

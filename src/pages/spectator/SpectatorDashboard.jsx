@@ -1,110 +1,257 @@
-import { UPCOMING_RACES } from '../../constants'
-import DashboardLayout from '../../components/layout/DashboardLayout'
-import Navbar from '../../components/layout/Navbar'
-import Footer from '../../components/layout/Footer'
-import { useAuth } from '../../context/AuthContext'
-import { Calendar, MapPin, Ticket, Star, ChevronRight, Eye } from 'lucide-react'
-import RaceCard from '../../components/RaceCard'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Trophy, TrendingUp, Clock, ChevronRight, Wallet, Flag, AlertCircle } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
+import { getMyWallet, getMyPredictions, getAllRaces, getAllTournaments } from '../../api/spectator'
 
-export default function SpectatorDashboard() {
-  const { user } = useAuth()
-  const navigate = useNavigate()
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-  const onNavigate = (page) => {
-    if (page === 'racedetails') {
-      navigate('/login')
-    }
-  }
+function fmtBalance(n) {
+  return Number(n ?? 0).toLocaleString('en-US')
+}
+
+function timeUntil(dt) {
+  const diff = new Date(dt) - Date.now()
+  if (diff <= 0) return 'Started'
+  const h = Math.floor(diff / 3600000)
+  const m = Math.floor((diff % 3600000) / 60000)
+  return h > 0 ? `Starts in ${h}h` : `Starts in ${m}m`
+}
+
+function fmtDate(dt) {
+  if (!dt) return '—'
+  return new Date(dt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
+// ─── Race Card ────────────────────────────────────────────────────────────────
+
+function RaceCard({ race, tournament, onBet, delay }) {
+  const until = timeUntil(race.scheduledAt || race.scheduledStartTime)
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <Navbar />
-      <main className="flex-grow w-full px-6 sm:px-8 py-8">
-        <div className="max-w-[1280px] mx-auto">
-          {/* Page header */}
-          <div className="mb-8 animate-fade-in-up" style={{ opacity: 0, animationFillMode: 'forwards' }}>
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-                <Ticket className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h1 className="font-serif text-2xl font-bold text-on-surface">Dashboard Khán giả</h1>
-                <p className="text-on-surface-variant text-sm">Chào mừng trở lại, {user?.fullName || 'Người dùng'}!</p>
-              </div>
-            </div>
-            <div className="h-[2px] w-20 rounded-full bg-gradient-to-r from-primary to-secondary mt-4" />
+    <div
+      className={`gs-card overflow-hidden flex flex-col animate-fade-in-up delay-row-${delay}`}
+      style={{ opacity: 0, animationFillMode: 'forwards' }}
+    >
+      {/* Banner placeholder */}
+      <div className="relative h-36 flex items-center justify-center overflow-hidden"
+           style={{ background: 'linear-gradient(135deg, #182028 0%, #0b141c 100%)' }}>
+        <Flag className="w-12 h-12 text-primary/20" />
+        <div className="absolute top-3 left-3">
+          <span className="bg-primary/90 text-on-primary text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wider">
+            Scheduled
+          </span>
+        </div>
+        <div className="absolute bottom-3 right-3">
+          <span className="bg-black/60 text-white text-xs px-2 py-1 rounded-md">
+            {until}
+          </span>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="p-4 flex flex-col flex-1 gap-3">
+        <div>
+          <h3 className="font-serif font-bold text-on-surface text-base leading-snug">{race.name}</h3>
+          {tournament && (
+            <p className="text-xs text-on-surface-variant mt-0.5">{tournament.name}</p>
+          )}
+          <p className="text-xs text-on-surface-variant mt-1">
+            {fmtDate(race.scheduledAt || race.scheduledStartTime)}
+          </p>
+        </div>
+
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-on-surface-variant">Top Favorite Odds</span>
+          <span className="text-secondary font-bold font-mono">—</span>
+        </div>
+
+        <button
+          onClick={() => onBet(race)}
+          className="gs-btn gs-btn-secondary w-full justify-center mt-auto"
+        >
+          Place Bet
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Stat Card ────────────────────────────────────────────────────────────────
+
+function StatCard({ label, value, Icon, color, bg, loading }) {
+  return (
+    <div className="gs-card p-5">
+      <div className={`w-9 h-9 rounded-lg ${bg} flex items-center justify-center mb-3`}>
+        <Icon size={18} className={color} />
+      </div>
+      <p className="text-xs text-on-surface-variant font-medium mb-1">{label}</p>
+      <p className={`text-2xl font-bold font-mono ${color}`}>{loading ? '—' : value}</p>
+    </div>
+  )
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function SpectatorDashboard() {
+  const { user }  = useAuth()
+  const navigate  = useNavigate()
+
+  const [wallet,      setWallet]      = useState(null)
+  const [predictions, setPredictions] = useState([])
+  const [races,       setRaces]       = useState([])
+  const [tournaments, setTournaments] = useState([])
+  const [loading,     setLoading]     = useState(true)
+  const [error,       setError]       = useState('')
+
+  useEffect(() => {
+    let active = true
+
+    async function load() {
+      setLoading(true)
+      setError('')
+      try {
+        const [w, p, r, t] = await Promise.all([
+          getMyWallet(user?.userId),
+          getMyPredictions(user?.userId),
+          getAllRaces(),
+          getAllTournaments(),
+        ])
+        if (!active) return
+        setWallet(w)
+        setPredictions(Array.isArray(p) ? p : [])
+        setRaces(Array.isArray(r) ? r : [])
+        setTournaments(Array.isArray(t) ? t : [])
+      } catch (err) {
+        if (active) setError(err?.message || 'Không tải được dữ liệu')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    load()
+    return () => { active = false }
+  }, [user?.userId])
+
+  const tournamentMap = useMemo(
+    () => Object.fromEntries(tournaments.map(t => [t.tournamentId, t])),
+    [tournaments],
+  )
+
+  const scheduledRaces = useMemo(
+    () => races.filter(r => r.status === 'Scheduled').slice(0, 3),
+    [races],
+  )
+
+  const activeCount   = predictions.filter(p => p.status === 'Pending').length
+  const wonBets       = predictions.filter(p => p.status === 'Won').length
+  const pendingSettle = predictions.filter(p => p.status === 'Pending').length
+
+  const STATS = [
+    { label: 'Active Predictions', value: activeCount,           Icon: Flag,        color: 'text-primary',   bg: 'bg-primary/10 border border-primary/20' },
+    { label: 'Won Bets',           value: wonBets,               Icon: Trophy,      color: 'text-secondary', bg: 'bg-secondary/10 border border-secondary/20' },
+    { label: 'Total Winnings',     value: '0 pts',               Icon: TrendingUp,  color: 'text-primary',   bg: 'bg-primary/10 border border-primary/20' },
+    { label: 'Pending Settlement', value: pendingSettle,         Icon: Clock,       color: 'text-error',     bg: 'bg-error/10 border border-error/20' },
+  ]
+
+  return (
+    <div className="min-h-screen p-8">
+      <div className="max-w-[1100px] mx-auto">
+
+        {/* Header */}
+        <div className="flex items-start justify-between mb-8 gap-4 flex-wrap">
+          <div className="animate-fade-in-up" style={{ opacity: 0, animationFillMode: 'forwards' }}>
+            <p className="text-on-surface-variant text-sm mb-1">Welcome Back,</p>
+            <h1 className="font-serif text-3xl font-bold text-on-surface">{user?.fullName ?? 'Spectator'}</h1>
+            <p className="text-on-surface-variant text-sm mt-1">
+              Here's your spectator overview for today's races.
+            </p>
           </div>
 
-          {/* Welcome card */}
-          <div className="gs-card p-6 mb-8 animate-fade-in-up delay-row-1" style={{ opacity: 0, animationFillMode: 'forwards' }}>
-            <div className="flex items-start justify-between flex-wrap gap-4">
-              <div>
-                <p className="text-xs text-primary font-bold uppercase tracking-widest mb-1">Xin chào</p>
-                <p className="text-xl font-bold text-on-surface font-serif">{user?.fullName}</p>
-                <p className="text-sm text-on-surface-variant mt-0.5">{user?.email}</p>
-                <div className="mt-3">
-                  <span className="gs-badge gs-badge-primary">
-                    <Star className="w-3 h-3" />
-                    Khán giả
-                  </span>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-3xl font-bold text-secondary font-mono">100</p>
-                <p className="text-xs text-on-surface-variant uppercase tracking-wider">Điểm khởi tạo</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Upcoming races */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
-                  <Calendar className="w-4 h-4 text-primary" />
-                </div>
-                <h2 className="font-serif text-xl font-bold text-on-surface">Các vòng đua sắp diễn ra</h2>
-              </div>
-              <button className="flex items-center gap-1.5 text-xs text-primary font-bold uppercase tracking-wider hover:text-primary/80 transition-colors cursor-pointer bg-transparent border-none">
-                Xem tất cả
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {UPCOMING_RACES.slice(0, 4).map((race, i) => (
-                <div
-                  key={race.id}
-                  className={`gs-card p-5 animate-fade-in-up delay-row-${i + 1}`}
-                  style={{ opacity: 0, animationFillMode: 'forwards' }}
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <span className="gs-badge gs-badge-neutral text-[10px]">{race.status}</span>
-                    <span className="text-xs text-on-surface-variant font-mono flex items-center gap-1">
-                      <Calendar className="w-3 h-3 text-primary" />
-                      {race.date}
-                    </span>
-                  </div>
-                  <h3 className="font-serif text-base font-bold text-on-surface mb-2">{race.name}</h3>
-                  <div className="flex items-center gap-2 text-xs text-on-surface-variant mb-4">
-                    <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
-                    <span>{race.venue}</span>
-                  </div>
-                  <button
-                    onClick={() => onNavigate('racedetails')}
-                    className="w-full gs-btn gs-btn-outline-emerald gs-btn-sm flex items-center justify-center gap-1.5"
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                    Chi tiết
-                  </button>
-                </div>
-              ))}
-            </div>
+          {/* Wallet card */}
+          <div
+            className="gs-card-glow p-5 min-w-[220px] animate-fade-in-up delay-row-1"
+            style={{ opacity: 0, animationFillMode: 'forwards' }}
+          >
+            <p className="text-xs font-bold text-secondary uppercase tracking-widest mb-2 flex items-center gap-1.5">
+              <Wallet size={14} />
+              Point Wallet
+            </p>
+            <p className="text-3xl font-bold text-on-surface font-mono">
+              {loading ? '—' : fmtBalance(wallet?.balance ?? 0)}
+              <span className="text-base font-normal text-on-surface-variant ml-1.5">pts</span>
+            </p>
+            <p className="text-xs text-on-surface-variant mt-2 flex items-center gap-1">
+              <Clock size={12} />
+              Next top-up: Mon 00:00 (+100 pts)
+            </p>
           </div>
         </div>
-      </main>
-      <Footer onNavigate={() => {}} />
+
+        {/* Error */}
+        {error && (
+          <div className="mb-6 p-4 rounded-xl bg-error/10 border border-error/25 text-error text-sm flex items-center gap-2">
+            <AlertCircle size={16} className="shrink-0" />
+            {error}
+          </div>
+        )}
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+          {STATS.map(({ label, value, Icon, color, bg }, i) => (
+            <div
+              key={label}
+              className={`animate-fade-in-up delay-row-${i + 1}`}
+              style={{ opacity: 0, animationFillMode: 'forwards' }}
+            >
+              <StatCard
+                label={label}
+                value={value}
+                Icon={Icon}
+                color={color}
+                bg={bg}
+                loading={loading}
+              />
+            </div>
+          ))}
+        </div>
+
+        {/* Upcoming races */}
+        <div>
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="font-serif text-xl font-bold text-on-surface">Upcoming Races to Bet</h2>
+            <button
+              onClick={() => navigate('/spectator/races')}
+              className="text-xs text-secondary font-bold flex items-center gap-1 hover:text-secondary/80 transition-colors bg-transparent border-none cursor-pointer"
+            >
+              View full card <ChevronRight size={14} />
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="w-8 h-8 border-2 border-secondary/30 border-t-secondary rounded-full animate-spin" />
+            </div>
+          ) : scheduledRaces.length === 0 ? (
+            <div className="gs-card p-12 text-center text-on-surface-variant text-sm">
+              Không có cuộc đua nào đang mở đặt cược.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {scheduledRaces.map((race, i) => (
+                <RaceCard
+                  key={race.raceId}
+                  race={race}
+                  tournament={tournamentMap[race.tournamentId]}
+                  delay={(i % 4) + 1}
+                  onBet={() => navigate('/spectator/races', { state: { selectedRaceId: race.raceId } })}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+      </div>
     </div>
   )
 }
