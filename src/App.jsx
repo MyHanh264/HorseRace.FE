@@ -37,7 +37,11 @@ import JockeyLayout from "./components/layout/JockeyLayout";
 import JockeyLeaderboardPage from "./pages/jockey/JockeyLeaderboardPage";
 
 // Referee
-import RefereeDashboard from "./pages/referee/RefereeDashboard";
+import RefereeLayout from "./components/layout/RefereeLayout";
+import RefereeAssignedRacesPage from "./pages/referee/RefereeAssignedRacesPage";
+import RefereeResultEntryPage from "./pages/referee/RefereeResultEntryPage";
+import RefereeViolationsPage from "./pages/referee/RefereeViolationsPage";
+import RefereeProfilePage from "./pages/referee/RefereeProfilePage";
 
 // Horse Owner
 import HorseOwnerDashboard from "./pages/horse-owner/HorseOwnerDashboard";
@@ -117,10 +121,15 @@ function App() {
           path="/referee"
           element={
             <RequireRole role="REFEREE">
-              <RefereeDashboard />
+              <RefereeLayout />
             </RequireRole>
           }
-        />
+        >
+          <Route index element={<RefereeAssignedRacesPage />} />
+          <Route path="result-entry" element={<RefereeResultEntryPage />} />
+          <Route path="violations" element={<RefereeViolationsPage />} />
+          <Route path="profile" element={<RefereeProfilePage />} />
+        </Route>
 
         {/* Horse Owner */}
         <Route
