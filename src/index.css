@@ -342,6 +342,18 @@ a, button { -webkit-tap-highlight-color: transparent; }
   border: 1px solid var(--color-outline-variant);
 }
 
+.gs-badge-warning {
+  background: rgba(230, 195, 100, 0.15);
+  color: var(--color-secondary);
+  border: 1px solid rgba(230, 195, 100, 0.3);
+}
+
+.gs-badge-success {
+  background: rgba(141, 214, 166, 0.15);
+  color: var(--color-primary);
+  border: 1px solid rgba(141, 214, 166, 0.3);
+}
+
 /* ==========================================================================
    8. BUTTONS
    ========================================================================== */
@@ -392,6 +404,29 @@ a, button { -webkit-tap-highlight-color: transparent; }
   transform: translateY(-1px);
 }
 .gs-btn-secondary:active { transform: translateY(0); }
+
+.gs-btn-success {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  box-shadow: 0 2px 8px rgba(141, 214, 166, 0.2);
+}
+.gs-btn-success:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 4px 16px rgba(141, 214, 166, 0.3);
+  transform: translateY(-1px);
+}
+.gs-btn-success:active { transform: translateY(0); }
+
+.gs-btn-error {
+  background: rgba(255, 71, 87, 0.15);
+  color: var(--color-error);
+  border: 1px solid rgba(255, 71, 87, 0.3);
+}
+.gs-btn-error:hover {
+  background: rgba(255, 71, 87, 0.25);
+  border-color: rgba(255, 71, 87, 0.5);
+}
+.gs-btn-error:active { transform: translateY(0); }
 
 .gs-btn-danger {
   background: rgba(255, 71, 87, 0.15);
