@@ -251,8 +251,11 @@ export default function AdminPointManagementPage() {
       .then((res) => {
         if (!active) return
         const data = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : []
+        const totalCount = Array.isArray(res)
+          ? res.total ?? data.length
+          : (res?.total ?? (lbTotal > 0 ? lbTotal : data.length))
         setLeaderboard(data)
-        setLbTotal(Array.isArray(res) ? res.length : (res?.total ?? data.length))
+        setLbTotal(totalCount)
       })
       .catch((err) => { if (active) setLbError(err?.message || "Failed to load leaderboard.") })
       .finally(() => { if (active) setLbLoading(false) })
@@ -269,8 +272,11 @@ export default function AdminPointManagementPage() {
       .then((res) => {
         if (!active) return
         const data = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : []
+        const totalCount = Array.isArray(res)
+          ? res.total ?? data.length
+          : (res?.total ?? (histTotal > 0 ? histTotal : data.length))
         setHistory(data)
-        setHistTotal(Array.isArray(res) ? res.length : (res?.total ?? data.length))
+        setHistTotal(totalCount)
       })
       .catch((err) => { if (active) setHistError(err?.message || "Failed to load history.") })
       .finally(() => { if (active) setHistLoading(false) })
@@ -291,6 +297,19 @@ export default function AdminPointManagementPage() {
   const histTotalPages = Math.max(1, Math.ceil(histTotal / PAGE_SIZE))
   const top3 = leaderboard.slice(0, 3)
   const rest = leaderboard.slice(3)
+
+  const lbPageNumbers = []
+  const maxVisible = 5
+  let lbStart = Math.max(1, Math.min(lbPage - Math.floor(maxVisible / 2), lbTotalPages - maxVisible + 1))
+  for (let i = 0; i < Math.min(maxVisible, lbTotalPages); i++) {
+    lbPageNumbers.push(lbStart + i)
+  }
+
+  const histPageNumbers = []
+  let histStart = Math.max(1, Math.min(histPage - Math.floor(maxVisible / 2), histTotalPages - maxVisible + 1))
+  for (let i = 0; i < Math.min(maxVisible, histTotalPages); i++) {
+    histPageNumbers.push(histStart + i)
+  }
 
   return (
     <div className="max-w-[1280px] mx-auto px-6 sm:px-8 py-8">
@@ -439,7 +458,7 @@ export default function AdminPointManagementPage() {
                 <div className="flex items-center gap-1">
                   <button onClick={() => setLbPage((p) => Math.max(1, p - 1))} disabled={lbPage === 1}
                     className="gs-btn gs-btn-ghost gs-btn-sm px-2"><ChevronLeft className="w-4 h-4" /></button>
-                  {Array.from({ length: Math.min(lbTotalPages, 5) }, (_, i) => i + 1).map((p) => (
+                  {lbPageNumbers.map((p) => (
                     <button key={p} onClick={() => setLbPage(p)}
                       className={`gs-btn gs-btn-sm min-w-[32px] justify-center ${lbPage === p ? "gs-btn-secondary" : "gs-btn-ghost"}`}>{p}</button>
                   ))}
@@ -543,7 +562,7 @@ export default function AdminPointManagementPage() {
                 <div className="flex items-center gap-1">
                   <button onClick={() => setHistPage((p) => Math.max(1, p - 1))} disabled={histPage === 1}
                     className="gs-btn gs-btn-ghost gs-btn-sm px-2"><ChevronLeft className="w-4 h-4" /></button>
-                  {Array.from({ length: Math.min(histTotalPages, 5) }, (_, i) => i + 1).map((p) => (
+                  {histPageNumbers.map((p) => (
                     <button key={p} onClick={() => setHistPage(p)}
                       className={`gs-btn gs-btn-sm min-w-[32px] justify-center ${histPage === p ? "gs-btn-secondary" : "gs-btn-ghost"}`}>{p}</button>
                   ))}
