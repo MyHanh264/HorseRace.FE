@@ -11,57 +11,36 @@ import {
   finishRace,
 } from "../../api/admin"
 import {
-  Flag,
-  Search,
-  Plus,
-  ChevronLeft,
-  ChevronRight,
-  CircleCheck,
-  XCircle,
-  Trash2,
-  Eye,
-  Edit,
-  X,
-  ChevronUp,
-  ChevronDown,
-  Play,
-  Square,
-  Calendar,
-  Clock,
-  Users,
-  Trophy,
-  MapPin,
+  Flag, Search, Plus, ChevronLeft, ChevronRight,
+  CircleCheck, XCircle, Trash2, Eye, Edit, X,
+  ChevronUp, ChevronDown, Play, Square, Calendar,
+  Clock, Users, Trophy, MapPin,
 } from "lucide-react"
 
 function formatDate(value) {
   return value
     ? new Date(value).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
+        year: "numeric", month: "short", day: "numeric",
       })
     : "—"
 }
 
 function formatTime(value) {
   return value
-    ? new Date(value).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+    ? new Date(value).toLocaleTimeString("en-US", {
+        hour: "2-digit", minute: "2-digit",
+      })
     : "—"
 }
 
 function getStatusBadgeClass(status) {
   switch (status) {
-    case "FINISHED":
-      return "gs-badge gs-badge-success"
-    case "ONGOING":
-      return "gs-badge gs-badge-warning"
-    case "SCHEDULED":
-      return "gs-badge gs-badge-neutral"
+    case "FINISHED":  return "gs-badge gs-badge-success"
+    case "ONGOING":   return "gs-badge gs-badge-warning"
+    case "SCHEDULED": return "gs-badge gs-badge-neutral"
     case "REJECTED":
-    case "CANCELLED":
-      return "gs-badge gs-badge-error"
-    default:
-      return "gs-badge gs-badge-neutral"
+    case "CANCELLED": return "gs-badge gs-badge-error"
+    default:          return "gs-badge gs-badge-neutral"
   }
 }
 
@@ -78,7 +57,6 @@ export default function AdminRacesPage() {
   const [totalPages, setTotalPages] = useState(0)
   const [activeTab, setActiveTab] = useState("All")
 
-  // Modals
   const [viewRace, setViewRace] = useState(null)
   const [editRace, setEditRace] = useState(null)
   const [createModal, setCreateModal] = useState(false)
@@ -87,17 +65,10 @@ export default function AdminRacesPage() {
   const [deletingId, setDeletingId] = useState(null)
   const [actionLoading, setActionLoading] = useState(null)
 
-  // Form state
   const [formData, setFormData] = useState({
-    name: "",
-    raceDate: "",
-    raceTime: "",
-    trackName: "",
-    distance: "",
-    prizePool: "",
-    tournamentId: "",
-    status: "SCHEDULED",
-    imageUrl: "",
+    name: "", raceDate: "", raceTime: "",
+    trackName: "", distance: "", prizePool: "",
+    tournamentId: "", status: "SCHEDULED", imageUrl: "",
   })
 
   useEffect(() => { loadRaces() }, [page, pageSize, search, sort, sortDirection, activeTab])
@@ -138,8 +109,12 @@ export default function AdminRacesPage() {
 
   const handleReject = useCallback(async (id) => {
     setActionLoading(id)
-    try { await rejectRace(id, rejectReason.trim() || null); setRejectingId(null); setRejectReason(""); await loadRaces() }
-    catch (err) { setError(err instanceof Error ? err.message : "Failed to reject race.") }
+    try {
+      await rejectRace(id, rejectReason.trim() || null)
+      setRejectingId(null)
+      setRejectReason("")
+      await loadRaces()
+    } catch (err) { setError(err instanceof Error ? err.message : "Failed to reject race.") }
     finally { setActionLoading(null) }
   }, [loadRaces, rejectReason])
 
@@ -186,8 +161,11 @@ export default function AdminRacesPage() {
 
   const handleUpdateSubmit = useCallback(async () => {
     setActionLoading(editRace.raceId)
-    try { await updateRace(editRace.raceId, formData); setEditRace(null); await loadRaces() }
-    catch (err) { setError(err instanceof Error ? err.message : "Failed to update race.") }
+    try {
+      await updateRace(editRace.raceId, formData)
+      setEditRace(null)
+      await loadRaces()
+    } catch (err) { setError(err instanceof Error ? err.message : "Failed to update race.") }
     finally { setActionLoading(null) }
   }, [editRace, formData, loadRaces])
 
@@ -198,8 +176,7 @@ export default function AdminRacesPage() {
       setCreateModal(false)
       setFormData({ name: "", raceDate: "", raceTime: "", trackName: "", distance: "", prizePool: "", tournamentId: "", status: "SCHEDULED", imageUrl: "" })
       await loadRaces()
-    }
-    catch (err) { setError(err instanceof Error ? err.message : "Failed to create race.") }
+    } catch (err) { setError(err instanceof Error ? err.message : "Failed to create race.") }
     finally { setActionLoading(null) }
   }, [formData, loadRaces])
 
@@ -259,10 +236,10 @@ export default function AdminRacesPage() {
 
       {/* ERROR */}
       {error && (
-        <div className="mb-5 auth-alert auth-alert--error flex items-start gap-3">
-          <XCircle className="w-5 h-5 shrink-0 mt-0.5" />
+        <div className="mb-5 p-4 rounded-xl bg-error/10 border border-error/25 text-error text-sm flex items-center gap-3">
+          <XCircle className="w-4 h-4 shrink-0" />
           <div className="flex-1">{error}</div>
-          <button onClick={() => setError(null)} className="shrink-0"><X size={14} /></button>
+          <button onClick={() => setError(null)}><X size={14} /></button>
         </div>
       )}
 
@@ -270,13 +247,9 @@ export default function AdminRacesPage() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-5">
         <div className="relative flex-1 max-w-sm">
           <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/50" />
-          <input
-            type="text"
-            placeholder="Search by name, track..."
-            value={search}
-            onChange={handleSearch}
-            className="w-full bg-surface-container-lowest border border-outline-variant/40 text-sm rounded-xl pl-11 pr-4 py-3 text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40"
-          />
+          <input type="text" placeholder="Search by name, track..."
+            value={search} onChange={handleSearch}
+            className="w-full bg-surface-container-lowest border border-outline-variant/40 text-sm rounded-xl pl-11 pr-4 py-3 text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40" />
         </div>
         <div className="flex gap-1 bg-surface-container-low rounded-xl p-1 overflow-x-auto">
           {TABS.map((tab) => (
@@ -296,18 +269,12 @@ export default function AdminRacesPage() {
         <table className="admin-table">
           <thead>
             <tr>
-              <th>
-                <button onClick={() => handleSort("name")} className="flex items-center gap-1">Race Name <SortIcon column="name" /></button>
-              </th>
+              <th><button onClick={() => handleSort("name")} className="flex items-center gap-1">Race Name <SortIcon column="name" /></button></th>
               <th>Track</th>
-              <th>
-                <button onClick={() => handleSort("raceDate")} className="flex items-center gap-1">Date <SortIcon column="raceDate" /></button>
-              </th>
+              <th><button onClick={() => handleSort("raceDate")} className="flex items-center gap-1">Date <SortIcon column="raceDate" /></button></th>
               <th>Time</th>
               <th>Distance</th>
-              <th>
-                <button onClick={() => handleSort("status")} className="flex items-center gap-1">Status <SortIcon column="status" /></button>
-              </th>
+              <th><button onClick={() => handleSort("status")} className="flex items-center gap-1">Status <SortIcon column="status" /></button></th>
               <th>Prize</th>
               <th>Actions</th>
             </tr>
@@ -327,7 +294,7 @@ export default function AdminRacesPage() {
                     <Flag size={28} className="text-on-surface-variant/40" />
                   </div>
                   <h3 className="font-serif text-xl font-bold text-on-surface mb-2">No races found</h3>
-                  <p className="text-on-surface-variant text-sm">{search ? "Try a different search keyword." : "No races have been scheduled yet."}</p>
+                  <p className="text-on-surface-variant text-sm">{search ? "Try a different keyword." : "No races have been scheduled yet."}</p>
                 </div>
               </td></tr>
             ) : (
@@ -355,31 +322,54 @@ export default function AdminRacesPage() {
                   <td>
                     {rejectingId === r.raceId ? (
                       <div className="flex flex-col gap-2 min-w-[200px]">
-                        <input type="text" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="Rejection reason (optional)"
+                        <input type="text" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)}
+                          placeholder="Rejection reason (optional)"
                           className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2 text-xs text-on-surface focus:outline-none focus:border-error transition-all placeholder:text-on-surface-variant/40" />
                         <div className="flex gap-2">
-                          <button onClick={() => handleReject(r.raceId)} disabled={actionLoading === r.raceId} className="gs-btn gs-btn-danger gs-btn-sm flex items-center gap-1.5"><CircleCheck size={12} /> Confirm</button>
+                          <button onClick={() => handleReject(r.raceId)} disabled={actionLoading === r.raceId}
+                            className="gs-btn gs-btn-danger gs-btn-sm flex items-center gap-1.5">
+                            <CircleCheck size={12} /> Confirm
+                          </button>
                           <button onClick={() => { setRejectingId(null); setRejectReason("") }} className="gs-btn gs-btn-ghost gs-btn-sm">Cancel</button>
                         </div>
                       </div>
                     ) : (
                       <div className="flex gap-1.5 items-center flex-wrap">
                         {r.status === "SCHEDULED" && (
-                          <button onClick={() => handleStart(r.raceId)} disabled={actionLoading === r.raceId} title="Start Race" className="gs-btn gs-btn-success gs-btn-sm" title="Start"><Play size={13} /></button>
+                          <button onClick={() => handleStart(r.raceId)} disabled={actionLoading === r.raceId}
+                            title="Start Race" className="gs-btn gs-btn-success gs-btn-sm">
+                            <Play size={13} />
+                          </button>
                         )}
                         {r.status === "ONGOING" && (
-                          <button onClick={() => handleFinish(r.raceId)} disabled={actionLoading === r.raceId} title="Finish Race" className="gs-btn gs-btn-success gs-btn-sm"><Square size={13} /></button>
+                          <button onClick={() => handleFinish(r.raceId)} disabled={actionLoading === r.raceId}
+                            title="Finish Race" className="gs-btn gs-btn-success gs-btn-sm">
+                            <Square size={13} />
+                          </button>
                         )}
                         {r.status === "SCHEDULED" && (
                           <>
-                            <button onClick={() => handleApprove(r.raceId)} disabled={actionLoading === r.raceId} title="Approve" className="gs-btn gs-btn-success gs-btn-sm"><CircleCheck size={13} /></button>
-                            <button onClick={() => setRejectingId(r.raceId)} disabled={actionLoading === r.raceId} title="Reject" className="gs-btn gs-btn-danger gs-btn-sm"><XCircle size={13} /></button>
+                            <button onClick={() => handleApprove(r.raceId)} disabled={actionLoading === r.raceId}
+                              title="Approve" className="gs-btn gs-btn-success gs-btn-sm">
+                              <CircleCheck size={13} />
+                            </button>
+                            <button onClick={() => setRejectingId(r.raceId)} disabled={actionLoading === r.raceId}
+                              title="Reject" className="gs-btn gs-btn-danger gs-btn-sm">
+                              <XCircle size={13} />
+                            </button>
                           </>
                         )}
-                        <button onClick={() => setViewRace(r)} title="View" className="gs-btn gs-btn-ghost gs-btn-sm"><Eye size={13} /></button>
-                        <button onClick={() => openEditModal(r)} title="Edit" className="gs-btn gs-btn-ghost gs-btn-sm"><Edit size={13} /></button>
+                        <button onClick={() => setViewRace(r)} title="View" className="gs-btn gs-btn-ghost gs-btn-sm">
+                          <Eye size={13} />
+                        </button>
+                        <button onClick={() => openEditModal(r)} title="Edit" className="gs-btn gs-btn-ghost gs-btn-sm">
+                          <Edit size={13} />
+                        </button>
                         {r.status === "SCHEDULED" && (
-                          <button onClick={() => openDeleteConfirm(r.raceId)} disabled={actionLoading === r.raceId} title="Delete" className="gs-btn gs-btn-ghost gs-btn-sm text-error hover:bg-error/10"><Trash2 size={13} /></button>
+                          <button onClick={() => openDeleteConfirm(r.raceId)} disabled={actionLoading === r.raceId}
+                            title="Delete" className="gs-btn gs-btn-ghost gs-btn-sm text-error hover:bg-error/10">
+                            <Trash2 size={13} />
+                          </button>
                         )}
                       </div>
                     )}
@@ -396,7 +386,8 @@ export default function AdminRacesPage() {
         <div className="flex items-center justify-between mt-4 px-2">
           <div className="flex items-center gap-2 text-sm text-on-surface-variant">
             <span>Rows per page:</span>
-            <select value={pageSize} onChange={handlePageSizeChange} className="bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-2 py-1 text-xs text-on-surface focus:outline-none">
+            <select value={pageSize} onChange={handlePageSizeChange}
+              className="bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-2 py-1 text-xs text-on-surface focus:outline-none">
               {[5, 10, 20, 50].map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
@@ -419,7 +410,9 @@ export default function AdminRacesPage() {
               <button onClick={() => setViewRace(null)} className="gs-btn gs-btn-ghost gs-btn-sm"><X size={16} /></button>
             </div>
             <div className="h-40 bg-surface-container-highest overflow-hidden">
-              {viewRace.imageUrl ? <img src={viewRace.imageUrl} alt={viewRace.name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-5xl">🏇</div>}
+              {viewRace.imageUrl
+                ? <img src={viewRace.imageUrl} alt={viewRace.name} className="w-full h-full object-cover" />
+                : <div className="w-full h-full flex items-center justify-center text-5xl">🏇</div>}
             </div>
             <div className="p-5 space-y-3">
               <div className="flex items-center justify-between">
@@ -428,34 +421,47 @@ export default function AdminRacesPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { label: "Track", value: viewRace.trackName, icon: <MapPin size={12} /> },
+                  { label: "Track", value: viewRace.trackName },
                   { label: "Race Date", value: formatDate(viewRace.raceDate) },
                   { label: "Race Time", value: formatTime(viewRace.raceTime) },
                   { label: "Distance", value: viewRace.distance || "—" },
-                  { label: "Prize Pool", value: viewRace.prizePool || "—", icon: <Trophy size={12} /> },
+                  { label: "Prize Pool", value: viewRace.prizePool || "—" },
                   { label: "Tournament", value: viewRace.tournamentName || "—" },
                 ].map((field) => (
                   <div key={field.label} className="bg-surface-container-low rounded-xl p-3">
-                    <p className="text-xs text-on-surface-variant mb-1 flex items-center gap-1">{field.icon}{field.label}</p>
+                    <p className="text-xs text-on-surface-variant mb-1">{field.label}</p>
                     <p className="text-sm font-semibold text-on-surface">{field.value || "—"}</p>
                   </div>
                 ))}
               </div>
             </div>
-            <div className="flex gap-3 p-5 border-t border-outline-variant/30">
+            <div className="flex gap-3 p-5 border-t border-outline-variant/30 flex-wrap">
               {viewRace.status === "SCHEDULED" && (
                 <>
-                  <button onClick={() => { handleApprove(viewRace.raceId); setViewRace(null) }} className="gs-btn gs-btn-success flex-1 flex items-center justify-center gap-2"><CircleCheck size={14} /> Approve</button>
-                  <button onClick={() => { setRejectingId(viewRace.raceId); setViewRace(null) }} className="gs-btn gs-btn-danger flex-1 flex items-center justify-center gap-2"><XCircle size={14} /> Reject</button>
+                  <button onClick={() => { handleApprove(viewRace.raceId); setViewRace(null) }}
+                    className="gs-btn gs-btn-success flex-1 flex items-center justify-center gap-2">
+                    <CircleCheck size={14} /> Approve
+                  </button>
+                  <button onClick={() => { setRejectingId(viewRace.raceId); setViewRace(null) }}
+                    className="gs-btn gs-btn-danger flex-1 flex items-center justify-center gap-2">
+                    <XCircle size={14} /> Reject
+                  </button>
+                  <button onClick={() => { handleStart(viewRace.raceId); setViewRace(null) }}
+                    className="gs-btn gs-btn-primary flex-1 flex items-center justify-center gap-2">
+                    <Play size={14} /> Start Race
+                  </button>
                 </>
               )}
-              {viewRace.status === "SCHEDULED" && (
-                <button onClick={() => { handleStart(viewRace.raceId); setViewRace(null) }} className="gs-btn gs-btn-primary flex-1 flex items-center justify-center gap-2"><Play size={14} /> Start Race</button>
-              )}
               {viewRace.status === "ONGOING" && (
-                <button onClick={() => { handleFinish(viewRace.raceId); setViewRace(null) }} className="gs-btn gs-btn-success flex-1 flex items-center justify-center gap-2"><Square size={14} /> Finish Race</button>
+                <button onClick={() => { handleFinish(viewRace.raceId); setViewRace(null) }}
+                  className="gs-btn gs-btn-success flex-1 flex items-center justify-center gap-2">
+                  <Square size={14} /> Finish Race
+                </button>
               )}
-              <button onClick={() => { setViewRace(null); openEditModal(viewRace) }} className="gs-btn gs-btn-primary flex-1 flex items-center justify-center gap-2"><Edit size={14} /> Edit</button>
+              <button onClick={() => { setViewRace(null); openEditModal(viewRace) }}
+                className="gs-btn gs-btn-primary flex-1 flex items-center justify-center gap-2">
+                <Edit size={14} /> Edit
+              </button>
             </div>
           </div>
         </div>
@@ -473,22 +479,17 @@ export default function AdminRacesPage() {
               {[
                 { name: "name", label: "Race Name", type: "text", placeholder: "e.g. Final Sprint" },
                 { name: "trackName", label: "Track / Venue", type: "text", placeholder: "e.g. Happy Track" },
-                { name: "raceDate", label: "Race Date", type: "date", placeholder: "" },
-                { name: "raceTime", label: "Race Time", type: "time", placeholder: "" },
+                { name: "raceDate", label: "Race Date", type: "date" },
+                { name: "raceTime", label: "Race Time", type: "time" },
                 { name: "distance", label: "Distance", type: "text", placeholder: "e.g. 1600m" },
                 { name: "prizePool", label: "Prize Pool", type: "text", placeholder: "e.g. $50,000" },
                 { name: "tournamentId", label: "Tournament ID", type: "number", placeholder: "e.g. 1" },
               ].map((field) => (
                 <div key={field.name}>
                   <label className="block text-xs font-semibold text-on-surface-variant mb-1.5 uppercase tracking-wider">{field.label}</label>
-                  <input
-                    type={field.type}
-                    name={field.name}
-                    value={formData[field.name]}
-                    onChange={handleFormChange}
+                  <input type={field.type} name={field.name} value={formData[field.name]} onChange={handleFormChange}
                     placeholder={field.placeholder}
-                    className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40"
-                  />
+                    className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40" />
                 </div>
               ))}
               <div>
@@ -506,7 +507,8 @@ export default function AdminRacesPage() {
             </div>
             <div className="flex gap-3 p-5 border-t border-outline-variant/30">
               <button onClick={() => setEditRace(null)} className="gs-btn gs-btn-ghost flex-1">Cancel</button>
-              <button onClick={handleUpdateSubmit} disabled={actionLoading === editRace.raceId || !formData.name.trim()} className="gs-btn gs-btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50">
+              <button onClick={handleUpdateSubmit} disabled={actionLoading === editRace.raceId || !formData.name.trim()}
+                className="gs-btn gs-btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50">
                 {actionLoading === editRace.raceId ? <div className="w-4 h-4 border-2 border-on-primary/30 border-t-on-primary rounded-full animate-spin" /> : null}
                 Save Changes
               </button>
@@ -527,22 +529,17 @@ export default function AdminRacesPage() {
               {[
                 { name: "name", label: "Race Name", type: "text", placeholder: "e.g. Final Sprint" },
                 { name: "trackName", label: "Track / Venue", type: "text", placeholder: "e.g. Happy Track" },
-                { name: "raceDate", label: "Race Date", type: "date", placeholder: "" },
-                { name: "raceTime", label: "Race Time", type: "time", placeholder: "" },
+                { name: "raceDate", label: "Race Date", type: "date" },
+                { name: "raceTime", label: "Race Time", type: "time" },
                 { name: "distance", label: "Distance", type: "text", placeholder: "e.g. 1600m" },
                 { name: "prizePool", label: "Prize Pool", type: "text", placeholder: "e.g. $50,000" },
                 { name: "tournamentId", label: "Tournament ID", type: "number", placeholder: "e.g. 1" },
               ].map((field) => (
                 <div key={field.name}>
                   <label className="block text-xs font-semibold text-on-surface-variant mb-1.5 uppercase tracking-wider">{field.label}</label>
-                  <input
-                    type={field.type}
-                    name={field.name}
-                    value={formData[field.name]}
-                    onChange={handleFormChange}
+                  <input type={field.type} name={field.name} value={formData[field.name]} onChange={handleFormChange}
                     placeholder={field.placeholder}
-                    className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40"
-                  />
+                    className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40" />
                 </div>
               ))}
               <div>
@@ -560,7 +557,8 @@ export default function AdminRacesPage() {
             </div>
             <div className="flex gap-3 p-5 border-t border-outline-variant/30">
               <button onClick={() => setCreateModal(false)} className="gs-btn gs-btn-ghost flex-1">Cancel</button>
-              <button onClick={handleCreateSubmit} disabled={actionLoading === "create" || !formData.name.trim()} className="gs-btn gs-btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50">
+              <button onClick={handleCreateSubmit} disabled={actionLoading === "create" || !formData.name.trim()}
+                className="gs-btn gs-btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50">
                 {actionLoading === "create" ? <div className="w-4 h-4 border-2 border-on-primary/30 border-t-on-primary rounded-full animate-spin" /> : null}
                 Create Race
               </button>
@@ -574,13 +572,16 @@ export default function AdminRacesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}>
           <div className="bg-surface-container-low rounded-2xl border border-outline-variant/40 w-full max-w-sm animate-fade-in-up" style={{ animationFillMode: "forwards" }}>
             <div className="p-6 text-center">
-              <div className="w-14 h-14 rounded-full bg-error/10 border border-error/20 mx-auto mb-4 flex items-center justify-center"><Trash2 size={24} className="text-error" /></div>
+              <div className="w-14 h-14 rounded-full bg-error/10 border border-error/20 mx-auto mb-4 flex items-center justify-center">
+                <Trash2 size={24} className="text-error" />
+              </div>
               <h3 className="font-serif text-lg font-bold text-on-surface mb-2">Delete Race</h3>
-              <p className="text-sm text-on-surface-variant mb-4">Are you sure? This action cannot be undone.</p>
+              <p className="text-sm text-on-surface-variant">Are you sure? This action cannot be undone.</p>
             </div>
             <div className="flex gap-3 p-5 border-t border-outline-variant/30">
               <button onClick={() => setDeletingId(null)} className="gs-btn gs-btn-ghost flex-1">Cancel</button>
-              <button onClick={() => handleDelete(deletingId)} disabled={actionLoading === deletingId} className="gs-btn gs-btn-danger flex-1 flex items-center justify-center gap-2 disabled:opacity-50">
+              <button onClick={() => handleDelete(deletingId)} disabled={actionLoading === deletingId}
+                className="gs-btn gs-btn-danger flex-1 flex items-center justify-center gap-2 disabled:opacity-50">
                 {actionLoading === deletingId ? <div className="w-4 h-4 border-2 border-on-primary/30 border-t-on-primary rounded-full animate-spin" /> : null}
                 Delete
               </button>
@@ -594,15 +595,19 @@ export default function AdminRacesPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}>
           <div className="bg-surface-container-low rounded-2xl border border-outline-variant/40 w-full max-w-sm animate-fade-in-up" style={{ animationFillMode: "forwards" }}>
             <div className="p-6 text-center">
-              <div className="w-14 h-14 rounded-full bg-error/10 border border-error/20 mx-auto mb-4 flex items-center justify-center"><XCircle size={24} className="text-error" /></div>
+              <div className="w-14 h-14 rounded-full bg-error/10 border border-error/20 mx-auto mb-4 flex items-center justify-center">
+                <XCircle size={24} className="text-error" />
+              </div>
               <h3 className="font-serif text-lg font-bold text-on-surface mb-2">Reject Race</h3>
               <p className="text-sm text-on-surface-variant mb-4">Are you sure you want to reject this race?</p>
-              <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="Reason (optional)" rows={3}
+              <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Reason (optional)" rows={3}
                 className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40 resize-none mb-4" />
             </div>
             <div className="flex gap-3 p-5 border-t border-outline-variant/30">
               <button onClick={() => { setRejectingId(null); setRejectReason("") }} className="gs-btn gs-btn-ghost flex-1">Cancel</button>
-              <button onClick={() => handleReject(rejectingId)} disabled={actionLoading === rejectingId} className="gs-btn gs-btn-danger flex-1 flex items-center justify-center gap-2 disabled:opacity-50">
+              <button onClick={() => handleReject(rejectingId)} disabled={actionLoading === rejectingId}
+                className="gs-btn gs-btn-danger flex-1 flex items-center justify-center gap-2 disabled:opacity-50">
                 {actionLoading === rejectingId ? <div className="w-4 h-4 border-2 border-on-primary/30 border-t-on-primary rounded-full animate-spin" /> : null}
                 Reject
               </button>

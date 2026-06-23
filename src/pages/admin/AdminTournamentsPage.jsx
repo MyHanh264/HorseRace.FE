@@ -680,3 +680,240 @@ export default function AdminTournamentsPage() {
     </div>
   )
 }
+
+
+const TABS = ['All', 'Active', 'Upcoming', 'Completed']
+
+const TAB_FILTER = {
+  All: null,
+  Active: ['Open', 'Ongoing'],
+  Upcoming: ['Draft'],
+  Completed: ['Finished', 'Cancelled'],
+}
+
+const STATUS_META = {
+  Draft:     { label: 'Upcoming',  cls: 'bg-amber-500/15 text-amber-400 border border-amber-500/25' },
+  Open:      { label: 'Active',    cls: 'bg-primary/15 text-primary border border-primary/25' },
+  Ongoing:   { label: 'Active',    cls: 'bg-primary/15 text-primary border border-primary/25' },
+  Finished:  { label: 'Completed', cls: 'bg-surface-container-high text-on-surface-variant border border-outline-variant/50' },
+  Cancelled: { label: 'Cancelled', cls: 'bg-error/15 text-error border border-error/25' },
+}
+
+const ALL_STATUSES = ['Draft', 'Open', 'Ongoing', 'Finished', 'Cancelled']
+
+const PAGE_SIZE = 10
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function fmtId(id, startDate) {
+  const year = startDate ? startDate.slice(0, 4) : new Date().getFullYear()
+  return `TRN-${year}-${String(id).padStart(3, '0')}`
+}
+
+function fmtDate(d) {
+  if (!d) return '—'
+  const [y, m, day] = d.split('-')
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  return `${months[+m - 1]} ${+day}, ${y}`
+}
+
+function toInputDate(d) {
+  return d ? d.slice(0, 10) : ''
+}
+
+// ─── Modal ────────────────────────────────────────────────────────────────────
+
+function TournamentModal({ tournament, onClose, onSubmit, submitting, error }) {
+  const isEdit = !!tournament
+
+  const [form, setForm] = useState({
+    name:        tournament?.name        ?? '',
+    description: tournament?.description ?? '',
+    location:    tournament?.location    ?? '',
+    startDate:   toInputDate(tournament?.startDate),
+    endDate:     toInputDate(tournament?.endDate),
+    logoUrl:     tournament?.logoUrl     ?? '',
+    status:      tournament?.status      ?? 'Draft',
+    cancelReason: tournament?.cancelReason ?? '',
+  })
+
+  const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }))
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    onSubmit({
+      name:         form.name.trim(),
+      description:  form.description.trim() || null,
+      location:     form.location.trim()    || null,
+      startDate:    form.startDate,
+      endDate:      form.endDate,
+      logoUrl:      form.logoUrl.trim()     || null,
+      status:       form.status,
+      cancelReason: form.status === 'Cancelled' ? (form.cancelReason.trim() || null) : null,
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+         style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}>
+      <div className="gs-card w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        {/* Modal header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/40">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-secondary/10 border border-secondary/20 flex items-center justify-center">
+              <Trophy className="w-4 h-4 text-secondary" />
+            </div>
+            <h2 className="font-serif font-bold text-on-surface">
+              {isEdit ? 'Edit Tournament' : 'Create Tournament'}
+            </h2>
+          </div>
+          <button onClick={onClose} className="text-on-surface-variant hover:text-on-surface transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          {error && (
+            <div className="p-3 rounded-lg bg-error/10 border border-error/25 text-error text-sm flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              {error}
+            </div>
+          )}
+
+          {/* Name */}
+          <div>
+            <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
+              Tournament Name <span className="text-error">*</span>
+            </label>
+            <input
+              required
+              value={form.name}
+              onChange={set('name')}
+              placeholder="e.g. Dubai World Cup Series"
+              className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40"
+            />
+          </div>
+
+          {/* Location */}
+          <div>
+            <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
+              Location
+            </label>
+            <input
+              value={form.location}
+              onChange={set('location')}
+              placeholder="e.g. Meydan Racecourse"
+              className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40"
+            />
+          </div>
+
+          {/* Dates */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
+                Start Date <span className="text-error">*</span>
+              </label>
+              <input
+                required
+                type="date"
+                value={form.startDate}
+                onChange={set('startDate')}
+                className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
+                End Date <span className="text-error">*</span>
+              </label>
+              <input
+                required
+                type="date"
+                value={form.endDate}
+                min={form.startDate}
+                onChange={set('endDate')}
+                className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all"
+              />
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
+              Description
+            </label>
+            <textarea
+              rows={3}
+              value={form.description}
+              onChange={set('description')}
+              placeholder="Optional description..."
+              className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40 resize-none"
+            />
+          </div>
+
+          {/* Logo URL */}
+          <div>
+            <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
+              Logo URL
+            </label>
+            <input
+              type="url"
+              value={form.logoUrl}
+              onChange={set('logoUrl')}
+              placeholder="https://..."
+              className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40"
+            />
+          </div>
+
+          {/* Status (edit only) */}
+          {isEdit && (
+            <div>
+              <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
+                Status
+              </label>
+              <select
+                value={form.status}
+                onChange={set('status')}
+                className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all"
+              >
+                {ALL_STATUSES.map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Cancel reason — only when status is Cancelled */}
+          {isEdit && form.status === 'Cancelled' && (
+            <div>
+              <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
+                Cancel Reason
+              </label>
+              <input
+                value={form.cancelReason}
+                onChange={set('cancelReason')}
+                placeholder="Reason for cancellation..."
+                className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40"
+              />
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={onClose} className="gs-btn gs-btn-ghost">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="gs-btn gs-btn-secondary flex items-center gap-2"
+            >
+              {submitting && <div className="w-3 h-3 border-2 border-on-secondary/30 border-t-on-secondary rounded-full animate-spin" />}
+              {isEdit ? 'Save Changes' : 'Create Tournament'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
