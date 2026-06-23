@@ -312,8 +312,11 @@ export default function AdminViolationsPage() {
       .then((res) => {
         if (!active) return
         const data = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : []
+        const totalCount = Array.isArray(res)
+          ? res.total ?? data.length
+          : (res?.total ?? (total > 0 ? total : data.length))
         setList(data)
-        setTotal(Array.isArray(res) ? res.length : (res?.total ?? data.length))
+        setTotal(totalCount)
       })
       .catch((err) => {
         if (!active) return
@@ -360,6 +363,13 @@ export default function AdminViolationsPage() {
   const servedCount   = list.filter((v) => v.status === "SERVED").length
   const expiredCount  = list.filter((v) => v.status === "EXPIRED").length
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  const pageNumbers = []
+  const maxVisible = 5
+  let start = Math.max(1, Math.min(page - Math.floor(maxVisible / 2), totalPages - maxVisible + 1))
+  for (let i = 0; i < Math.min(maxVisible, totalPages); i++) {
+    pageNumbers.push(start + i)
+  }
 
   return (
     <div className="max-w-[1280px] mx-auto px-6 sm:px-8 py-8">
@@ -520,7 +530,7 @@ export default function AdminViolationsPage() {
               <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="gs-btn gs-btn-ghost gs-btn-sm px-2">
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => i + 1).map((p) => (
+              {pageNumbers.map((p) => (
                 <button key={p} onClick={() => setPage(p)}
                   className={`gs-btn gs-btn-sm min-w-[32px] justify-center ${page === p ? "gs-btn-error" : "gs-btn-ghost"}`}>{p}</button>
               ))}
