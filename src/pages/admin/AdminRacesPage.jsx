@@ -2,11 +2,10 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Flag, Plus, ChevronDown, Edit2, Trash2, X, AlertCircle,
   Users, CheckCircle, Clock, XCircle, ArrowLeft, UserCheck,
-  ChevronLeft, ChevronRight, Search,
 } from 'lucide-react'
 import {
   getTournaments, getRaces, getRaceDetail, createRace, updateRace, deleteRace,
-  getUsers,
+  getUsers, approveEntry, rejectEntry,
 } from '../../api/admin'
 import api from '../../services/api'
 
@@ -262,13 +261,13 @@ export default function AdminRacesPage() {
   const [deletingId, setDeletingId] = useState(null)
 
   // ── Entry approve/reject ──
-  const [entryAction, setEntryAction] = useState(null) // { id, type }
-  const [entryError, setEntryError]   = useState('')
+  const [entryAction, setEntryAction]   = useState(null) // { id, type }
+  const [entryError, setEntryError]     = useState('')
+  const [rejectingEntryId, setRejectingEntryId] = useState(null)
+  const [rejectReason, setRejectReason] = useState('')
 
   // ── Load all data ──────────────────────────────────────────────────────────
   const loadAll = useCallback(async () => {
-    setLoading(true)
-    setError('')
     try {
       const [tournamentsData, racesBasic, entriesData, horsesData, usersData] = await Promise.all([
         getTournaments(),
@@ -282,8 +281,8 @@ export default function AdminRacesPage() {
       setEntries(Array.isArray(entriesData) ? entriesData : [])
       setHorses(Array.isArray(horsesData) ? horsesData : [])
       setUsers(Array.isArray(usersData) ? usersData : [])
+      setError('')
 
-      // Fetch full race details in parallel (needed for TournamentId)
       const raceList = Array.isArray(racesBasic) ? racesBasic : []
       if (raceList.length > 0) {
         const details = await Promise.all(raceList.map(r => getRaceDetail(r.raceId)))
@@ -298,7 +297,29 @@ export default function AdminRacesPage() {
     }
   }, [])
 
-  useEffect(() => { loadAll() }, [loadAll])
+  useEffect(() => {
+    Promise.all([
+      getTournaments(),
+      getRaces(),
+      api.get('/api/entries').then(r => r.data),
+      api.get('/api/horses').then(r => r.data),
+      getUsers(),
+    ])
+      .then(([tournamentsData, racesBasic, entriesData, horsesData, usersData]) => {
+        setTournaments(Array.isArray(tournamentsData) ? tournamentsData : [])
+        setEntries(Array.isArray(entriesData) ? entriesData : [])
+        setHorses(Array.isArray(horsesData) ? horsesData : [])
+        setUsers(Array.isArray(usersData) ? usersData : [])
+        const raceList = Array.isArray(racesBasic) ? racesBasic : []
+        if (raceList.length > 0) {
+          return Promise.all(raceList.map(r => getRaceDetail(r.raceId)))
+            .then(details => setRaceDetails(details.filter(Boolean)))
+        }
+        setRaceDetails([])
+      })
+      .catch(err => setError(err?.message || 'Không tải được dữ liệu'))
+      .finally(() => setLoading(false))
+  }, [])
 
   // ── Derived data ──────────────────────────────────────────────────────────
   const horseMap = useMemo(() => Object.fromEntries(horses.map(h => [h.horseId, h])), [horses])
@@ -374,14 +395,29 @@ export default function AdminRacesPage() {
     setEntryError('')
   }
 
-  const handleEntryStatus = async (entryId, status) => {
-    setEntryAction({ id: entryId, type: status })
+  const handleApproveEntry = async (entryId) => {
+    setEntryAction({ id: entryId, type: 'Approved' })
     setEntryError('')
     try {
-      await api.put(`/api/entries/${entryId}`, { entryId, status, gateNumber: null })
+      await approveEntry(entryId)
       await loadAll()
     } catch (err) {
-      setEntryError(err?.message || 'Cập nhật entry thất bại')
+      setEntryError(err?.message || 'Duyệt entry thất bại')
+    } finally {
+      setEntryAction(null)
+    }
+  }
+
+  const handleRejectEntry = async (entryId) => {
+    setEntryAction({ id: entryId, type: 'Rejected' })
+    setEntryError('')
+    try {
+      await rejectEntry(entryId, rejectReason.trim() || null)
+      setRejectingEntryId(null)
+      setRejectReason('')
+      await loadAll()
+    } catch (err) {
+      setEntryError(err?.message || 'Từ chối entry thất bại')
     } finally {
       setEntryAction(null)
     }
@@ -726,28 +762,55 @@ export default function AdminRacesPage() {
                       {/* Actions */}
                       <td>
                         {entry.status === 'Pending' ? (
-                          <div className="flex items-center gap-2">
-                            <button
-                              disabled={isActing}
-                              onClick={() => handleEntryStatus(entry.entryId, 'Approved')}
-                              className="gs-btn gs-btn-primary gs-btn-sm flex items-center gap-1.5"
-                            >
-                              {isActing && entryAction?.type === 'Approved'
-                                ? <div className="w-3 h-3 border-2 border-on-primary/30 border-t-on-primary rounded-full animate-spin" />
-                                : <CheckCircle className="w-3.5 h-3.5" />}
-                              Approve
-                            </button>
-                            <button
-                              disabled={isActing}
-                              onClick={() => handleEntryStatus(entry.entryId, 'Rejected')}
-                              className="gs-btn gs-btn-danger gs-btn-sm flex items-center gap-1.5"
-                            >
-                              {isActing && entryAction?.type === 'Rejected'
-                                ? <div className="w-3 h-3 border-2 border-error/30 border-t-error rounded-full animate-spin" />
-                                : <XCircle className="w-3.5 h-3.5" />}
-                              Reject
-                            </button>
-                          </div>
+                          rejectingEntryId === entry.entryId ? (
+                            <div className="flex flex-col gap-1.5 min-w-[190px]">
+                              <input
+                                value={rejectReason}
+                                onChange={e => setRejectReason(e.target.value)}
+                                placeholder="Reject reason (optional)"
+                                className="text-xs bg-surface-container-lowest border border-outline-variant/40 rounded px-2 py-1.5 text-on-surface focus:outline-none focus:border-error w-full"
+                              />
+                              <div className="flex gap-1.5">
+                                <button
+                                  disabled={isActing}
+                                  onClick={() => handleRejectEntry(entry.entryId)}
+                                  className="gs-btn gs-btn-danger gs-btn-sm flex-1 flex items-center justify-center gap-1"
+                                >
+                                  {isActing && entryAction?.type === 'Rejected'
+                                    ? <div className="w-3 h-3 border-2 border-error/30 border-t-error rounded-full animate-spin" />
+                                    : <XCircle className="w-3 h-3" />}
+                                  Confirm
+                                </button>
+                                <button
+                                  onClick={() => { setRejectingEntryId(null); setRejectReason('') }}
+                                  className="gs-btn gs-btn-ghost gs-btn-sm"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <button
+                                disabled={isActing}
+                                onClick={() => handleApproveEntry(entry.entryId)}
+                                className="gs-btn gs-btn-primary gs-btn-sm flex items-center gap-1.5"
+                              >
+                                {isActing && entryAction?.type === 'Approved'
+                                  ? <div className="w-3 h-3 border-2 border-on-primary/30 border-t-on-primary rounded-full animate-spin" />
+                                  : <CheckCircle className="w-3.5 h-3.5" />}
+                                Approve
+                              </button>
+                              <button
+                                disabled={isActing}
+                                onClick={() => setRejectingEntryId(entry.entryId)}
+                                className="gs-btn gs-btn-danger gs-btn-sm flex items-center gap-1.5"
+                              >
+                                <XCircle className="w-3.5 h-3.5" />
+                                Reject
+                              </button>
+                            </div>
+                          )
                         ) : (
                           <span className="text-xs text-on-surface-variant">—</span>
                         )}
