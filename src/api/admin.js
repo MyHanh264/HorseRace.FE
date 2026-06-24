@@ -101,3 +101,20 @@ export async function revokeHorse(horseId, reason = "") {
   const res = await api.post(`/api/admin/horses/${horseId}/revoke`, { reason: reason || null })
   return res.data
 }
+
+// ─── Entries ──────────────────────────────────────────────────────────────────
+
+export async function getPendingEntries() {
+  const res = await api.get('/api/admin/entries/pending')
+  return res.data
+}
+
+export async function approveEntry(entryId) {
+  const res = await api.post(`/api/admin/entries/${entryId}/approve`)
+  return res.data
+}
+
+export async function rejectEntry(entryId, reason = null) {
+  const res = await api.post(`/api/admin/entries/${entryId}/reject`, { reason: reason || null })
+  return res.data
+}
