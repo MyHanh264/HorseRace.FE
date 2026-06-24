@@ -75,3 +75,29 @@ export async function deleteRace(id) {
   const res = await api.delete(`/api/races/${id}`)
   return res.data
 }
+
+
+//Lấy danh sách ngựa đang chờ duyệt
+
+export async function getPendingHorses() {
+  const res = await api.get("/api/admin/horses/pending")
+  return res.data
+}
+
+// Duyệt ngựa
+export async function approveHorse(horseId) {
+  const res = await api.post(`/api/admin/horses/${horseId}/approve`)
+  return res.data
+}
+
+//Từ chối ngựa
+export async function rejectHorse(horseId, reason) {
+  const res = await api.post(`/api/admin/horses/${horseId}/reject`, { reason: reason || null })
+  return res.data
+}
+
+// Thu hồi ngựa đã duyệt
+export async function revokeHorse(horseId, reason = "") {
+  const res = await api.post(`/api/admin/horses/${horseId}/revoke`, { reason: reason || null })
+  return res.data
+}
