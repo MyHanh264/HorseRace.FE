@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  Horse,
   CircleCheck,
   XCircle,
   Undo2,
@@ -129,8 +128,8 @@ export default function AdminHorsesPage() {
         style={{ opacity: 0, animationFillMode: "forwards" }}
       >
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-xl bg-secondary/10 border border-secondary/20 flex items-center justify-center">
-            <Horse className="w-5 h-5 text-secondary" />
+          <div className="w-10 h-10 rounded-xl bg-secondary/10 border border-secondary/20 flex items-center justify-center text-lg">
+            🐴
           </div>
           <div>
             <h1 className="font-serif text-2xl font-bold text-on-surface">
@@ -390,8 +389,6 @@ export default function AdminHorsesPage() {
                           </button>
                         </div>
                       </div>
-
-                      /* ── Approved: đang mở form thu hồi ── */
                     ) : horse.status === "Approved" &&
                       revokingId === horse.horseId ? (
                       <div className="flex flex-col gap-2 min-w-[200px]">
@@ -428,8 +425,6 @@ export default function AdminHorsesPage() {
                           </button>
                         </div>
                       </div>
-
-                      /* ── Pending: hiện nút Duyệt + Từ chối ── */
                     ) : horse.status === "Pending" ? (
                       <div className="flex gap-2">
                         <button
@@ -455,8 +450,6 @@ export default function AdminHorsesPage() {
                           Từ chối
                         </button>
                       </div>
-
-                      /* ── Approved: hiện nút Thu hồi ── */
                     ) : horse.status === "Approved" ? (
                       <button
                         type="button"
@@ -467,8 +460,6 @@ export default function AdminHorsesPage() {
                         <Undo2 className="w-3.5 h-3.5" />
                         Thu hồi
                       </button>
-
-                      /* ── Rejected / Revoked: không có action ── */
                     ) : (
                       <span className="text-on-surface-variant text-xs">
                         —
