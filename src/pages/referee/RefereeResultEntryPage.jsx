@@ -1,221 +1,409 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { Flag, AlertCircle, Info, Lock, CheckCircle2, ChevronLeft } from 'lucide-react'
+import {
+  Flag, AlertCircle, Info, Lock, CheckCircle2, ChevronLeft,
+  RefreshCw, Save, Send, Eye, EyeOff, Zap, Loader2,
+} from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import {
-  getAllRaces, getRaceDetail, getAllEntries, getAllHorses,
-  getAllUsers, submitLegResult,
+  getRefereeLegView,
+  saveLegDraft,
+  submitLegResult,
+  getRaceExecutionStatus,
+  getRaceStandings,
+  getAllRaces,
+  getRaceDetail,
 } from '../../api/referee'
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const LEG_POINTS = { 1: 6, 2: 5, 3: 4, 4: 3, 5: 2, 6: 1 }
+
+function getLegPoints(position) {
+  if (!position || position < 1) return 0
+  return LEG_POINTS[position] ?? 0
+}
 
 function fmtDateTime(dt) {
   if (!dt) return '—'
-  return new Date(dt).toLocaleString('en-GB', {
+  return new Date(dt).toLocaleString('vi-VN', {
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
 }
 
-// ─── Pick Race Screen (when no raceId given) ──────────────────────────────────
+// ─── Race Picker ────────────────────────────────────────────────────────────
 
 function RacePickerScreen({ userId, onPick }) {
-  const [races,   setRaces]   = useState([])
+  const [races, setRaces] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     async function load() {
+      setLoading(true)
+      setError('')
       try {
         const list = await getAllRaces()
-        const details = await Promise.allSettled(list.map(r => getRaceDetail(r.raceId)))
-        const myInProgress = details
-          .filter(r => r.status === 'fulfilled')
-          .map(r => r.value)
-          .filter(r => (r.referee1Id === userId || r.referee2Id === userId) &&
-                       r.status?.replace(/\s+/g, '') === 'InProgress')
-        setRaces(myInProgress)
-      } catch { /* silent */ }
-      finally { setLoading(false) }
+        // Lọc races InProgress mà referee này được phân công
+        const inProgress = list.filter(
+          r => r.status === 'InProgress' || r.status === 'Paused',
+        )
+        // Lấy chi tiết để lọc referee
+        const settled = await Promise.allSettled(
+          inProgress.map(r => getRaceDetail(r.raceId)),
+        )
+        const myRaces = settled
+          .filter(s => s.status === 'fulfilled')
+          .map(s => s.value)
+          .filter(r => r.referee1Id === userId || r.referee2Id === userId)
+        setRaces(myRaces)
+      } catch (err) {
+        setError(err?.message || 'Không tải được danh sách cuộc đua.')
+      } finally {
+        setLoading(false)
+      }
     }
     load()
   }, [userId])
 
   if (loading) return (
     <div className="flex items-center justify-center py-40">
-      <div className="w-8 h-8 border-2 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin" />
+      <Loader2 className="w-8 h-8 text-yellow-400 animate-spin" />
+    </div>
+  )
+
+  if (error) return (
+    <div className="text-center py-16">
+      <AlertCircle className="w-10 h-10 text-red-400 mx-auto mb-3" />
+      <p className="text-red-400 text-sm">{error}</p>
     </div>
   )
 
   return (
-    <div className="py-16 text-center">
-      <Flag size={40} className="text-on-surface-variant/30 mx-auto mb-4" />
+    <div className="py-12">
+      <div className="text-center mb-8">
+        <Flag size={36} className="text-yellow-400/40 mx-auto mb-3" />
+        <h2 className="text-xl font-bold text-on-surface mb-1">Race Execution</h2>
+        <p className="text-on-surface-variant text-sm">
+          {races.length === 0
+            ? 'Không có cuộc đua nào đang diễn ra'
+            : 'Chọn cuộc đua để bắt đầu nhập kết quả'}
+        </p>
+      </div>
+
       {races.length === 0 ? (
-        <>
-          <p className="text-on-surface font-semibold">No races in progress</p>
-          <p className="text-on-surface-variant text-sm mt-1">
-            Races will appear here once they are started.
+        <div className="gs-card max-w-sm mx-auto p-10 text-center">
+          <p className="text-on-surface-variant text-sm">
+            Các cuộc đua bạn được phân công sẽ xuất hiện ở đây khi chúng bắt đầu.
           </p>
-        </>
+        </div>
       ) : (
-        <>
-          <p className="text-on-surface font-semibold mb-6">Select an in-progress race:</p>
-          <div className="flex flex-col gap-3 max-w-sm mx-auto">
-            {races.map(race => (
-              <button
-                key={race.raceId}
-                onClick={() => onPick(race)}
-                className="gs-card p-4 text-left hover:border-yellow-400/30 transition-all"
-              >
-                <p className="font-bold text-on-surface text-sm">{race.name}</p>
-                <p className="text-xs text-on-surface-variant mt-0.5">{fmtDateTime(race.scheduledStartTime)}</p>
-              </button>
-            ))}
-          </div>
-        </>
+        <div className="flex flex-col gap-3 max-w-lg mx-auto">
+          {races.map(race => (
+            <button
+              key={race.raceId}
+              onClick={() => onPick(race)}
+              className="gs-card p-5 text-left hover:border-yellow-400/30 transition-all group"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-on-surface group-hover:text-yellow-400 transition-colors">
+                    {race.name}
+                  </p>
+                  <p className="text-xs text-on-surface-variant mt-1">
+                    {fmtDateTime(race.scheduledStartTime || race.startedAt)}
+                  </p>
+                  {race.status === 'Paused' && (
+                    <span className="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-orange-400">
+                      <Zap size={11} /> Đang tạm dừng — chờ Admin xử lý
+                    </span>
+                  )}
+                </div>
+                <span className="shrink-0 text-xs text-on-surface-variant mt-0.5">
+                  {race.numberOfLegs ?? 1} leg{race.numberOfLegs > 1 ? 's' : ''}
+                </span>
+              </div>
+            </button>
+          ))}
+        </div>
       )}
     </div>
   )
 }
 
-// ─── Position Select ──────────────────────────────────────────────────────────
+// ─── Position Badge ─────────────────────────────────────────────────────────
 
-function PositionSelect({ value, onChange, maxN, locked }) {
-  if (locked) {
-    return (
-      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/5 border border-primary/20 text-sm font-bold font-mono text-primary">
-        <Lock size={12} />
-        {value === 'DNF' ? 'DNF' : value || '—'}
-      </span>
-    )
-  }
+function PositionBadge({ value }) {
+  if (!value) return <span className="text-gray-600 font-mono text-sm">—</span>
+  if (value === -1) return (
+    <span className="px-2 py-0.5 rounded text-xs font-bold bg-gray-500/20 text-gray-400 border border-gray-600">DNF</span>
+  )
+  if (value === -2) return (
+    <span className="px-2 py-0.5 rounded text-xs font-bold bg-red-500/20 text-red-400 border border-red-700">DQ</span>
+  )
   return (
-    <select
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      className="bg-surface-container-lowest border border-outline-variant/50 rounded-lg px-2 py-1.5 text-sm font-mono text-on-surface focus:outline-none focus:border-yellow-400/60 transition-all w-20"
-    >
-      <option value="">—</option>
-      {Array.from({ length: maxN }, (_, i) => i + 1).map(n => (
-        <option key={n} value={String(n)}>{n}</option>
-      ))}
-      <option value="DNF">DNF</option>
-    </select>
+    <span className="px-2 py-0.5 rounded text-xs font-bold bg-yellow-400/15 text-yellow-400 border border-yellow-700">
+      P{value}
+    </span>
   )
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// ─── Main Page ──────────────────────────────────────────────────────────────
 
 export default function RefereeResultEntryPage() {
-  const { user }   = useAuth()
-  const location   = useLocation()
-  const navigate   = useNavigate()
-  const userId     = user?.userId
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const userId = user?.userId
 
-  const raceIdFromState = location.state?.raceId ?? null
-  const readOnly        = location.state?.readOnly ?? false
+  const location = useLocation()
+  const preselectedRaceId = location.state?.raceId ?? null
 
-  const [race,          setRace]          = useState(null)
-  const [entries,       setEntries]       = useState([])
-  const [horseMap,      setHorseMap]      = useState({})
-  const [userMap,       setUserMap]       = useState({})
-  const [loading,       setLoading]       = useState(false)
-  const [error,         setError]         = useState('')
-  const [activeTab,     setActiveTab]     = useState(1) // leg number
-  const [legPositions,  setLegPositions]  = useState({}) // {legNum: {entryId: '' | '1' | 'DNF'}}
-  const [submittedLegs, setSubmittedLegs] = useState(new Set())
-  const [submitting,    setSubmitting]    = useState(false)
-  const [submitError,   setSubmitError]   = useState('')
+  // Race state
+  const [race, setRace] = useState(null)
+  const [execution, setExecution] = useState(null)
+  const [standings, setStandings] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [activeLegIndex, setActiveLegIndex] = useState(0) // 0-indexed
 
+  // Position inputs: { [legIndex]: { [entryId]: number | -1 | -2 | '' } }
+  const [positions, setPositions] = useState({})
+  const [draftSaved, setDraftSaved] = useState(false)
+
+  // Submission
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
+  const [submitResult, setSubmitResult] = useState(null) // { status, message }
+
+  // Referee view (blind)
+  const [legView, setLegView] = useState(null)
+  const [loadingLeg, setLoadingLeg] = useState(false)
+
+  const pollRef = useRef(null)
+  const isMountedRef = useRef(true)
+
+  // ── Load race + execution ──
   const loadRace = useCallback(async (raceId) => {
     setLoading(true)
     setError('')
     try {
-      const [detail, allE, allH, allU] = await Promise.all([
+      const [raceDetail, execData, standingsData] = await Promise.all([
         getRaceDetail(raceId),
-        getAllEntries(),
-        getAllHorses(),
-        getAllUsers(),
+        getRaceExecutionStatus(raceId),
+        getRaceStandings(raceId).catch(() => []),
       ])
-      const raceEntries = allE.filter(e => e.raceId === raceId && e.status === 'Approved')
-      const hMap = Object.fromEntries(allH.map(h => [h.horseId, h]))
-      const uMap = Object.fromEntries(allU.map(u => [u.userId, u]))
-
-      setRace(detail)
-      setEntries(raceEntries)
-      setHorseMap(hMap)
-      setUserMap(uMap)
-
-      // Init position state for all legs
-      const initPos = {}
-      for (let leg = 1; leg <= (detail.numberOfLegs ?? 1); leg++) {
-        initPos[leg] = {}
-        for (const e of raceEntries) {
-          initPos[leg][e.entryId] = ''
-        }
-      }
-      setLegPositions(initPos)
+      if (!isMountedRef.current) return
+      setRace(raceDetail)
+      setExecution(execData)
+      setStandings(standingsData)
+      // Init positions from legView (will be fetched below)
     } catch (err) {
-      setError(err?.message || 'Không tải được thông tin cuộc đua')
+      if (!isMountedRef.current) return
+      setError(err?.message || 'Không tải được thông tin cuộc đua.')
     } finally {
-      setLoading(false)
+      if (isMountedRef.current) setLoading(false)
     }
   }, [])
 
+  // ── Load leg view (blind) ──
+  const loadLegView = useCallback(async (raceId, legIndex) => {
+    setLoadingLeg(true)
+    setDraftSaved(false)
+    try {
+      const view = await getRefereeLegView(raceId, legIndex)
+      if (!isMountedRef.current) return
+      setLegView(view)
+
+      // Pre-fill positions from mySubmittedData if available
+      if (view.mySubmittedData && Array.isArray(view.mySubmittedData)) {
+        setPositions(prev => ({
+          ...prev,
+          [legIndex]: Object.fromEntries(
+            view.mySubmittedData.map(item => [item.entryId, item.position ?? '']),
+          ),
+        }))
+      } else {
+        // Initialize empty positions for new leg
+        if (!positions[legIndex]) {
+          const empty = {}
+          if (view.entries) {
+            view.entries.forEach(e => { empty[e.entryId] = '' })
+          }
+          setPositions(prev => ({ ...prev, [legIndex]: empty }))
+        }
+      }
+    } catch (err) {
+      if (!isMountedRef.current) return
+      // Fallback: try to init positions from entries list
+      console.error('Failed to load leg view:', err)
+    } finally {
+      if (isMountedRef.current) setLoadingLeg(false)
+    }
+  }, [positions])
+
+  // ── Refresh execution status (polling) ──
+  const refreshExecution = useCallback(async (raceId) => {
+    try {
+      const [execData, standingsData] = await Promise.all([
+        getRaceExecutionStatus(raceId),
+        getRaceStandings(raceId).catch(() => []),
+      ])
+      if (!isMountedRef.current) return
+      setExecution(execData)
+      setStandings(standingsData)
+
+      // Reload leg view if current leg is still open
+      if (execData.status === 'InProgress' || execData.status === 'Paused') {
+        const currentLegIdx = execData.currentLegIndex ?? activeLegIndex
+        const currentLeg = execData.legs?.[currentLegIdx]
+        if (currentLeg && currentLeg.status === 'Pending') {
+          loadLegView(raceId, currentLegIdx)
+        }
+      }
+    } catch { /* silent polling fail */ }
+  }, [activeLegIndex, loadLegView])
+
   useEffect(() => {
-    if (raceIdFromState) loadRace(raceIdFromState)
-  }, [raceIdFromState, loadRace])
+    isMountedRef.current = true
+    return () => { isMountedRef.current = false }
+  }, [])
+
+  // Load race on mount (if preselected)
+  useEffect(() => {
+    if (preselectedRaceId) {
+      loadRace(preselectedRaceId)
+    }
+  }, [preselectedRaceId, loadRace])
+
+  // Start polling when race is loaded
+  useEffect(() => {
+    if (!race) return
+    pollRef.current = setInterval(() => refreshExecution(race.raceId), 8000)
+    return () => clearInterval(pollRef.current)
+  }, [race, refreshExecution])
+
+  // Load leg view when active leg changes
+  useEffect(() => {
+    if (!race) return
+    loadLegView(race.raceId, activeLegIndex)
+  }, [race, activeLegIndex, loadLegView])
 
   // ── Position helpers ──
-  function setPosition(legNum, entryId, value) {
-    setLegPositions(prev => ({
+  function setPosition(legIndex, entryId, rawValue) {
+    const value = rawValue === 'DNF' ? -1 : rawValue === 'DQ' ? -2 : Number(rawValue)
+    setPositions(prev => ({
       ...prev,
-      [legNum]: { ...(prev[legNum] ?? {}), [entryId]: value },
+      [legIndex]: { ...(prev[legIndex] ?? {}), [entryId]: value },
     }))
+    setDraftSaved(false)
   }
 
-  const isLegValid = useCallback((legNum) => {
-    const pos  = legPositions[legNum] ?? {}
-    const vals = Object.values(pos)
-    if (vals.some(v => v === '')) return false
-    const nums = vals.filter(v => v !== 'DNF').map(Number)
-    return new Set(nums).size === nums.length
-  }, [legPositions])
+  // Validation: mỗi position chỉ có 1 entry (không trùng rank)
+  function getLegValidation(legIndex) {
+    const pos = positions[legIndex] ?? {}
+    const entries = Object.entries(pos)
+    const usedPositions = {}
+    const errors = []
 
-  const handleSubmit = async () => {
+    for (const [entryId, value] of entries) {
+      if (value === '' || value === null || value === undefined) {
+        errors.push({ entryId: Number(entryId), issue: 'missing' })
+        continue
+      }
+      if (usedPositions[value] !== undefined) {
+        errors.push({ entryId: Number(entryId), issue: 'duplicate', conflictWith: usedPositions[value] })
+      }
+      usedPositions[value] = Number(entryId)
+    }
+
+    return { valid: errors.length === 0, errors }
+  }
+
+  // ── Save Draft ──
+  const handleSaveDraft = async () => {
     if (!race) return
-    setSubmitting(true)
-    setSubmitError('')
+    const pos = positions[activeLegIndex] ?? {}
+    const entries = Object.entries(pos).map(([entryId, position]) => ({
+      entryId: Number(entryId),
+      position,
+    }))
     try {
-      const results = entries.map(e => ({
-        entryId:       e.entryId,
-        finishPosition: legPositions[activeTab]?.[e.entryId] === 'DNF'
-          ? null
-          : Number(legPositions[activeTab]?.[e.entryId]),
-      }))
-      await submitLegResult({ raceId: race.raceId, legNumber: activeTab, results })
-      setSubmittedLegs(prev => new Set([...prev, activeTab]))
+      await saveLegDraft(race.raceId, activeLegIndex, entries)
+      setDraftSaved(true)
     } catch (err) {
-      setSubmitError(err?.response?.data?.message || err?.message || 'Submit thất bại')
-    } finally {
-      setSubmitting(false)
+      setSubmitError(err?.message || 'Lưu nháp thất bại.')
     }
   }
 
-  const coRefId   = race ? (race.referee1Id === userId ? race.referee2Id : race.referee1Id) : null
-  const coRefName = coRefId ? (userMap[coRefId]?.fullName ?? `User #${coRefId}`) : '—'
+  // ── Submit ──
+  const handleSubmit = async () => {
+    if (!race) return
+    const { valid } = getLegValidation(activeLegIndex)
+    if (!valid) {
+      setSubmitError('Vui lòng nhập đầy đủ và không trùng thứ hạng.')
+      return
+    }
 
-  const legs      = race ? Array.from({ length: race.numberOfLegs ?? 1 }, (_, i) => i + 1) : []
-  const isLocked  = submittedLegs.has(activeTab) || readOnly
+    setSubmitting(true)
+    setSubmitError('')
+    setSubmitResult(null)
+
+    const pos = positions[activeLegIndex] ?? {}
+    const entries = Object.entries(pos).map(([entryId, position]) => ({
+      entryId: Number(entryId),
+      position,
+    }))
+
+    try {
+      const result = await submitLegResult(race.raceId, activeLegIndex, entries)
+      setSubmitResult(result)
+
+      // Refresh execution after submit
+      await refreshExecution(race.raceId)
+
+      // Auto-advance to next leg if matched
+      if (result.status === 'Matched' && !result.isRaceComplete) {
+        setTimeout(() => {
+          if (isMountedRef.current && result.nextLegIndex !== undefined) {
+            setActiveLegIndex(result.nextLegIndex)
+          }
+        }, 2000)
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.error === 'ALREADY_SUBMITTED'
+        ? 'Bạn đã submit kết quả cho Leg này rồi.'
+        : err?.response?.data?.message
+        || err?.message
+        || 'Submit thất bại.'
+      setSubmitError(msg)
+    } finally {
+      if (isMountedRef.current) setSubmitting(false)
+    }
+  }
+
+  // ── Derived ──
+  const currentLegData = execution?.legs?.[activeLegIndex]
+  const isLegLocked = currentLegData?.status === 'Confirmed'
+                    || currentLegData?.status === 'Conflicted'
+                    || currentLegData?.mySubmitted
+
+  const legValidation = isLegLocked ? null : getLegValidation(activeLegIndex)
+  const isFormValid = legValidation ? legValidation.valid : false
+
+  const legNumber = activeLegIndex + 1
+
+  const entries = legView?.entries ?? []
 
   return (
-    <div className="min-h-screen p-8">
-      <div className="max-w-[900px] mx-auto">
+    <div className="min-h-screen p-6 lg:p-8">
+      <div className="max-w-4xl mx-auto">
 
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-8 animate-fade-in-up" style={{ opacity: 0, animationFillMode: 'forwards' }}>
+        {/* ── Header ────────────────────────────────────────────── */}
+        <div className="flex items-center gap-3 mb-6">
           <button
             onClick={() => navigate('/referee')}
-            className="w-9 h-9 rounded-xl border border-outline-variant/40 flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors"
+            className="w-9 h-9 rounded-xl border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:border-white/20 transition-all"
           >
             <ChevronLeft size={16} />
           </button>
@@ -223,191 +411,355 @@ export default function RefereeResultEntryPage() {
             <Flag size={20} className="text-yellow-400" />
           </div>
           <div>
-            <h1 className="font-serif text-2xl font-bold text-on-surface">Result Entry</h1>
-            <p className="text-on-surface-variant text-sm">Record finishing positions for each race leg.</p>
+            <h1 className="font-serif text-2xl font-bold text-on-surface">Race Execution</h1>
+            <p className="text-xs text-on-surface-variant">
+              Blind Double-Entry — kết quả của bạn được ẩn với referee kia cho đến khi cả 2 submit.
+            </p>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={() => race && refreshExecution(race.raceId)}
+              className="flex items-center gap-1.5 text-xs text-on-surface-variant hover:text-white transition-colors px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/20"
+            >
+              <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+              Refresh
+            </button>
           </div>
         </div>
 
+        {/* ── Error ─────────────────────────────────────────────── */}
         {error && (
-          <div className="mb-6 p-4 rounded-xl bg-error/10 border border-error/25 text-error text-sm flex items-center gap-2">
-            <AlertCircle size={16} className="shrink-0" />{error}
+          <div className="mb-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2">
+            <AlertCircle size={16} className="shrink-0" />
+            {error}
           </div>
         )}
 
-        {/* No race selected */}
-        {!raceIdFromState && !loading && (
+        {/* ── Race Picker ────────────────────────────────────────── */}
+        {!preselectedRaceId && !race && (
           <div className="gs-card">
-            <div className="px-5 py-4 border-b border-outline-variant/40">
-              <p className="font-semibold text-on-surface text-sm">Select Race</p>
-            </div>
             <RacePickerScreen userId={userId} onPick={r => loadRace(r.raceId)} />
           </div>
         )}
 
-        {loading && (
-          <div className="flex items-center justify-center py-40">
-            <div className="w-8 h-8 border-2 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin" />
-          </div>
-        )}
-
+        {/* ── Race Loaded ────────────────────────────────────────── */}
         {race && !loading && (
           <>
-            {/* Race header */}
+            {/* Race info banner */}
             <div
-              className="gs-card p-6 mb-6"
-              style={{ borderLeft: '3px solid rgba(251, 191, 36, 0.6)' }}
+              className="gs-card p-5 mb-5"
+              style={{ borderLeft: '3px solid rgba(251,191,36,0.6)' }}
             >
-              <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-yellow-400/10 text-yellow-400 border border-yellow-400/25 uppercase tracking-wider">
-                      {readOnly ? 'Finished' : 'Live Event'}
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                      race.status === 'InProgress'
+                        ? 'bg-amber-500/15 text-amber-400'
+                        : race.status === 'Paused'
+                        ? 'bg-orange-500/15 text-orange-400'
+                        : 'bg-primary/15 text-primary'
+                    }`}>
+                      {race.status === 'InProgress' ? '● LIVE' : race.status === 'Paused' ? '◐ PAUSED' : race.status}
                     </span>
-                    <span className="text-xs text-on-surface-variant">
-                      {fmtDateTime(race.scheduledStartTime || race.scheduledAt)}
-                    </span>
+                    {execution?.isBetsLocked && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-500/15 text-red-400">
+                        🔒 Bets Locked
+                      </span>
+                    )}
                   </div>
-                  <h2 className="font-serif text-3xl font-bold text-on-surface mb-1">{race.name}</h2>
-                  <p className="text-sm text-on-surface-variant flex items-center gap-1.5">
-                    Co-Referee:
-                    <span className="text-on-surface font-semibold">{coRefName}</span>
-                    <span className="text-xs text-on-surface-variant/60">(Pending Entry)</span>
+                  <h2 className="font-serif text-2xl font-bold text-on-surface">{race.name}</h2>
+                  <p className="text-xs text-on-surface-variant mt-1">
+                    {execution?.totalLegs ?? race.numberOfLegs ?? 1} legs ·{' '}
+                    {standings.length > 0
+                      ? `${standings.length} entries`
+                      : `${entries.length} entries`}
                   </p>
                 </div>
+
+                {/* Live standings mini-table */}
+                {standings.length > 0 && (
+                  <div className="shrink-0 text-right">
+                    <p className="text-[10px] text-on-surface-variant uppercase tracking-wider mb-1">Standings</p>
+                    <div className="flex flex-col gap-0.5 max-h-20 overflow-y-auto">
+                      {standings.slice(0, 5).map((s, i) => (
+                        <div key={s.entryId} className="flex items-center gap-2 text-xs">
+                          <span className="w-5 text-center font-bold text-yellow-400">{i + 1}</span>
+                          <span className="text-on-surface truncate max-w-[120px]">{s.horseName || `#${s.entryId}`}</span>
+                          <span className="font-mono text-on-surface-variant">{s.totalPoints}p</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Confirmed banner */}
-            {submittedLegs.has(activeTab) && (
-              <div className="mb-4 p-4 rounded-xl bg-primary/5 border border-primary/25 flex items-start gap-3">
-                <CheckCircle2 size={18} className="text-primary shrink-0 mt-0.5" />
+            {/* Paused alert */}
+            {race.status === 'Paused' && (
+              <div className="mb-4 p-4 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-start gap-3">
+                <Zap size={18} className="text-orange-400 shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-bold text-primary">Leg {activeTab} Confirmed — Awaiting Co-Referee</p>
+                  <p className="text-sm font-bold text-orange-400">Cuộc đua đang tạm dừng</p>
                   <p className="text-xs text-on-surface-variant mt-0.5">
-                    Your submission has been saved. Results will lock once Co-Referee submits matching data.
+                    Đã phát hiện chênh lệch giữa 2 referees. Admin đang xem xét và sẽ resume race.
                   </p>
                 </div>
               </div>
             )}
 
-            {/* Leg tabs */}
-            <div className="flex items-center gap-1 border-b border-outline-variant/40 mb-6">
-              {legs.map(leg => (
-                <button
-                  key={leg}
-                  onClick={() => setActiveTab(leg)}
-                  className={`px-5 py-3 text-sm font-semibold border-b-2 transition-all -mb-px
-                    ${activeTab === leg
-                      ? 'border-yellow-400 text-yellow-400'
-                      : 'border-transparent text-on-surface-variant hover:text-on-surface'
-                    }`}
-                >
-                  Leg {leg}
-                  {submittedLegs.has(leg) && (
-                    <span className="ml-1.5 w-1.5 h-1.5 inline-block rounded-full bg-primary" />
-                  )}
-                </button>
-              ))}
-            </div>
+            {/* Leg progress bar */}
+            {execution?.legs && (
+              <div className="flex items-center gap-1 mb-5 overflow-x-auto pb-1">
+                {execution.legs.map((leg, idx) => {
+                  const statusMeta = {
+                    Confirmed: { cls: 'bg-emerald-500', label: '✓' },
+                    Pending:   { cls: 'bg-surface-container-high', label: '⏳' },
+                    Conflicted: { cls: 'bg-orange-500', label: '⚠' },
+                  }[leg.status] ?? { cls: 'bg-surface-container-high', label: '—' }
 
-            {/* Result entry card */}
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => !['Confirmed', 'Conflicted'].includes(leg.status) && setActiveLegIndex(idx)}
+                      disabled={['Confirmed', 'Conflicted'].includes(leg.status)}
+                      className={`shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-lg border transition-all
+                        ${activeLegIndex === idx
+                          ? 'border-yellow-400/50 bg-yellow-400/5'
+                          : 'border-white/10 hover:border-white/20 bg-white/5'
+                        }`}
+                    >
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${statusMeta.cls}`}>
+                        {statusMeta.label}
+                      </div>
+                      <span className="text-[10px] text-on-surface-variant">Leg {idx + 1}</span>
+                      {leg.referee1Submitted && leg.referee2Submitted && (
+                        <span className="text-[9px] text-emerald-400">✓</span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Confirmed submission banner */}
+            {submitResult?.status === 'Matched' && (
+              <div className="mb-4 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-start gap-3 animate-fade-in-up">
+                <CheckCircle2 size={18} className="text-emerald-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold text-emerald-400">Leg {legNumber} Confirmed — Results Matched</p>
+                  <p className="text-xs text-on-surface-variant mt-0.5">{submitResult.message}</p>
+                  {!submitResult.isRaceComplete && submitResult.nextLegIndex !== undefined && (
+                    <p className="text-xs text-emerald-400/70 mt-1">
+                      → Chuyển sang Leg {submitResult.nextLegIndex + 1} trong giây lát...
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {submitResult?.status === 'Conflicted' && (
+              <div className="mb-4 p-4 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-start gap-3 animate-fade-in-up">
+                <AlertCircle size={18} className="text-orange-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold text-orange-400">Chênh lệch phát hiện — Race Paused</p>
+                  <p className="text-xs text-on-surface-variant mt-0.5">{submitResult.message}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Leg entry card */}
             <div className="gs-card overflow-hidden">
               {/* Card header */}
-              <div className="px-5 py-4 border-b border-outline-variant/40 flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold text-on-surface text-sm">
-                    Leg {activeTab} Result Entry — Your Submission (Private)
-                  </h3>
-                  <p className="text-xs text-on-surface-variant mt-0.5">
-                    Enter the finishing positions as you observed them. Your entries remain hidden from other referees until all submissions are complete.
-                  </p>
+              <div className="px-5 py-4 border-b border-white/10">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-semibold text-on-surface text-sm">
+                      Leg {legNumber} — Kết quả của bạn
+                    </h3>
+                    <p className="text-xs text-on-surface-variant mt-0.5">
+                      {isLegLocked
+                        ? 'Đã submit · không thể sửa'
+                        : 'Nhập thứ hạng cho từng Entry · dữ liệu ẩn với referee kia'}
+                    </p>
+                  </div>
+                  <span className={`shrink-0 text-[11px] font-bold px-3 py-1 rounded-lg border uppercase tracking-wider
+                    ${isLegLocked
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-700'
+                      : 'bg-surface-container-high text-on-surface-variant border-white/10'
+                    }`}
+                  >
+                    {isLegLocked ? 'Đã khóa' : 'Đang mở'}
+                  </span>
                 </div>
-                <span className={`shrink-0 text-[11px] font-bold px-3 py-1 rounded-lg border uppercase tracking-wider
-                  ${isLocked
-                    ? 'bg-primary/10 text-primary border-primary/25'
-                    : 'bg-surface-container-high text-on-surface-variant border-outline-variant/40'
-                  }`}
-                >
-                  Status: {isLocked ? 'Locked' : 'Open'}
-                </span>
               </div>
 
-              {/* Privacy note */}
-              <div className="px-5 py-3 border-b border-outline-variant/30 bg-yellow-400/3">
-                <p className="text-xs text-on-surface-variant flex items-center gap-2">
-                  <Info size={13} className="text-yellow-400/60 shrink-0" />
-                  Note: Other referees cannot see your input. Discrepancies will trigger a manual review flag.
+              {/* Privacy notice */}
+              <div className="px-5 py-2.5 border-b border-yellow-400/10 bg-yellow-400/5 flex items-center gap-2">
+                <EyeOff size={13} className="text-yellow-400/70 shrink-0" />
+                <p className="text-xs text-on-surface-variant">
+                  <span className="text-yellow-400/80 font-medium">Blind Entry: </span>
+                  Dữ liệu của bạn KHÔNG hiển thị cho referee kia cho đến khi cả 2 submit.
+                  Server tự động so sánh khi cả 2 đã submit.
                 </p>
               </div>
 
+              {/* Status from legView */}
+              {legView && (
+                <div className="px-5 py-2 border-b border-white/5 bg-white/3 flex items-center gap-4 text-xs text-on-surface-variant">
+                  <span className="flex items-center gap-1">
+                    {legView.mySubmitted
+                      ? <><CheckCircle2 size={12} className="text-emerald-400" /> Đã submit</>
+                      : <><Lock size={12} className="text-gray-500" /> Chưa submit</>}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    {legView.opponentSubmitted
+                      ? <><CheckCircle2 size={12} className="text-emerald-400" /> Referee kia đã submit</>
+                      : <><Loader2 size={12} className="text-gray-500 animate-spin" /> Đang chờ referee kia...</>}
+                  </span>
+                  {legView.bothSubmitted && (
+                    <span className={`font-bold ${legView.legStatus === 'Matched' ? 'text-emerald-400' : 'text-orange-400'}`}>
+                      {legView.legStatus === 'Matched' ? '✓ Khớp hoàn toàn' : '⚠ Có chênh lệch'}
+                    </span>
+                  )}
+                </div>
+              )}
+
               {/* Entries table */}
-              {entries.length === 0 ? (
+              {loadingLeg ? (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="w-6 h-6 text-yellow-400 animate-spin" />
+                </div>
+              ) : entries.length === 0 ? (
                 <div className="py-16 text-center text-on-surface-variant text-sm">
-                  No approved entries found for this race.
+                  Không có entries nào cho leg này.
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="admin-table">
+                  <table className="w-full text-sm">
                     <thead>
-                      <tr>
-                        <th>Entry</th>
-                        <th>Horse</th>
-                        <th>Jockey</th>
-                        <th>Position</th>
+                      <tr className="border-b border-white/5">
+                        <th className="px-5 py-3 text-left text-xs text-on-surface-variant font-medium uppercase tracking-wider w-16">Gate</th>
+                        <th className="px-3 py-3 text-left text-xs text-on-surface-variant font-medium uppercase tracking-wider">Horse</th>
+                        <th className="px-3 py-3 text-left text-xs text-on-surface-variant font-medium uppercase tracking-wider">Jockey</th>
+                        <th className="px-3 py-3 text-center text-xs text-on-surface-variant font-medium uppercase tracking-wider w-28">Thứ hạng</th>
+                        <th className="px-3 py-3 text-center text-xs text-on-surface-variant font-medium uppercase tracking-wider w-20">Điểm</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {entries.map((entry, i) => (
-                        <tr key={entry.entryId}>
-                          <td className="font-mono text-sm text-on-surface-variant font-bold">
-                            #{String(entry.gateNumber ?? (i + 1)).padStart(2, '0')}
-                          </td>
-                          <td className="font-bold text-on-surface text-sm">
-                            {horseMap[entry.horseId]?.name ?? `Horse #${entry.horseId}`}
-                          </td>
-                          <td className="text-sm text-on-surface-variant">—</td>
-                          <td>
-                            <PositionSelect
-                              value={legPositions[activeTab]?.[entry.entryId] ?? ''}
-                              onChange={val => setPosition(activeTab, entry.entryId, val)}
-                              maxN={entries.length}
-                              locked={isLocked}
-                            />
-                          </td>
-                        </tr>
-                      ))}
+                      {entries.map((entry, i) => {
+                        const val = positions[activeLegIndex]?.[entry.entryId] ?? ''
+                        const isLocked = isLegLocked
+                        return (
+                          <tr key={entry.entryId} className="border-b border-white/5 hover:bg-white/3 transition-colors">
+                            <td className="px-5 py-3 font-mono text-xs font-bold text-yellow-400/70">
+                              #{String(entry.gateNumber ?? (i + 1)).padStart(2, '0')}
+                            </td>
+                            <td className="px-3 py-3">
+                              <p className="font-semibold text-on-surface text-sm">{entry.horseName || `Horse #${entry.horseId}`}</p>
+                            </td>
+                            <td className="px-3 py-3 text-on-surface-variant text-sm">
+                              {entry.jockeyName || '—'}
+                            </td>
+                            <td className="px-3 py-3 text-center">
+                              {isLocked ? (
+                                <PositionBadge value={val} />
+                              ) : (
+                                <select
+                                  value={val}
+                                  onChange={e => setPosition(activeLegIndex, entry.entryId, e.target.value)}
+                                  className="w-full bg-surface-container-lowest border border-outline-variant/50 rounded-lg px-2 py-1.5 text-sm font-mono text-on-surface focus:outline-none focus:border-yellow-400/60 transition-all"
+                                >
+                                  <option value="">—</option>
+                                  {entries.map((_, n) => (
+                                    <option key={n + 1} value={String(n + 1)}>{n + 1}</option>
+                                  ))}
+                                  <option value="DNF">DNF</option>
+                                  <option value="DQ">DQ</option>
+                                </select>
+                              )}
+                            </td>
+                            <td className="px-3 py-3 text-center font-mono text-sm font-bold text-yellow-400/70">
+                              {val ? `${getLegPoints(val)}p` : '—'}
+                            </td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
               )}
 
-              {/* Footer */}
-              <div className="px-5 py-4 border-t border-outline-variant/40 flex items-center justify-between gap-4">
-                <p className="text-xs text-on-surface-variant/60 italic">
-                  Validation: Each position must be unique.
-                </p>
-                <div className="flex items-center gap-3">
+              {/* Footer actions */}
+              {!isLegLocked && (
+                <div className="px-5 py-4 border-t border-white/10">
                   {submitError && (
-                    <p className="text-xs text-error">{submitError}</p>
+                    <p className="text-xs text-red-400 mb-3 flex items-center gap-1.5">
+                      <AlertCircle size={13} />
+                      {submitError}
+                    </p>
                   )}
-                  <button
-                    onClick={handleSubmit}
-                    disabled={isLocked || !isLegValid(activeTab) || submitting}
-                    className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all
-                      ${!isLocked && isLegValid(activeTab)
-                        ? 'bg-yellow-400 text-black hover:bg-yellow-300'
-                        : 'bg-surface-container-high text-on-surface-variant cursor-not-allowed'
-                      } disabled:opacity-60`}
-                  >
-                    {isLocked ? <Lock size={14} /> : null}
-                    {submitting ? 'Submitting…' : `Submit Leg ${activeTab} Results`}
-                  </button>
+                  {draftSaved && (
+                    <p className="text-xs text-emerald-400 mb-3 flex items-center gap-1.5">
+                      <CheckCircle2 size={13} />
+                      Đã lưu nháp thành công.
+                    </p>
+                  )}
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <p className="text-xs text-on-surface-variant/60 italic">
+                      Mỗi thứ hạng chỉ gán cho 1 Entry duy nhất.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleSaveDraft}
+                        disabled={submitting}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-white/20 text-sm text-gray-300 hover:bg-white/10 transition-all disabled:opacity-50"
+                      >
+                        <Save size={14} />
+                        Lưu nháp
+                      </button>
+                      <button
+                        onClick={handleSubmit}
+                        disabled={!isFormValid || submitting}
+                        className={`flex items-center gap-1.5 px-5 py-2 rounded-lg text-sm font-bold transition-all
+                          ${isFormValid && !submitting
+                            ? 'bg-yellow-400 text-black hover:bg-yellow-300'
+                            : 'bg-surface-container-high text-on-surface-variant cursor-not-allowed'
+                          } disabled:opacity-50`}
+                      >
+                        {submitting
+                          ? <><Loader2 size={14} className="animate-spin" /> Đang gửi...</>
+                          : <><Send size={14} /> Submit Leg {legNumber}</>}
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
+            </div>
+
+            {/* Leg legend */}
+            <div className="mt-3 flex items-center gap-4 px-1 text-xs text-on-surface-variant">
+              <span className="flex items-center gap-1.5">
+                <span className="w-4 h-4 rounded bg-gray-500/20 border border-gray-600 text-gray-400 flex items-center justify-center text-[9px] font-bold">P1</span>
+                1st = 6pts
+              </span>
+              <span>P2 = 5pts</span>
+              <span>P3 = 4pts</span>
+              <span>P4 = 3pts</span>
+              <span>P5 = 2pts</span>
+              <span>P6 = 1pt</span>
+              <span>DNF/DQ = 0pt</span>
             </div>
           </>
         )}
 
+        {/* Loading state */}
+        {loading && (
+          <div className="flex flex-col items-center justify-center py-40">
+            <Loader2 className="w-10 h-10 text-yellow-400 animate-spin mb-4" />
+            <p className="text-on-surface-variant text-sm">Đang tải cuộc đua...</p>
+          </div>
+        )}
       </div>
     </div>
   )

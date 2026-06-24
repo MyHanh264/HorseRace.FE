@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Flag, Plus, ChevronDown, Edit2, Trash2, X, AlertCircle,
-  Users, CheckCircle, Clock, XCircle, ArrowLeft, UserCheck,
+  Users, CheckCircle, Clock, XCircle, ArrowLeft, UserCheck, Eye,
 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import {
   getTournaments, getRaces, getRaceDetail, createRace, updateRace, deleteRace,
   getUsers, approveEntry, rejectEntry,
@@ -236,6 +237,8 @@ function RaceModal({ race, tournaments, users, selectedTournamentId, onClose, on
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AdminRacesPage() {
+  const navigate = useNavigate()
+
   // ── Data ──
   const [tournaments, setTournaments] = useState([])
   const [raceDetails, setRaceDetails] = useState([])   // full detail of all races
@@ -603,6 +606,12 @@ export default function AdminRacesPage() {
                             </div>
                           ) : (
                             <div className="flex items-center gap-1.5 flex-wrap">
+                              {(race.status === 'InProgress' || race.status === 'Paused') && (
+                                <button onClick={() => navigate('/admin/race-execution')}
+                                  className="gs-btn gs-btn-outline-yellow gs-btn-sm flex items-center gap-1">
+                                  <Eye className="w-3.5 h-3.5" /> Monitor
+                                </button>
+                              )}
                               <button onClick={() => openEntriesView(race)}
                                 className="gs-btn gs-btn-outline-emerald gs-btn-sm flex items-center gap-1">
                                 <Users className="w-3.5 h-3.5" /> Entries
