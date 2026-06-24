@@ -17,6 +17,10 @@ export async function getHorseById(horseId) {
 
 export async function updateHorse(horseId, payload) {
   const res = await api.put(`/api/horses/${horseId}`, payload);
+  // BE trả 204 No Content khi không có body
+  if (res.status === 204 || res.status === 200 && Object.keys(res.data || {}).length === 0) {
+    return true;
+  }
   return res.data;
 }
 
@@ -55,7 +59,17 @@ export async function getJockeys() {
   return res.data;
 }
 
+export async function updateInvitation(invitationId, status, responseReason = null) {
+  const res = await api.put(`/api/jockey-invitations/${invitationId}`, {
+    status,
+    responseReason,
+  });
+  if (res.status === 204) return true;
+  return res.data;
+}
+
 export async function deleteInvitation(invitationId) {
   const res = await api.delete(`/api/jockey-invitations/${invitationId}`);
+  if (res.status === 204) return true;
   return res.data;
 }
