@@ -86,7 +86,7 @@ function InvitationCard({ inv, onAccept, onDecline, actioning }) {
         </div>
         <div className="min-w-0">
           <p className="text-white font-bold text-sm">
-            Horse #{inv.horseOwnerId}
+            {inv.horseName ?? `Horse #${inv.horseId}`}
           </p>
           <p className="text-gray-500 text-xs mt-0.5">— • —</p>
           {/* Stats badges */}
