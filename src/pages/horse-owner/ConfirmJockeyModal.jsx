@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { X, CheckCircle2, AlertTriangle } from "lucide-react";
-import { getHorseById, submitEntry } from "../../api/horseOwner";
+import { getHorseById, submitEntry, updateInvitation } from "../../api/horseOwner";
 import { getJockeyProfile } from "../../api/jockey";
+import { useAuth } from "../../context/AuthContext";
+import api from "../../services/api";
 
 // ─── Info Row ─────────────────────────────────────────────────────────────────
 
@@ -91,24 +93,28 @@ export default function ConfirmJockeyModal({
   onClose,
   onConfirmed,
 }) {
-  const [horse, setHorse] = useState(null);
-  const [jockey, setJockey] = useState(null);
-  const [loadError, setLoadError] = useState("");
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const [horse,      setHorse]      = useState(null);
+  const [jockey,     setJockey]     = useState(null);
+  const [jockeyUser, setJockeyUser] = useState(null);
+  const [loadError,  setLoadError]  = useState("");
+  const [loading,    setLoading]    = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [submitError, setSubmitError] = useState("");
+  const [submitted,  setSubmitted]  = useState(false);
+  const [submitError,setSubmitError]= useState("");
 
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
-        const [h, j] = await Promise.allSettled([
-          inv.horseId ? getHorseById(inv.horseId) : Promise.resolve(null),
-          inv.jockeyId ? getJockeyProfile(inv.jockeyId) : Promise.resolve(null),
+        const [h, j, ju] = await Promise.allSettled([
+          inv.horseId  ? getHorseById(inv.horseId)            : Promise.resolve(null),
+          inv.jockeyId ? getJockeyProfile(inv.jockeyId)       : Promise.resolve(null),
+          inv.jockeyId ? api.get(`/api/users/${inv.jockeyId}`): Promise.resolve(null),
         ]);
-        if (h.status === "fulfilled") setHorse(h.value);
-        if (j.status === "fulfilled") setJockey(j.value);
+        if (h.status  === "fulfilled") setHorse(h.value);
+        if (j.status  === "fulfilled") setJockey(j.value);
+        if (ju.status === "fulfilled") setJockeyUser(ju.value?.data ?? ju.value);
       } catch (err) {
         setLoadError("Không tải được thông tin chi tiết.");
         console.error("ConfirmJockeyModal load failed:", err);
@@ -122,7 +128,7 @@ export default function ConfirmJockeyModal({
   const horseName = horse?.name ?? inv.horseName ?? `Horse #${inv.horseId}`;
   const horseBreed = horse?.breed ?? horse?.type ?? null;
   const jockeyName =
-    jockey?.fullName ?? inv.jockeyName ?? `Jockey #${inv.jockeyId}`;
+    jockeyUser?.fullName ?? jockey?.fullName ?? inv.jockeyName ?? `Jockey #${inv.jockeyId}`;
   const jockeyLicense = jockey?.licenseNumber
     ? `License #${jockey.licenseNumber}`
     : null;
@@ -136,14 +142,13 @@ export default function ConfirmJockeyModal({
     setSubmitting(true);
     setSubmitError("");
     try {
-      // TODO: when BE adds confirm-invitation endpoint, call it here first:
-      // await confirmInvitation(inv.invitationId)
-      // Then submitEntry automatically, or let BE handle entry creation on confirm.
+      await updateInvitation(inv.invitationId ?? inv.id, "Confirmed");
 
       await submitEntry({
-        horseId: inv.horseId,
-        jockeyId: inv.jockeyId,
-        raceId: inv.raceId,
+        horseId:      inv.horseId,
+        jockeyId:     inv.jockeyId,
+        raceId:       inv.raceId,
+        horseOwnerId: user?.userId,
       });
 
       setSubmitted(true);
@@ -266,13 +271,7 @@ export default function ConfirmJockeyModal({
           </button>
           <button
             onClick={handleSubmit}
-            disabled={
-              loading ||
-              submitting ||
-              !inv.horseId ||
-              !inv.jockeyId ||
-              !inv.raceId
-            }
+            disabled={loading || submitting}
             className="flex-1 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 disabled:opacity-50 disabled:cursor-not-allowed text-black font-bold text-sm transition-colors"
           >
             {submitting ? "Submitting…" : "Confirm & Submit Entry"}
