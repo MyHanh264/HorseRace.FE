@@ -18,6 +18,7 @@ import AdminAnalyticsPage from "./pages/admin/AdminAnalyticsPage";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
 import AdminTournamentsPage from "./pages/admin/AdminTournamentsPage";
 import AdminRacesPage from "./pages/admin/AdminRacesPage";
+import AdminHorsesPage from "./pages/admin/AdminHorsesPage";
 
 // Spectator
 import SpectatorLayout from "./components/layout/SpectatorLayout";
@@ -75,7 +76,7 @@ function App() {
         >
           <Route index element={<AdminAnalyticsPage />} />
           <Route path="users" element={<AdminUsersPage />} />
-          <Route path="horses" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang quản lý ngựa đua đang được phát triển.</div>} />
+          <Route path="horses" element={<AdminHorsesPage />} />
           <Route path="tournaments" element={<AdminTournamentsPage />} />
           <Route path="races" element={<AdminRacesPage />} />
           <Route path="discrepancies" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang xử lý sai lệch đang được phát triển.</div>} />
