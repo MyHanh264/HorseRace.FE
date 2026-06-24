@@ -1,24 +1,17 @@
 import { NavLink, Outlet } from "react-router-dom";
+import { LayoutDashboard, Mail, Flag, BarChart2, User, LogOut } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import {
-  LayoutDashboard,
-  PawPrint,
-  Mail,
-  ClipboardList,
-  User,
-  LogOut,
-} from "lucide-react";
 
 const navItems = [
-  { to: "/horse-owner", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/horse-owner/horses", label: "My Horses", icon: PawPrint },
-  { to: "/horse-owner/invitations", label: "Invitations", icon: Mail },
-  { to: "/horse-owner/entries", label: "My Entries", icon: ClipboardList },
-  { to: "/horse-owner/profile", label: "Profile", icon: User },
+  { to: "/jockey", label: "Dashboard", icon: LayoutDashboard, end: true },
+  { to: "/jockey/invitations", label: "My Invitations", icon: Mail },
+  { to: "/jockey/races", label: "My Races", icon: Flag },
+  { to: "/jockey/leaderboard", label: "Leaderboard", icon: BarChart2 },
+  { to: "/jockey/profile", label: "Profile", icon: User },
 ];
 
 function getInitials(name) {
-  if (!name) return "O";
+  if (!name) return "J";
   return name
     .split(" ")
     .map((n) => n[0])
@@ -27,7 +20,7 @@ function getInitials(name) {
     .slice(0, 2);
 }
 
-export default function HorseOwnerLayout() {
+export default function JockeyLayout() {
   const { user, logout } = useAuth();
 
   return (
@@ -37,11 +30,11 @@ export default function HorseOwnerLayout() {
         {/* Logo */}
         <div className="flex items-center gap-3 px-4 py-5 border-b border-white/10">
           <div className="w-9 h-9 rounded-full bg-primary-container/50 border border-primary/20 flex items-center justify-center text-base flex-shrink-0">
-            🐴
+            🏇
           </div>
           <div className="min-w-0">
             <p className="text-primary font-bold text-sm leading-tight">GrandStride</p>
-            <p className="text-gray-500 text-[10px]">Owner Portal</p>
+            <p className="text-gray-500 text-[10px]">Jockey Portal</p>
           </div>
         </div>
 
@@ -75,7 +68,7 @@ export default function HorseOwnerLayout() {
             </div>
             <div className="min-w-0">
               <p className="text-xs font-semibold text-white truncate">
-                {user?.fullName || "Horse Owner"}
+                {user?.fullName || "Jockey"}
               </p>
               <p className="text-[10px] text-gray-500 truncate">{user?.email ?? ""}</p>
             </div>

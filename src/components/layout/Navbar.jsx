@@ -1,22 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { LogOut, UserCircle, ChevronDown, LayoutDashboard, Home } from 'lucide-react'
+import { LogOut, UserCircle, ChevronDown, LayoutDashboard, Home, User } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { getHomePathForRole } from '../../utils/token'
 
 export default function Navbar({ brandLink = '/' }) {
   const navigate = useNavigate()
   const { user, isAuthenticated, logout } = useAuth()
-  const [menuOpen, setMenuOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
-  const menuRef = useRef(null)
   const userMenuRef = useRef(null)
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setMenuOpen(false)
-      }
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
         setUserMenuOpen(false)
       }
@@ -37,13 +32,25 @@ export default function Navbar({ brandLink = '/' }) {
     if (home) navigate(home)
   }
 
+  const getProfilePath = (role) => {
+    if (role === 'JOCKEY') return '/jockey/profile'
+    if (role === 'HORSE_OWNER') return '/horse-owner/profile'
+    return null
+  }
+
+  const handleProfile = () => {
+    setUserMenuOpen(false)
+    const path = getProfilePath(user?.role)
+    if (path) navigate(path)
+  }
+
   return (
     <header className="w-full bg-[rgba(11,20,28,0.85)] backdrop-blur-xl border-b border-[rgba(64,73,65,0.6)] sticky top-0 z-50">
       <div className="max-w-[1280px] mx-auto px-6 sm:px-8 py-4 flex items-center justify-between">
         {/* Brand */}
         <Link
           to={brandLink}
-          className="font-serif text-2xl text-primary font-bold tracking-tight hover:brightness-110 no-underline transition-all"
+          className="font-serif text-2xl text-white font-bold tracking-tight hover:opacity-80 no-underline transition-all"
         >
           GrandStride
         </Link>
@@ -85,6 +92,16 @@ export default function Navbar({ brandLink = '/' }) {
                     >
                       <LayoutDashboard className="w-4 h-4 text-primary" />
                       Vào dashboard
+                    </button>
+                  ) : null}
+                  {getProfilePath(user?.role) ? (
+                    <button
+                      type="button"
+                      onClick={handleProfile}
+                      className="w-full text-left px-4 py-2.5 text-sm text-on-surface hover:bg-surface-container-high flex items-center gap-3 transition-colors cursor-pointer bg-transparent border-none"
+                    >
+                      <User className="w-4 h-4 text-primary" />
+                      Hồ sơ cá nhân
                     </button>
                   ) : null}
                   <button

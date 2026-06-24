@@ -80,39 +80,49 @@
   --font-sans: "Inter", sans-serif;
   --font-serif: "Playfair Display", serif;
 
-  --color-background: var(--color-background);
-  --color-surface: var(--color-surface);
-  --color-surface-dim: var(--color-surface-dim);
-  --color-surface-bright: var(--color-surface-bright);
-  --color-surface-container-lowest: var(--color-surface-container-lowest);
-  --color-surface-container-low: var(--color-surface-container-low);
-  --color-surface-container: var(--color-surface-container);
-  --color-surface-container-high: var(--color-surface-container-high);
-  --color-surface-container-highest: var(--color-surface-container-highest);
-  --color-on-surface: var(--color-on-surface);
-  --color-on-surface-variant: var(--color-on-surface-variant);
-  --color-outline: var(--color-outline);
-  --color-outline-variant: var(--color-outline-variant);
+  --color-background: #0b141c;
+  --color-surface: #0b141c;
+  --color-surface-dim: #0b141c;
+  --color-surface-bright: #313a43;
+  --color-surface-container-lowest: #060f16;
+  --color-surface-container-low:    #141c24;
+  --color-surface-container:        #182028;
+  --color-surface-container-high:   #222b33;
+  --color-surface-container-highest: #2d363e;
+  --color-on-surface:               #dae3ee;
+  --color-on-surface-variant:       #bfc9bf;
+  --color-outline: #89938a;
+  --color-outline-variant: #404941;
 
-  --color-primary: var(--color-primary);
-  --color-on-primary: var(--color-on-primary);
-  --color-primary-container: var(--color-primary-container);
-  --color-on-primary-container: var(--color-on-primary-container);
+  --color-primary: #8dd6a6;
+  --color-on-primary: #00391e;
+  --color-primary-container: #0a5c36;
+  --color-on-primary-container: #89d2a2;
 
-  --color-secondary: var(--color-secondary);
-  --color-on-secondary: var(--color-on-secondary);
-  --color-secondary-container: var(--color-secondary-container);
-  --color-on-secondary-container: var(--color-on-secondary-container);
+  --color-secondary: #e6c364;
+  --color-on-secondary: #3d2e00;
+  --color-secondary-container: #785d00;
+  --color-on-secondary-container: #fdd977;
 
-  --color-tertiary: var(--color-tertiary);
-  --color-on-tertiary: var(--color-on-tertiary);
-  --color-tertiary-container: var(--color-tertiary-container);
-  --color-on-tertiary-container: var(--color-on-tertiary-container);
+  --color-tertiary: #c3c6cf;
+  --color-on-tertiary: #2d3137;
+  --color-tertiary-container: #4c5057;
+  --color-on-tertiary-container: #bfc2cb;
 
-  --color-error: var(--color-error);
-  --color-on-error: var(--color-on-error);
-  --color-error-container: var(--color-error-container);
-  --color-on-error-container: var(--color-on-error-container);
+  --color-error: #ffb4ab;
+  --color-on-error: #690005;
+  --color-error-container: #93000a;
+  --color-on-error-container: #ffdad6;
+
+  /* Admin GitHub Dark */
+  --color-admin-bg:   #0D1117;
+  --color-admin-bg2:  #161B22;
+  --color-admin-bg3:  #21262D;
+  --color-admin-bg4:  #30363D;
+  --color-admin-text: #E6EDF3;
+  --color-admin-muted:#8B949E;
+  --color-admin-blue: #58A6FF;
+  --color-admin-red:  #F85149;
 }
 
 /* ==========================================================================
@@ -145,6 +155,24 @@ body {
   outline: 2px solid var(--color-secondary);
   outline-offset: 2px;
   border-radius: 4px;
+}
+
+/* Inputs already show focus via input-focus-gold container — no extra outline needed */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+}
+
+/* Fix browser autofill white background */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #060f16 inset !important;
+  -webkit-text-fill-color: #dae3ee !important;
+  caret-color: #dae3ee;
+  transition: background-color 5000s ease-in-out 0s;
 }
 
 a, button { -webkit-tap-highlight-color: transparent; }
@@ -517,8 +545,8 @@ a, button { -webkit-tap-highlight-color: transparent; }
   transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
 .input-focus-gold:focus-within {
-  border-color: var(--color-secondary) !important;
-  box-shadow: 0 0 0 3px rgba(230, 195, 100, 0.12);
+  border-color: rgba(141, 214, 166, 0.5) !important;
+  box-shadow: 0 0 0 3px rgba(141, 214, 166, 0.08);
 }
 
 /* ==========================================================================
@@ -1197,8 +1225,92 @@ a, button { -webkit-tap-highlight-color: transparent; }
 }
 
 /* ==========================================================================
-   16. UTILITIES
+   17. ADMIN LAYOUT — GitHub Dark Theme
    ========================================================================== */
+
+/* Admin uses inline styles and Tailwind classes — no global :root overrides needed */
+
+/* Admin sidebar link states */
+.admin-sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  color: var(--color-on-surface-variant);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background 0.15s ease, color 0.15s ease;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  text-decoration: none;
+}
+.admin-sidebar-link:hover {
+  background: rgba(141, 214, 166, 0.08);
+  color: var(--color-on-surface);
+}
+.admin-sidebar-link.active {
+  background: var(--color-primary-container);
+  color: var(--color-on-primary-container);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px rgba(56, 139, 253, 0.2);
+}
+.admin-sidebar-link.active:hover {
+  background: rgba(56, 139, 253, 0.18);
+}
+
+/* Admin card variant */
+.admin-card {
+  background: var(--color-surface-container);
+  border: 1px solid var(--color-outline-variant);
+  border-radius: 12px;
+  transition: border-color 0.2s ease;
+}
+.admin-card:hover {
+  border-color: rgba(88, 166, 255, 0.35);
+}
+
+/* Admin table */
+.admin-page-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.admin-page-table th {
+  background: var(--color-surface-container-high);
+  color: var(--color-on-surface-variant);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-outline-variant);
+}
+.admin-page-table td {
+  padding: 12px 14px;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(48, 54, 61, 0.5);
+  color: var(--color-on-surface);
+  font-size: 0.875rem;
+}
+.admin-page-table tbody tr:hover {
+  background: rgba(88, 166, 255, 0.04);
+}
+.admin-page-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Ambient glow for CTA */
+.admin-ambient-glow {
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.15);
+}
+
+/* ============================================================
+   UTILITIES
+   ============================================================ */
 
 .no-scrollbar {
   -ms-overflow-style: none;

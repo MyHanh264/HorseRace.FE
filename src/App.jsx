@@ -13,13 +13,22 @@ import RegisterPage from "./pages/registerPage/RegisterPage";
 import LandingDashboard from "./pages/customer/LandingDashboard";
 
 // Admin
-import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminLayout from "./components/layout/AdminLayout";
+import AdminAnalyticsPage from "./pages/admin/AdminAnalyticsPage";
+import AdminUsersPage from "./pages/admin/AdminUsersPage";
+import AdminTournamentsPage from "./pages/admin/AdminTournamentsPage";
+import AdminRacesPage from "./pages/admin/AdminRacesPage";
 
 // Spectator
 import SpectatorDashboard from "./pages/spectator/SpectatorDashboard";
 
 // Jockey
 import JockeyDashboard from "./pages/jockey/JockeyDashboard";
+import JockeyProfilePage from "./pages/jockey/JockeyProfilePage";
+import JockeyInvitationPage from "./pages/jockey/JockeyInvitationPage";
+import JockeyRacesPage from "./pages/jockey/JockeyRacesPage";
+import JockeyLayout from "./components/layout/JockeyLayout";
+import JockeyLeaderboardPage from "./pages/jockey/JockeyLeaderboardPage";
 
 // Referee
 import RefereeDashboard from "./pages/referee/RefereeDashboard";
@@ -50,10 +59,19 @@ function App() {
           path="/admin"
           element={
             <RequireRole role="ADMIN">
-              <AdminDashboard />
+              <AdminLayout />
             </RequireRole>
           }
-        />
+        >
+          <Route index element={<AdminAnalyticsPage />} />
+          <Route path="users" element={<AdminUsersPage />} />
+          <Route path="horses" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang quản lý ngựa đua đang được phát triển.</div>} />
+          <Route path="tournaments" element={<AdminTournamentsPage />} />
+          <Route path="races" element={<AdminRacesPage />} />
+          <Route path="discrepancies" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang xử lý sai lệch đang được phát triển.</div>} />
+          <Route path="violations" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang vi phạm kỷ luật đang được phát triển.</div>} />
+          <Route path="point-management" element={<div className="text-sm p-8" style={{color:"#8B949E"}}>Point Management page coming soon.</div>} />
+        </Route>
 
         {/* Spectator */}
         <Route
@@ -70,10 +88,16 @@ function App() {
           path="/jockey"
           element={
             <RequireRole role="JOCKEY">
-              <JockeyDashboard />
+              <JockeyLayout />
             </RequireRole>
           }
-        />
+        >
+          <Route index element={<JockeyDashboard />} />
+          <Route path="invitations" element={<JockeyInvitationPage />} />
+          <Route path="races" element={<JockeyRacesPage />} />
+          <Route path="leaderboard" element={<JockeyLeaderboardPage />} />
+          <Route path="profile" element={<JockeyProfilePage />} />
+        </Route>
 
         {/* Referee */}
         <Route
