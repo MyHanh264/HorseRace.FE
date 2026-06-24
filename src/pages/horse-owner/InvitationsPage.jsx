@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { X, Trash2 } from "lucide-react";
 import { getInvitations, deleteInvitation } from "../../api/horseOwner";
 import SendInvitationModal from "./SendInvitationModal";
+import ConfirmJockeyModal from "./ConfirmJockeyModal";
 
 const STATUS_BADGE = {
   Accepted: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40",
@@ -42,6 +43,7 @@ export default function InvitationsPage() {
   const [activeTab, setActiveTab] = useState("Sent");
   const [refreshKey, setRefreshKey] = useState(0);
   const [showModal, setShowModal] = useState(false);
+  const [confirmInv, setConfirmInv] = useState(null);
 
   useEffect(() => {
     getInvitations()
@@ -200,7 +202,10 @@ export default function InvitationsPage() {
               {/* Action */}
               <div className="flex items-center justify-end gap-2">
                 {inv.status === "Accepted" && (
-                  <button className="bg-yellow-500 hover:bg-yellow-400 text-black text-xs font-bold px-4 py-1.5 rounded-lg transition-colors">
+                  <button
+                    onClick={() => setConfirmInv(inv)}
+                    className="bg-yellow-500 hover:bg-yellow-400 text-black text-xs font-bold px-4 py-1.5 rounded-lg transition-colors"
+                  >
                     Confirm
                   </button>
                 )}
@@ -226,7 +231,20 @@ export default function InvitationsPage() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Confirm Jockey Modal */}
+      {confirmInv && (
+        <ConfirmJockeyModal
+          invitation={confirmInv}
+          onClose={() => setConfirmInv(null)}
+          onConfirmed={() => {
+            setConfirmInv(null);
+            setLoading(true);
+            setRefreshKey((k) => k + 1);
+          }}
+        />
+      )}
+
+      {/* Send Invitation Modal */}
       {showModal && (
         <SendInvitationModal
           onClose={() => {
