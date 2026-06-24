@@ -171,7 +171,7 @@ export default function InvitationsPage() {
               <div className="flex items-center gap-2.5">
                 <HorseAvatar />
                 <p className="text-gray-300 text-sm">
-                  {inv.horseName ?? `Horse #${inv.horseOwnerId}`}
+                  {inv.horseName ?? `Horse #${inv.horseId}`}
                 </p>
               </div>
 
@@ -211,7 +211,7 @@ export default function InvitationsPage() {
                 )}
                 {inv.status === "Pending" && (
                   <button
-                    onClick={() => handleDelete(inv.invitationId)}
+                    onClick={() => handleDelete(inv.invitationId ?? inv.id)}
                     className="w-8 h-8 rounded-full border border-white/10 bg-white/5 hover:border-red-500/40 hover:bg-red-500/10 flex items-center justify-center text-gray-400 hover:text-red-400 transition-colors"
                   >
                     <X size={14} />
@@ -219,7 +219,7 @@ export default function InvitationsPage() {
                 )}
                 {inv.status === "Declined" && (
                   <button
-                    onClick={() => handleDelete(inv.invitationId)}
+                    onClick={() => handleDelete(inv.invitationId ?? inv.id)}
                     className="w-8 h-8 rounded-lg border border-white/10 bg-white/5 hover:border-red-500/40 hover:bg-red-500/10 flex items-center justify-center text-gray-400 hover:text-red-400 transition-colors"
                   >
                     <Trash2 size={14} />

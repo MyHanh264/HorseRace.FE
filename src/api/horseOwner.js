@@ -39,6 +39,7 @@ export async function updateHorse(horseId, payload) {
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error(`Cập nhật ngựa thất bại (${res.status})`);
+  if (res.status === 204) return true;
   return res.json();
 }
 
@@ -102,6 +103,20 @@ export async function getJockeys() {
 }
 
 //Xóa lời mời tham gia giải đấu
+export async function updateInvitation(invitationId, status, responseReason = null) {
+  const res = await fetch(
+    `${BASE_URL}/api/jockey-invitations/${invitationId}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...authHeader() },
+      body: JSON.stringify({ invitationId, status, responseReason }),
+    },
+  );
+  if (!res.ok) throw new Error(`Cập nhật invitation thất bại (${res.status})`);
+  if (res.status === 204) return true;
+  return res.json();
+}
+
 export async function deleteInvitation(invitationId) {
   const res = await fetch(
     `${BASE_URL}/api/jockey-invitations/${invitationId}`,

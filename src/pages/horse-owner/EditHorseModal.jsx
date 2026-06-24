@@ -84,9 +84,10 @@ export default function EditHorseModal({ horseId, onClose, onSuccess }) {
     try {
       setSaving(true);
       const payload = {
+        horseId: horseId,
         name: form.name,
         breed: form.breed,
-        birthYear: parseInt(form.birthYear),
+        birthYear: parseInt(form.birthYear) || null,
         color: form.color,
         imageUrl: form.imageUrl,
       };
