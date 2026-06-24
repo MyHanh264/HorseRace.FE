@@ -6,13 +6,16 @@ import EditHorseModal from "./EditHorseModal";
 import ViewHorseModal from "./ViewHorseModal";
 import { useNavigate } from "react-router-dom";
 
-const TABS = ["All", "Approved", "Pending", "Rejected"];
+const TABS = ["All", "Approved", "Pending", "Rejected", "Revoked"];
 
 const STATUS_BADGE = {
   Approved: "bg-emerald-500/20 text-emerald-400 border border-emerald-700",
   Pending: "bg-yellow-500/20 text-yellow-400 border border-yellow-700",
   Rejected: "bg-red-500/20 text-red-400 border border-red-700",
+  Revoked: "bg-gray-500/20 text-gray-400 border border-gray-600",
 };
+
+const EDITABLE_STATUSES = ["Pending", "Rejected"];
 
 export default function MyHorsesPage() {
   const [horses, setHorses] = useState([]);
@@ -128,12 +131,14 @@ export default function MyHorsesPage() {
                 )}
 
                 <div className="flex gap-2 mt-4">
-                  <button
-                    onClick={() => setEditHorseId(horse.horseId)}
-                    className="flex-1 border border-white/20 hover:bg-white/10 text-sm py-1.5 rounded-lg transition-colors text-white"
-                  >
-                    Edit
-                  </button>
+                  {EDITABLE_STATUSES.includes(horse.status) && (
+                    <button
+                      onClick={() => setEditHorseId(horse.horseId)}
+                      className="flex-1 border border-white/20 hover:bg-white/10 text-sm py-1.5 rounded-lg transition-colors text-white"
+                    >
+                      Edit
+                    </button>
+                  )}
                   <button
                     onClick={() =>
                       navigate(`/horse-owner/horses/${horse.horseId}`)

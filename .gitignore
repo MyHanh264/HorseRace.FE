@@ -28,3 +28,7 @@ dist-ssr
 .env.local
 .env.development
 .env.production
+
+# Claude Code / AI assistant
+.claude/
+CLAUDE.md
