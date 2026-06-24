@@ -77,8 +77,13 @@ export async function deleteRace(id) {
 }
 
 
-//Lấy danh sách ngựa đang chờ duyệt
+// Lấy TẤT CẢ ngựa (dùng cho bảng quản lý - lọc theo tab ở FE)
+export async function getAllHorses() {
+  const res = await api.get("/api/admin/horses")
+  return res.data
+}
 
+// Lấy danh sách ngựa đang chờ duyệt (legacy - dùng getAllHorses thay thế)
 export async function getPendingHorses() {
   const res = await api.get("/api/admin/horses/pending")
   return res.data

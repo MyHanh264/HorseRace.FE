@@ -19,6 +19,9 @@ import AdminUsersPage from "./pages/admin/AdminUsersPage";
 import AdminTournamentsPage from "./pages/admin/AdminTournamentsPage";
 import AdminRacesPage from "./pages/admin/AdminRacesPage";
 import AdminHorsesPage from "./pages/admin/AdminHorsesPage";
+import AdminDiscrepanciesPage from "./pages/admin/AdminDiscrepanciesPage";
+import AdminViolationsPage from "./pages/admin/AdminViolationsPage";
+import AdminPointManagementPage from "./pages/admin/AdminPointManagementPage";
 
 // Spectator
 import SpectatorLayout from "./components/layout/SpectatorLayout";
@@ -79,9 +82,9 @@ function App() {
           <Route path="horses" element={<AdminHorsesPage />} />
           <Route path="tournaments" element={<AdminTournamentsPage />} />
           <Route path="races" element={<AdminRacesPage />} />
-          <Route path="discrepancies" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang xử lý sai lệch đang được phát triển.</div>} />
-          <Route path="violations" element={<div className="text-sm" style={{color:"#8B949E"}}>Trang vi phạm kỷ luật đang được phát triển.</div>} />
-          <Route path="point-management" element={<div className="text-sm p-8" style={{color:"#8B949E"}}>Point Management page coming soon.</div>} />
+          <Route path="discrepancies" element={<AdminDiscrepanciesPage />} />
+          <Route path="violations" element={<AdminViolationsPage />} />
+          <Route path="point-management" element={<AdminPointManagementPage />} />
         </Route>
 
         {/* Spectator */}
