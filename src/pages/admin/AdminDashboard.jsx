@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { approveUser, getPendingUsers, rejectUser } from '../../api/admin'
 import DashboardLayout from '../../components/layout/DashboardLayout'
 import Header from '../../components/layout/Header'
+import AdminNav from '../../components/AdminNav'
 import { ShieldCheck, CheckCircle, XCircle, Clock, Search, UserPlus } from 'lucide-react'
 
 function formatDate(value) {
@@ -96,6 +97,8 @@ export default function AdminDashboard() {
           </div>
           <div className="h-[2px] w-20 rounded-full bg-gradient-to-r from-primary to-secondary mt-4" />
         </div>
+
+        <AdminNav />
 
         {/* Stats row */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">

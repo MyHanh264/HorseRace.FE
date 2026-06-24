@@ -6,6 +6,7 @@ const STATUS_STYLE = {
   Approved: "bg-emerald-500/20 text-emerald-400 border border-emerald-700",
   Pending: "bg-yellow-500/20 text-yellow-400 border border-yellow-700",
   Rejected: "bg-red-500/20 text-red-400 border border-red-700",
+  Revoked: "bg-gray-500/20 text-gray-400 border border-gray-600",
 };
 
 export default function ViewHorseModal({ horseId, onClose }) {
@@ -99,15 +100,16 @@ export default function ViewHorseModal({ horseId, onClose }) {
                 </div>
               </div>
 
-              {/* Rejection reason */}
-              {horse.status === "Rejected" && horse.rejectionReason && (
-                <div className="mt-4 bg-red-900/20 border border-red-700 rounded-lg px-3 py-2">
-                  <p className="text-xs text-gray-400 mb-1">Rejection Reason</p>
-                  <p className="text-sm text-red-400">
-                    {horse.rejectionReason}
-                  </p>
-                </div>
-              )}
+              {/* Rejection / revocation reason */}
+              {(horse.status === "Rejected" || horse.status === "Revoked") &&
+                horse.rejectionReason && (
+                  <div className="mt-4 bg-red-900/20 border border-red-700 rounded-lg px-3 py-2">
+                    <p className="text-xs text-gray-400 mb-1">
+                      {horse.status === "Revoked" ? "Revocation Reason" : "Rejection Reason"}
+                    </p>
+                    <p className="text-sm text-red-400">{horse.rejectionReason}</p>
+                  </div>
+                )}
             </>
           )}
         </div>

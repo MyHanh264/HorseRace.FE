@@ -14,6 +14,7 @@ import LandingDashboard from "./pages/customer/LandingDashboard";
 
 // Admin
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminHorsesPage from "./pages/admin/AdminHorsesPage";
 
 // Spectator
 import SpectatorDashboard from "./pages/spectator/SpectatorDashboard";
@@ -51,6 +52,14 @@ function App() {
           element={
             <RequireRole role="ADMIN">
               <AdminDashboard />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/admin/horses"
+          element={
+            <RequireRole role="ADMIN">
+              <AdminHorsesPage />
             </RequireRole>
           }
         />
