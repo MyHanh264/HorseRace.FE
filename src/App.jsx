@@ -22,6 +22,7 @@ import AdminHorsesPage from "./pages/admin/AdminHorsesPage";
 import AdminDiscrepanciesPage from "./pages/admin/AdminDiscrepanciesPage";
 import AdminViolationsPage from "./pages/admin/AdminViolationsPage";
 import AdminPointManagementPage from "./pages/admin/AdminPointManagementPage";
+import AdminRaceExecutionPage from "./pages/admin/AdminRaceExecutionPage";
 
 // Spectator
 import SpectatorLayout from "./components/layout/SpectatorLayout";
@@ -82,6 +83,7 @@ function App() {
           <Route path="horses" element={<AdminHorsesPage />} />
           <Route path="tournaments" element={<AdminTournamentsPage />} />
           <Route path="races" element={<AdminRacesPage />} />
+          <Route path="race-execution" element={<AdminRaceExecutionPage />} />
           <Route path="discrepancies" element={<AdminDiscrepanciesPage />} />
           <Route path="violations" element={<AdminViolationsPage />} />
           <Route path="point-management" element={<AdminPointManagementPage />} />
