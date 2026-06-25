@@ -123,3 +123,60 @@ export async function rejectEntry(entryId, reason = null) {
   const res = await api.post(`/api/admin/entries/${entryId}/reject`, { reason: reason || null })
   return res.data
 }
+
+// ─── Race Execution ──────────────────────────────────────────────────────────
+
+/**
+ * POST /api/races/{raceId}/start
+ * Admin bắt đầu race → khóa bets.
+ */
+export async function startRace(raceId, payload = {}) {
+  const res = await api.post(`/api/races/${raceId}/start`, payload)
+  return res.data
+}
+
+/**
+ * GET /api/races/{raceId}/execution
+ * Lấy trạng thái execution đầy đủ (leg status, referee submissions).
+ */
+export async function getRaceExecutionStatus(raceId) {
+  const res = await api.get(`/api/races/${raceId}/execution`)
+  return res.data
+}
+
+/**
+ * GET /api/races/{raceId}/pause
+ * Lấy thông tin conflict → side-by-side comparison.
+ */
+export async function getRacePauseInfo(raceId) {
+  const res = await api.get(`/api/races/${raceId}/pause`)
+  return res.data
+}
+
+/**
+ * POST /api/races/{raceId}/legs/{legIndex}/override
+ * Admin resolve discrepancy bằng cách override kết quả.
+ * payload: { decisions: [{ entryId, officialPosition }], overrideReason }
+ */
+export async function resolveRaceConflict(raceId, legIndex, payload) {
+  const res = await api.post(`/api/races/${raceId}/legs/${legIndex}/override`, payload)
+  return res.data
+}
+
+/**
+ * POST /api/races/{raceId}/resume
+ * Admin resume race đang Paused.
+ */
+export async function resumeRace(raceId) {
+  const res = await api.post(`/api/races/${raceId}/resume`)
+  return res.data
+}
+
+/**
+ * GET /api/races/{raceId}/standings
+ * Lấy bảng điểm live của race.
+ */
+export async function getRaceStandings(raceId) {
+  const res = await api.get(`/api/races/${raceId}/standings`)
+  return res.data
+}

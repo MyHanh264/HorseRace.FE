@@ -3,8 +3,8 @@ import { ClipboardList, Flag, AlertTriangle, User, LogOut, Zap } from 'lucide-re
 import { useAuth } from '../../context/AuthContext'
 
 const navItems = [
-  { to: '/referee',             label: 'My Assigned Races', icon: ClipboardList, end: true },
-  { to: '/referee/result-entry', label: 'Result Entry',     icon: Flag },
+  { to: '/referee',              label: 'My Assigned Races', icon: ClipboardList, end: true },
+  { to: '/referee/result-entry', label: 'Race Execution',    icon: Flag },
   { to: '/referee/violations',  label: 'Violations',        icon: AlertTriangle },
   { to: '/referee/profile',     label: 'Profile',           icon: User },
 ]
