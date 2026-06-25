@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   Shield,
   Layers,
+  Zap,
   LogOut,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
@@ -18,6 +19,7 @@ const menuItems = [
   { path: "/admin/horses", label: "Horses", icon: List },
   { path: "/admin/tournaments", label: "Tournaments", icon: Trophy },
   { path: "/admin/races", label: "Races", icon: Flag },
+  { path: "/admin/race-execution", label: "Race Execution", icon: Zap },
   { path: "/admin/discrepancies", label: "Discrepancies", icon: AlertTriangle },
   { path: "/admin/violations", label: "Violations", icon: Shield },
   { path: "/admin/point-management", label: "Point Management", icon: Layers },
