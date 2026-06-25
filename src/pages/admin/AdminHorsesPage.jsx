@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CircleCheck,
   XCircle,
@@ -12,6 +12,7 @@ import {
   X,
   AlertTriangle,
   RefreshCw,
+  Inbox,
 } from "lucide-react";
 import {
   getPendingHorses,
@@ -34,15 +35,13 @@ function formatDate(value) {
 
 function StatCard({ icon, count, label, colorClass, iconBgClass }) {
   return (
-    <div className="gs-card p-5 flex items-center gap-4">
-      <div className={`w-10 h-10 rounded-lg border flex items-center justify-center shrink-0 ${iconBgClass}`}>
+    <div className="gs-card p-4 flex items-center gap-3">
+      <div className={`w-9 h-9 rounded-lg border flex items-center justify-center shrink-0 ${iconBgClass}`}>
         {icon}
       </div>
       <div>
-        <p className="text-2xl font-bold text-on-surface font-mono">{count}</p>
-        <p className="text-xs text-on-surface-variant font-medium uppercase tracking-wider">
-          {label}
-        </p>
+        <p className={`text-xl font-bold font-mono ${colorClass || "text-on-surface"}`}>{count}</p>
+        <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">{label}</p>
       </div>
     </div>
   );
@@ -51,25 +50,32 @@ function StatCard({ icon, count, label, colorClass, iconBgClass }) {
 function HorseDetailModal({ horse, onClose }) {
   if (!horse) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="horse-detail-title"
+    >
       <div
         className="bg-[#1a2035] rounded-2xl w-full max-w-2xl border border-white/10 shadow-2xl overflow-hidden animate-fade-in-up"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="relative h-48 bg-gradient-to-br from-[#2a1a3a] to-[#1a2035]">
           {horse.imageUrl ? (
-            <img src={horse.imageUrl} alt={horse.name} className="w-full h-full object-cover opacity-60" />
+            <img src={horse.imageUrl} alt={horse.name} className="w-full h-full object-cover opacity-60" onError={(e) => { e.target.style.display = 'none' }} />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-6xl opacity-20">🐴</div>
           )}
           <button
             onClick={onClose}
             className="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/40 text-white/80 hover:bg-black/60 hover:text-white flex items-center justify-center transition-all"
+            aria-label="Đóng"
           >
             <X className="w-4 h-4" />
           </button>
           <div className="absolute bottom-4 left-5 right-5">
-            <h2 className="text-2xl font-serif font-bold text-white mb-1">{horse.name}</h2>
+            <h2 id="horse-detail-title" className="text-2xl font-serif font-bold text-white mb-1">{horse.name}</h2>
             <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
               {
                 Approved: "bg-emerald-500/20 text-emerald-400 border-emerald-700",
@@ -162,7 +168,19 @@ export default function AdminHorsesPage() {
   const [successMsg, setSuccessMsg] = useState("");
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [activeTab, setActiveTab] = useState("Pending");
+
+  // Debounce search — Bug #6 fix
+  const debounceTimer = useRef(null);
+  function handleSearchChange(value) {
+    setSearchQuery(value);
+    clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedQuery(value);
+      setPage(1);
+    }, 300);
+  }
 
   const [actionId, setActionId] = useState(null);
   const [rejectingId, setRejectingId] = useState(null);
@@ -255,7 +273,7 @@ export default function AdminHorsesPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [activeTab, searchQuery]);
+  }, [activeTab]);
 
   const handleApprove = async (horseId) => {
     setActionId(horseId);
@@ -335,7 +353,7 @@ export default function AdminHorsesPage() {
 
   const filtered = horses.filter((h) => {
     const matchTab = activeTab === "All" || h.status === activeTab;
-    const q = searchQuery.toLowerCase();
+    const q = debouncedQuery.toLowerCase();
     const matchSearch =
       !q ||
       (h.name || "").toLowerCase().includes(q) ||
@@ -384,43 +402,43 @@ export default function AdminHorsesPage() {
       </div>
 
       {/* ── Stats ────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-        <div className="gs-card p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
-            <Clock className="w-4 h-4 text-amber-400" />
-          </div>
-          <div>
-            <p className="text-xl font-bold text-on-surface font-mono">{pendingCount}</p>
-            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Chờ duyệt</p>
-          </div>
-        </div>
-        <div className="gs-card p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-            <CircleCheck className="w-4 h-4 text-emerald-400" />
-          </div>
-          <div>
-            <p className="text-xl font-bold text-on-surface font-mono">{approvedCount}</p>
-            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Đã duyệt</p>
-          </div>
-        </div>
-        <div className="gs-card p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center shrink-0">
-            <XCircle className="w-4 h-4 text-red-400" />
-          </div>
-          <div>
-            <p className="text-xl font-bold text-on-surface font-mono">{rejectedCount}</p>
-            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Từ chối</p>
-          </div>
-        </div>
-        <div className="gs-card p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-gray-500/10 border border-gray-500/20 flex items-center justify-center shrink-0">
-            <Undo2 className="w-4 h-4 text-gray-400" />
-          </div>
-          <div>
-            <p className="text-xl font-bold text-on-surface font-mono">{revokedCount}</p>
-            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Thu hồi</p>
-          </div>
-        </div>
+      {/* Bug #1 fix — dùng StatCard thay vì dead code */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-8">
+        <StatCard
+          icon={<Clock className="w-4 h-4 text-amber-400" />}
+          count={horses.length}
+          label="Tổng ngựa"
+          colorClass="text-on-surface"
+          iconBgClass="bg-surface-container-high"
+        />
+        <StatCard
+          icon={<Clock className="w-4 h-4 text-amber-400" />}
+          count={pendingCount}
+          label="Chờ duyệt"
+          colorClass="text-amber-400"
+          iconBgClass="bg-amber-500/10 border border-amber-500/20"
+        />
+        <StatCard
+          icon={<CircleCheck className="w-4 h-4 text-emerald-400" />}
+          count={approvedCount}
+          label="Đã duyệt"
+          colorClass="text-emerald-400"
+          iconBgClass="bg-emerald-500/10 border border-emerald-500/20"
+        />
+        <StatCard
+          icon={<XCircle className="w-4 h-4 text-red-400" />}
+          count={rejectedCount}
+          label="Từ chối"
+          colorClass="text-red-400"
+          iconBgClass="bg-red-500/10 border border-red-500/20"
+        />
+        <StatCard
+          icon={<Undo2 className="w-4 h-4 text-gray-400" />}
+          count={revokedCount}
+          label="Thu hồi"
+          colorClass="text-gray-400"
+          iconBgClass="bg-gray-500/10 border border-gray-500/20"
+        />
       </div>
 
       {/* ── Alerts ───────────────────────────────────────── */}
@@ -442,6 +460,12 @@ export default function AdminHorsesPage() {
         <div className="mb-4 auth-alert auth-alert--success flex items-start gap-3">
           <CircleCheck className="w-5 h-5 shrink-0 mt-0.5" />
           <span>{successMsg}</span>
+          <button
+            onClick={() => setSuccessMsg("")}
+            className="ml-auto text-xs underline hover:no-underline shrink-0"
+          >
+            Đóng
+          </button>
         </div>
       )}
 
@@ -453,7 +477,7 @@ export default function AdminHorsesPage() {
             type="text"
             placeholder="Tìm theo tên ngựa, chủ ngựa, email, giống..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="w-full bg-surface-container-lowest border border-outline-variant/40 text-sm rounded-xl pl-11 pr-4 py-3 text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40"
           />
         </div>
@@ -475,6 +499,8 @@ export default function AdminHorsesPage() {
             <button
               key={key}
               onClick={() => setActiveTab(key)}
+              aria-label={`Tab ${label} (${cnt})`}
+              aria-pressed={activeTab === key}
               className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all shrink-0 flex items-center gap-1.5
                 ${activeTab === key
                   ? "bg-secondary text-black"
@@ -503,7 +529,8 @@ export default function AdminHorsesPage() {
       ) : filtered.length === 0 ? (
         <div className="gs-card p-16 text-center">
           <div className="w-16 h-16 rounded-full bg-surface-container-high mx-auto mb-4 flex items-center justify-center">
-            <CircleCheck className="w-8 h-8 text-primary/60" />
+            {/* Bug #2 fix — dùng icon trung lập thay vì CircleCheck */}
+            <Inbox className="w-8 h-8 text-primary/60" />
           </div>
           <h3 className="font-serif text-xl font-bold text-on-surface mb-2">
             {searchQuery ? "Không tìm thấy kết quả" : "Không có ngựa nào"}
@@ -513,6 +540,8 @@ export default function AdminHorsesPage() {
               ? `Không có kết quả cho "${searchQuery}"`
               : activeTab === "All"
               ? "Chưa có ngựa nào được đăng ký."
+              : activeTab === "Pending"
+              ? "Tất cả ngựa đã được duyệt! Không có ngựa nào đang chờ xử lý."
               : `Không có ngựa ở trạng thái "${activeTab}".`}
           </p>
         </div>
@@ -538,10 +567,9 @@ export default function AdminHorsesPage() {
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-surface-container-high overflow-hidden shrink-0">
                           {horse.imageUrl ? (
-                            <img src={horse.imageUrl} alt={horse.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xs text-on-surface-variant">🐴</div>
-                          )}
+                            <img src={horse.imageUrl} alt={horse.name} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
+                          ) : null}
+                          <div className="w-full h-full flex items-center justify-center text-xs text-on-surface-variant">🐴</div>
                         </div>
                         <div className="min-w-0">
                           <p className="font-semibold text-on-surface truncate">{horse.name}</p>
@@ -605,8 +633,8 @@ export default function AdminHorsesPage() {
                         <button
                           type="button"
                           onClick={() => setSelectedHorse(horse)}
+                          aria-label={`Xem chi tiết ${horse.name}`}
                           className="w-7 h-7 rounded-lg bg-surface-container-high hover:bg-surface-container-highest flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-all"
-                          title="Xem chi tiết"
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
@@ -619,7 +647,6 @@ export default function AdminHorsesPage() {
                               disabled={actionId === horse.horseId}
                               onClick={() => handleApprove(horse.horseId)}
                               className="gs-btn gs-btn-primary gs-btn-sm flex items-center gap-1"
-                              title="Duyệt ngựa"
                             >
                               {actionId === horse.horseId ? (
                                 <div className="w-3 h-3 border-2 border-black/30 border-t-black rounded-full animate-spin" />
@@ -632,10 +659,11 @@ export default function AdminHorsesPage() {
                               type="button"
                               disabled={actionId === horse.horseId}
                               onClick={() => setRejectingId(horse.horseId)}
-                              className="gs-btn gs-btn-ghost gs-btn-sm text-red-400 hover:text-red-300"
-                              title="Từ chối"
+                              className="gs-btn gs-btn-ghost gs-btn-sm text-red-400 hover:text-red-300 flex items-center gap-1"
+                              aria-label={`Từ chối ${horse.name}`}
                             >
                               <XCircle className="w-3.5 h-3.5" />
+                              Từ chối
                             </button>
                           </>
                         ) : null}
@@ -643,14 +671,21 @@ export default function AdminHorsesPage() {
                         {/* Pending → đang mở form từ chối */}
                         {horse.status === "Pending" && rejectingId === horse.horseId ? (
                           <div className="flex flex-col gap-1.5 w-52">
-                            <input
-                              type="text"
-                              value={rejectReason}
-                              onChange={(e) => setRejectReason(e.target.value)}
-                              placeholder="Lý do từ chối (tuỳ chọn)"
-                              className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-1.5 text-xs text-on-surface focus:outline-none focus:border-error transition-all placeholder:text-on-surface-variant/40"
-                              autoFocus
-                            />
+                            <div className="relative">
+                              <input
+                                type="text"
+                                value={rejectReason}
+                                onChange={(e) => setRejectReason(e.target.value)}
+                                placeholder="Lý do từ chối (tuỳ chọn)"
+                                maxLength={500}
+                                aria-label="Lý do từ chối"
+                                className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-1.5 pr-10 text-xs text-on-surface focus:outline-none focus:border-error transition-all placeholder:text-on-surface-variant/40"
+                                autoFocus
+                              />
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-500 font-mono">
+                                {rejectReason.length}/500
+                              </span>
+                            </div>
                             <div className="flex gap-1.5">
                               <button
                                 type="button"
@@ -696,14 +731,21 @@ export default function AdminHorsesPage() {
                         {/* Approved → đang mở form thu hồi */}
                         {horse.status === "Approved" && revokingId === horse.horseId ? (
                           <div className="flex flex-col gap-1.5 w-52">
+                          <div className="relative">
                             <input
                               type="text"
                               value={revokeReason}
                               onChange={(e) => setRevokeReason(e.target.value)}
                               placeholder="Lý do thu hồi (tuỳ chọn)"
-                              className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-1.5 text-xs text-on-surface focus:outline-none focus:border-error transition-all placeholder:text-on-surface-variant/40"
+                              maxLength={500}
+                              aria-label="Lý do thu hồi"
+                              className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-1.5 pr-10 text-xs text-on-surface focus:outline-none focus:border-error transition-all placeholder:text-on-surface-variant/40"
                               autoFocus
                             />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-500 font-mono">
+                              {revokeReason.length}/500
+                            </span>
+                          </div>
                             <div className="flex gap-1.5">
                               <button
                                 type="button"
