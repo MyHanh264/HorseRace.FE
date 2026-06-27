@@ -124,6 +124,18 @@ export async function rejectEntry(entryId, reason = null) {
   return res.data
 }
 
+// ─── Race Registration ────────────────────────────────────────────────────────
+
+export async function openRegistration(raceId) {
+  const res = await api.post(`/api/races/${raceId}/open-registration`)
+  return res.data
+}
+
+export async function closeRegistration(raceId) {
+  const res = await api.post(`/api/races/${raceId}/close-registration`)
+  return res.data
+}
+
 // ─── Race Execution ──────────────────────────────────────────────────────────
 
 /**
