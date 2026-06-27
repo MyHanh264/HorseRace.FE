@@ -78,8 +78,15 @@ export async function deleteRace(id) {
 
 
 // Lấy TẤT CẢ ngựa (dùng cho bảng quản lý - lọc theo tab ở FE)
+// Lưu ý: Response chỉ trả { horseId, name, status, breed }, thiếu các field khác
 export async function getAllHorses() {
   const res = await api.get("/api/admin/horses")
+  return res.data
+}
+
+// Lấy chi tiết 1 ngựa (dùng khi cần đầy đủ fields: color, birthYear, ownerName, etc.)
+export async function getHorseDetail(horseId) {
+  const res = await api.get(`/api/horses/${horseId}`)
   return res.data
 }
 
@@ -97,13 +104,14 @@ export async function approveHorse(horseId) {
 
 //Từ chối ngựa
 export async function rejectHorse(horseId, reason) {
-  const res = await api.post(`/api/admin/horses/${horseId}/reject`, { reason: reason || null })
+  // Backend yêu cầu reason (không được null)
+  const res = await api.post(`/api/admin/horses/${horseId}/reject`, { reason })
   return res.data
 }
 
-// Thu hồi ngựa đã duyệt
-export async function revokeHorse(horseId, reason = "") {
-  const res = await api.post(`/api/admin/horses/${horseId}/revoke`, { reason: reason || null })
+// Thu hồi ngựa đã duyệt (chỉ work trên Approved → chuyển thành Rejected)
+export async function revokeHorse(horseId) {
+  const res = await api.post(`/api/admin/horses/${horseId}/revoke`)
   return res.data
 }
 

@@ -21,6 +21,11 @@ import {
   revokeHorse,
 } from "../../api/admin";
 import api from "../../services/api";
+import {
+  ADMIN_HORSE_TABS,
+  HORSE_STATUS,
+  getHorseBadgeClass,
+} from "../../utils/horse";
 
 function formatDate(value) {
   if (!value) return "—";
@@ -76,14 +81,7 @@ function HorseDetailModal({ horse, onClose }) {
           </button>
           <div className="absolute bottom-4 left-5 right-5">
             <h2 id="horse-detail-title" className="text-2xl font-serif font-bold text-white mb-1">{horse.name}</h2>
-            <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
-              {
-                Approved: "bg-emerald-500/20 text-emerald-400 border-emerald-700",
-                Pending: "bg-yellow-500/20 text-yellow-400 border-yellow-700",
-                Rejected: "bg-red-500/20 text-red-400 border-red-700",
-                Revoked: "bg-gray-500/20 text-gray-400 border-gray-700",
-              }[horse.status] || "bg-gray-500/20 text-gray-400 border-gray-700"
-            }`}>
+            <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getHorseBadgeClass(horse.status)}`}>
               {horse.status}
             </span>
           </div>
@@ -117,11 +115,11 @@ function HorseDetailModal({ horse, onClose }) {
             </div>
           </div>
 
-          {(horse.status === "Rejected" || horse.status === "Revoked") && horse.rejectionReason && (
+          {(horse.status === "Rejected") && horse.rejectionReason && (
             <div className="bg-red-500/10 rounded-xl p-4 border border-red-500/20">
               <p className="text-xs text-red-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
                 <AlertTriangle className="w-3.5 h-3.5" />
-                Lý do {horse.status === "Revoked" ? "thu hồi" : "từ chối"}
+                Lý do từ chối
               </p>
               <p className="text-sm text-red-300">{horse.rejectionReason}</p>
             </div>
@@ -139,13 +137,7 @@ function HorseDetailModal({ horse, onClose }) {
   );
 }
 
-const TABS = [
-  { key: "All", label: "Tất cả" },
-  { key: "Pending", label: "Chờ duyệt" },
-  { key: "Approved", label: "Đã duyệt" },
-  { key: "Rejected", label: "Từ chối" },
-  { key: "Revoked", label: "Thu hồi" },
-];
+const TABS = ADMIN_HORSE_TABS;
 
 const PAGE_SIZE = 10;
 
@@ -186,7 +178,6 @@ export default function AdminHorsesPage() {
   const [rejectingId, setRejectingId] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
   const [revokingId, setRevokingId] = useState(null);
-  const [revokeReason, setRevokeReason] = useState("");
 
   const [selectedHorse, setSelectedHorse] = useState(null);
   const [page, setPage] = useState(1);
@@ -202,58 +193,58 @@ export default function AdminHorsesPage() {
     setLoading(true);
     setError("");
     try {
-      // Gọi 2 API song song:
-      // 1) /api/admin/horses/pending → trả horses ở trạng thái "Pending"
-      //    Fields: horseId, name, breed, ownerId, ownerName, createdAt
-      // 2) /api/horses → trả tất cả horses của tất cả owners
-      //    Fields: horseId, name, status, breed (không có ownerName)
+      // Backend note:
+      // - GET /api/horses: chỉ trả { horseId, name, status, breed } - thiếu ownerName, color, birthYear
+      // - GET /api/admin/horses/pending: trả đầy đủ fields (ownerName, createdAt, etc.)
       //
-      // FE sẽ merge 2 nguồn:
-      //   - Horses có trong (1): gán status = "Pending"
-      //   - Horses có trong (2): giữ nguyên status từ BE
-      //   - Nếu 1 con ngựa vừa ở (1) vừa ở (2), dùng status từ (2) (đã approve rồi thì không còn ở pending nữa)
+      // Strategy:
+      // 1. Lấy danh sách đầy đủ từ pending API (có ownerName, color, birthYear)
+      // 2. Lấy status từ /api/horses để merge
+      // 3. Horses trong pending = status "Pending"
+      // 4. Horses không trong pending = dùng status từ /api/horses
 
       const [pendingRes, allRes] = await Promise.allSettled([
         getPendingHorses(),
         api.get("/api/horses"),
       ]);
 
-      // Build map từ allHorses để tra cứu nhanh
-      const allHorsesMap = new Map();
+      // Map status từ allHorses
+      const statusMap = new Map();
       if (allRes.status === "fulfilled") {
         const allHorses = Array.isArray(allRes.value.data) ? allRes.value.data : [];
         allHorses.forEach((h) => {
-          allHorsesMap.set(h.horseId, h);
+          if (h?.horseId) statusMap.set(h.horseId, h.status);
         });
       }
 
-      // Build danh sách horses từ pending list (thêm status = "Pending")
-      const pendingHorses = [];
+      // Build merged horses từ pending list (đầy đủ fields nhất)
+      const merged = [];
       if (pendingRes.status === "fulfilled") {
         const data = pendingRes.value;
         (Array.isArray(data) ? data : []).forEach((h) => {
-          pendingHorses.push({
+          merged.push({
             ...h,
-            status: "Pending",
+            status: "Pending", // Override với status Pending
           });
         });
       }
 
-      // Merge: duyệt allHorses, ghi đè bằng pending nếu trùng horseId
-      // pendingHorses giữ nguyên vì đang ở trạng thái Pending
-      const allIds = new Set([...allHorsesMap.keys()]);
-      const merged = [];
-
-      // Thêm tất cả pending vào merged (những con đang pending)
-      const pendingIds = new Set(pendingHorses.map((h) => h.horseId));
-      pendingHorses.forEach((h) => merged.push(h));
-
-      // Thêm tất cả allHorses mà KHÔNG có trong pending
-      allIds.forEach((id) => {
-        if (!pendingIds.has(id)) {
-          merged.push(allHorsesMap.get(id));
-        }
-      });
+      // Thêm horses từ allHorses mà KHÔNG có trong pending
+      const pendingIds = new Set(merged.map((h) => h.horseId));
+      if (allRes.status === "fulfilled") {
+        const allHorses = Array.isArray(allRes.value.data) ? allRes.value.data : [];
+        allHorses.forEach((h) => {
+          if (!pendingIds.has(h.horseId)) {
+            // Lấy status từ map, giữ các fields từ pending nếu có
+            const existing = merged.find((m) => m.horseId === h.horseId);
+            merged.push({
+              ...existing,
+              ...h,
+              status: statusMap.get(h.horseId) || h.status,
+            });
+          }
+        });
+      }
 
       setHorses(merged);
     } catch (err) {
@@ -289,11 +280,33 @@ export default function AdminHorsesPage() {
     }
   };
 
+  const handleRestoreHorse = async (horseId) => {
+    setActionId(horseId);
+    setError("");
+    try {
+      // Khôi phục ngựa từ Rejected → Approved bằng cách gọi approveHorse
+      await approveHorse(horseId);
+      setRevokingId(null);
+      await loadHorses();
+      showSuccess("Ngựa đã được khôi phục về trạng thái Đã duyệt.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Khôi phục ngựa thất bại");
+    } finally {
+      setActionId(null);
+    }
+  };
+
   const handleReject = async (horseId) => {
     setActionId(horseId);
     setError("");
     try {
-      await rejectHorse(horseId, rejectReason.trim() || null);
+      // Backend yêu cầu reason (không được null)
+      if (!rejectReason.trim()) {
+        setError("Vui lòng nhập lý do từ chối.");
+        setActionId(null);
+        return;
+      }
+      await rejectHorse(horseId, rejectReason.trim());
       setRejectingId(null);
       setRejectReason("");
       await loadHorses();
@@ -309,11 +322,17 @@ export default function AdminHorsesPage() {
     setActionId(horseId);
     setError("");
     try {
-      await revokeHorse(horseId, revokeReason.trim() || null);
+      // Backend: revoke chỉ work trên Approved → chuyển thành Rejected
+      // Backend trả về số entries đã bị cancel
+      const result = await revokeHorse(horseId);
       setRevokingId(null);
-      setRevokeReason("");
       await loadHorses();
-      showSuccess("Ngựa đã bị thu hồi. Các đơn đăng ký đang chờ đã được hủy.");
+      const cancelledEntries = result?.cancelledEntries || 0;
+      if (cancelledEntries > 0) {
+        showSuccess(`Ngựa đã bị thu hồi. ${cancelledEntries} đơn đăng ký đang chờ đã được hủy.`);
+      } else {
+        showSuccess("Ngựa đã bị thu hồi.");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Thu hồi ngựa thất bại");
     } finally {
@@ -369,7 +388,6 @@ export default function AdminHorsesPage() {
   const pendingCount = horses.filter((h) => h.status === "Pending").length;
   const approvedCount = horses.filter((h) => h.status === "Approved").length;
   const rejectedCount = horses.filter((h) => h.status === "Rejected").length;
-  const revokedCount = horses.filter((h) => h.status === "Revoked").length;
 
   return (
     <div className="max-w-[1280px] mx-auto px-6 sm:px-8 py-8">
@@ -402,8 +420,8 @@ export default function AdminHorsesPage() {
       </div>
 
       {/* ── Stats ────────────────────────────────────────── */}
-      {/* Bug #1 fix — dùng StatCard thay vì dead code */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-8">
+      {/* FLOW 1: không hiển thị stat Revoked */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
         <StatCard
           icon={<Clock className="w-4 h-4 text-amber-400" />}
           count={horses.length}
@@ -431,13 +449,6 @@ export default function AdminHorsesPage() {
           label="Từ chối"
           colorClass="text-red-400"
           iconBgClass="bg-red-500/10 border border-red-500/20"
-        />
-        <StatCard
-          icon={<Undo2 className="w-4 h-4 text-gray-400" />}
-          count={revokedCount}
-          label="Thu hồi"
-          colorClass="text-gray-400"
-          iconBgClass="bg-gray-500/10 border border-gray-500/20"
         />
       </div>
 
@@ -551,18 +562,22 @@ export default function AdminHorsesPage() {
             <table className="admin-table">
               <thead>
                 <tr>
-                  <th style={{ width: "30%" }}>Ngựa</th>
-                  <th style={{ width: "14%" }}>Giống / Màu</th>
-                  <th style={{ width: "20%" }}>Chủ ngựa</th>
-                  <th style={{ width: "12%" }}>Ngày đăng ký</th>
-                  <th style={{ width: "10%" }}>Trạng thái</th>
-                  <th style={{ width: "14%" }}>Thao tác</th>
+                  <th style={{ width: "20%" }}>Horse Name</th>
+                  <th style={{ width: "10%" }}>Breed</th>
+                  <th style={{ width: "8%" }}>Color</th>
+                  <th style={{ width: "6%" }}>Birth Year</th>
+                  <th style={{ width: "12%" }}>Registration Date</th>
+                  <th style={{ width: "16%" }}>Horse Owner</th>
+                  <th style={{ width: activeTab === HORSE_STATUS.REJECTED ? "16%" : "12%" }}>
+                    {activeTab === HORSE_STATUS.REJECTED ? "Reject Reason" : "Status"}
+                  </th>
+                  <th style={{ width: "16%" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {paginated.map((horse) => (
                   <tr key={horse.horseId}>
-                    {/* ── Ngựa ── */}
+                    {/* ── Horse Name ── */}
                     <td>
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-surface-container-high overflow-hidden shrink-0">
@@ -571,32 +586,27 @@ export default function AdminHorsesPage() {
                           ) : null}
                           <div className="w-full h-full flex items-center justify-center text-xs text-on-surface-variant">🐴</div>
                         </div>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-on-surface truncate">{horse.name}</p>
-                          {horse.status === "Rejected" && horse.rejectionReason && (
-                            <p className="text-red-400 text-xs mt-0.5 truncate flex items-center gap-1">
-                              <AlertTriangle className="w-3 h-3 shrink-0" />
-                              {horse.rejectionReason}
-                            </p>
-                          )}
-                          {horse.status === "Revoked" && horse.rejectionReason && (
-                            <p className="text-gray-400 text-xs mt-0.5 truncate flex items-center gap-1">
-                              <AlertTriangle className="w-3 h-3 shrink-0" />
-                              {horse.rejectionReason}
-                            </p>
-                          )}
-                        </div>
+                        <p className="font-semibold text-on-surface truncate">{horse.name || "—"}</p>
                       </div>
                     </td>
 
-                    {/* ── Giống / Màu ── */}
-                    <td>
-                      <span className="text-sm text-on-surface">{horse.breed || "—"}</span>
-                      <br />
-                      <span className="text-xs text-on-surface-variant">{horse.color || "—"}</span>
+                    {/* ── Breed ── */}
+                    <td className="text-sm text-on-surface">{horse.breed || "—"}</td>
+
+                    {/* ── Color ── */}
+                    <td className="text-xs text-on-surface-variant">{horse.color || "—"}</td>
+
+                    {/* ── Birth Year ── */}
+                    <td className="text-on-surface font-mono text-xs">
+                      {horse.birthYear || "—"}
                     </td>
 
-                    {/* ── Chủ ngựa ── */}
+                    {/* ── Registration Date ── */}
+                    <td className="text-on-surface-variant font-mono text-xs">
+                      {formatDate(horse.registeredAt || horse.createdAt)}
+                    </td>
+
+                    {/* ── Horse Owner ── */}
                     <td>
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-full bg-surface-container-highest border border-outline-variant/50 flex items-center justify-center text-xs font-bold text-on-surface-variant shrink-0">
@@ -609,27 +619,30 @@ export default function AdminHorsesPage() {
                       </div>
                     </td>
 
-                    {/* ── Ngày ── */}
-                    <td className="text-on-surface-variant font-mono text-xs">
-                      {formatDate(horse.registeredAt || horse.createdAt)}
-                    </td>
-
-                    {/* ── Status ── */}
-                    <td>
-                      <span className={`gs-badge ${{
-                        Approved: "bg-emerald-500/20 text-emerald-400 border border-emerald-700",
-                        Pending: "bg-yellow-500/20 text-yellow-400 border border-yellow-700",
-                        Rejected: "bg-red-500/20 text-red-400 border border-red-700",
-                        Revoked: "bg-gray-500/20 text-gray-400 border border-gray-700",
-                      }[horse.status] || "gs-badge-neutral"}`}>
-                        {horse.status === "Revoked" ? "Thu hồi" : horse.status}
-                      </span>
-                    </td>
+                    {/* ── Status / Reject Reason (per tab) ── */}
+                    {activeTab === HORSE_STATUS.REJECTED ? (
+                      <td>
+                        {horse.rejectionReason ? (
+                          <p className="text-red-400 text-xs flex items-start gap-1">
+                            <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+                            <span className="line-clamp-2">{horse.rejectionReason}</span>
+                          </p>
+                        ) : (
+                          <span className="text-on-surface-variant text-xs">—</span>
+                        )}
+                      </td>
+                    ) : (
+                      <td>
+                        <span className={`gs-badge ${getHorseBadgeClass(horse.status)}`}>
+                          {horse.status || "—"}
+                        </span>
+                      </td>
+                    )}
 
                     {/* ── Actions ── */}
                     <td>
                       <div className="flex items-center gap-1.5">
-                        {/* Xem chi tiết */}
+                        {/* Xem chi tiết — luôn có */}
                         <button
                           type="button"
                           onClick={() => setSelectedHorse(horse)}
@@ -640,7 +653,7 @@ export default function AdminHorsesPage() {
                         </button>
 
                         {/* Pending → Duyệt / Từ chối */}
-                        {horse.status === "Pending" && rejectingId !== horse.horseId ? (
+                        {horse.status === HORSE_STATUS.PENDING && rejectingId !== horse.horseId ? (
                           <>
                             <button
                               type="button"
@@ -668,15 +681,15 @@ export default function AdminHorsesPage() {
                           </>
                         ) : null}
 
-                        {/* Pending → đang mở form từ chối */}
-                        {horse.status === "Pending" && rejectingId === horse.horseId ? (
-                          <div className="flex flex-col gap-1.5 w-52">
+                        {/* Pending → đang mở form từ chối (reason BẮT BUỘC) */}
+                        {horse.status === HORSE_STATUS.PENDING && rejectingId === horse.horseId ? (
+                          <div className="flex flex-col gap-1.5 w-56">
                             <div className="relative">
                               <input
                                 type="text"
                                 value={rejectReason}
                                 onChange={(e) => setRejectReason(e.target.value)}
-                                placeholder="Lý do từ chối (tuỳ chọn)"
+                                placeholder="Lý do từ chối (bắt buộc)"
                                 maxLength={500}
                                 aria-label="Lý do từ chối"
                                 className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-1.5 pr-10 text-xs text-on-surface focus:outline-none focus:border-error transition-all placeholder:text-on-surface-variant/40"
@@ -689,9 +702,9 @@ export default function AdminHorsesPage() {
                             <div className="flex gap-1.5">
                               <button
                                 type="button"
-                                disabled={actionId === horse.horseId}
+                                disabled={actionId === horse.horseId || !rejectReason.trim()}
                                 onClick={() => handleReject(horse.horseId)}
-                                className="gs-btn gs-btn-danger gs-btn-xs flex items-center gap-1 flex-1 justify-center"
+                                className="gs-btn gs-btn-danger gs-btn-xs flex items-center gap-1 flex-1 justify-center disabled:opacity-50"
                               >
                                 {actionId === horse.horseId ? (
                                   <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
@@ -714,8 +727,8 @@ export default function AdminHorsesPage() {
                           </div>
                         ) : null}
 
-                        {/* Approved → Thu hồi */}
-                        {horse.status === "Approved" && revokingId !== horse.horseId ? (
+                        {/* Approved → Thu hồi (chuyển về Rejected) */}
+                        {horse.status === HORSE_STATUS.APPROVED && revokingId !== horse.horseId ? (
                           <button
                             type="button"
                             disabled={actionId === horse.horseId}
@@ -728,24 +741,12 @@ export default function AdminHorsesPage() {
                           </button>
                         ) : null}
 
-                        {/* Approved → đang mở form thu hồi */}
-                        {horse.status === "Approved" && revokingId === horse.horseId ? (
+                        {/* Approved → đang mở confirm Revoke */}
+                        {horse.status === HORSE_STATUS.APPROVED && revokingId === horse.horseId ? (
                           <div className="flex flex-col gap-1.5 w-52">
-                          <div className="relative">
-                            <input
-                              type="text"
-                              value={revokeReason}
-                              onChange={(e) => setRevokeReason(e.target.value)}
-                              placeholder="Lý do thu hồi (tuỳ chọn)"
-                              maxLength={500}
-                              aria-label="Lý do thu hồi"
-                              className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-1.5 pr-10 text-xs text-on-surface focus:outline-none focus:border-error transition-all placeholder:text-on-surface-variant/40"
-                              autoFocus
-                            />
-                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-500 font-mono">
-                              {revokeReason.length}/500
-                            </span>
-                          </div>
+                            <p className="text-[11px] text-on-surface-variant leading-snug">
+                              Thu hồi ngựa <span className="text-on-surface font-semibold">{horse.name}</span>?
+                            </p>
                             <div className="flex gap-1.5">
                               <button
                                 type="button"
@@ -764,7 +765,6 @@ export default function AdminHorsesPage() {
                                 type="button"
                                 onClick={() => {
                                   setRevokingId(null);
-                                  setRevokeReason("");
                                 }}
                                 className="gs-btn gs-btn-ghost gs-btn-xs"
                               >
@@ -774,10 +774,56 @@ export default function AdminHorsesPage() {
                           </div>
                         ) : null}
 
-                        {/* Rejected / Revoked → không có action */}
-                        {(horse.status === "Rejected" || horse.status === "Revoked") && (
-                          <span className="text-on-surface-variant text-xs px-1">—</span>
-                        )}
+                        {/* Rejected → Duyệt lại (khôi phục về Approved) */}
+                        {horse.status === HORSE_STATUS.REJECTED && revokingId !== horse.horseId ? (
+                          <button
+                            type="button"
+                            disabled={actionId === horse.horseId}
+                            onClick={() => setRevokingId(horse.horseId)}
+                            className="gs-btn gs-btn-ghost gs-btn-sm text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
+                            title="Khôi phục ngựa về trạng thái Đã duyệt"
+                          >
+                            {actionId === horse.horseId ? (
+                              <div className="w-3 h-3 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" />
+                            ) : (
+                              <CircleCheck className="w-3.5 h-3.5" />
+                            )}
+                            Duyệt lại
+                          </button>
+                        ) : null}
+
+                        {/* Rejected → đang mở confirm Duyệt lại */}
+                        {horse.status === HORSE_STATUS.REJECTED && revokingId === horse.horseId ? (
+                          <div className="flex flex-col gap-1.5 w-52">
+                            <p className="text-[11px] text-on-surface-variant leading-snug">
+                              Khôi phục ngựa <span className="text-on-surface font-semibold">{horse.name}</span> về trạng thái Đã duyệt?
+                            </p>
+                            <div className="flex gap-1.5">
+                              <button
+                                type="button"
+                                disabled={actionId === horse.horseId}
+                                onClick={() => handleRestoreHorse(horse.horseId)}
+                                className="gs-btn gs-btn-primary gs-btn-xs flex items-center gap-1 flex-1 justify-center"
+                              >
+                                {actionId === horse.horseId ? (
+                                  <div className="w-3 h-3 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                                ) : (
+                                  <CircleCheck className="w-3 h-3" />
+                                )}
+                                Xác nhận
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setRevokingId(null);
+                                }}
+                                className="gs-btn gs-btn-ghost gs-btn-xs"
+                              >
+                                Huỷ
+                              </button>
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
                     </td>
                   </tr>
