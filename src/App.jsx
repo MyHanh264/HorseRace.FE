@@ -23,7 +23,10 @@ import AdminDiscrepanciesPage from "./pages/admin/AdminDiscrepanciesPage";
 import AdminViolationsPage from "./pages/admin/AdminViolationsPage";
 import AdminPointManagementPage from "./pages/admin/AdminPointManagementPage";
 import AdminRaceExecutionPage from "./pages/admin/AdminRaceExecutionPage";
+feature/flow2-jockeyinvitation-entrysubmission
+import AdminRaceEntriesPage from "./pages/admin/AdminRaceEntriesPage";
 import AdminConflictResolutionPage from "./pages/admin/AdminConflictResolutionPage";
+develop
 
 // Spectator
 import SpectatorLayout from "./components/layout/SpectatorLayout";
@@ -87,6 +90,7 @@ function App() {
           <Route path="horses" element={<AdminHorsesPage />} />
           <Route path="tournaments" element={<AdminTournamentsPage />} />
           <Route path="races" element={<AdminRacesPage />} />
+          <Route path="races/:raceId/entries" element={<AdminRaceEntriesPage />} />
           <Route path="race-execution" element={<AdminRaceExecutionPage />} />
           <Route path="races/:id/conflict" element={<AdminConflictResolutionPage />} />
           <Route path="discrepancies" element={<AdminDiscrepanciesPage />} />
