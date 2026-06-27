@@ -68,6 +68,7 @@ export async function getJockeys(keyword = "") {
 
 export async function updateInvitation(invitationId, status, responseReason = null) {
   const res = await api.put(`/api/jockey-invitations/${invitationId}`, {
+    invitationId,
     status,
     responseReason,
   });
