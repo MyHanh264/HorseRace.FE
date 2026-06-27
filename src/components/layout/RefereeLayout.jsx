@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 
 const navItems = [
   { to: '/referee',              label: 'My Assigned Races', icon: ClipboardList, end: true },
-  { to: '/referee/result-entry', label: 'Race Execution',    icon: Flag },
+  { to: '/referee/result-entry', label: 'Quick Entry',      icon: Flag },
   { to: '/referee/violations',  label: 'Violations',        icon: AlertTriangle },
   { to: '/referee/profile',     label: 'Profile',           icon: User },
 ]

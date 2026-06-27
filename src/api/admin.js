@@ -159,6 +159,8 @@ export async function getRaceExecutionStatus(raceId) {
 /**
  * GET /api/races/{raceId}/pause
  * Lấy thông tin conflict → side-by-side comparison.
+ * ⚠️ ADMIN-only theo spec — Referee KHÔNG được gọi để giữ Blind Double-Entry.
+ * Frontend không import hàm này từ các file referee.
  */
 export async function getRacePauseInfo(raceId) {
   const res = await api.get(`/api/races/${raceId}/pause`)
