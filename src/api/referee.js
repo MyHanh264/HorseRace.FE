@@ -2,6 +2,12 @@ import api from '../services/api'
 
 // ─── Races ──────────────────────────────────────────────────────────────────
 
+// ⚠️ getRacePauseInfo KHÔNG được dùng cho referee flow.
+// Endpoint /api/races/{id}/pause lộ vị trí của referee kia → vi phạm Blind Double-Entry.
+// Chỉ Admin mới được xem side-by-side comparison.
+// Nếu component referee lỡ import, cần check role === 'ADMIN' trước khi gọi.
+// (Frontend mitigation — backend nên siết authorization về ADMIN-only.)
+
 export async function getAllRaces() {
   const res = await api.get('/api/races')
   return Array.isArray(res.data) ? res.data : []
