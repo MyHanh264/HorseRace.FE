@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { X, CloudUpload, CheckCircle } from "lucide-react";
+import { useRef, useState, useEffect } from "react";
+import { X, CloudUpload, CheckCircle, Loader2 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { registerHorse } from "../../api/horseOwner";
 
@@ -25,10 +25,11 @@ const COLORS = [
   "Dun",
 ];
 
-export default function RegisterHorseModal({ onClose, onSuccess }) {
+export default function RegisterHorseModal({ onClose, onSuccess, onRegisteringChange }) {
   const { user } = useAuth();
   const [step, setStep] = useState("form");
   const [loading, setLoading] = useState(false);
+  const submittingRef = useRef(false);
   const [error, setError] = useState("");
   const [preview, setPreview] = useState(null);
   const [touched, setTouched] = useState({});
@@ -41,6 +42,12 @@ export default function RegisterHorseModal({ onClose, onSuccess }) {
     description: "",
     image: null,
   });
+
+  useEffect(() => {
+    if (onRegisteringChange) {
+      onRegisteringChange(loading);
+    }
+  }, [loading, onRegisteringChange]);
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -81,6 +88,9 @@ export default function RegisterHorseModal({ onClose, onSuccess }) {
     if (!form.name || !form.yearOfBirth) return;
     if (form.yearOfBirth < 1990 || form.yearOfBirth > currentYear - 2) return;
 
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+
     try {
       setLoading(true);
       const payload = {
@@ -91,11 +101,18 @@ export default function RegisterHorseModal({ onClose, onSuccess }) {
         color: form.color,
         imageUrl: "",
       };
-      await registerHorse(payload); // ← chỉ truyền payload
+      await registerHorse(payload);
       setStep("success");
-    } catch {
-      setError("Đăng ký thất bại. Vui lòng thử lại.");
+    } catch (err) {
+      const msg =
+        err?.response?.data?.error
+        || err?.response?.data?.message
+        || err instanceof Error
+          ? err.message
+          : "Đăng ký thất bại. Vui lòng thử lại.";
+      setError(msg);
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   };
@@ -169,7 +186,8 @@ export default function RegisterHorseModal({ onClose, onSuccess }) {
           <h2 className="text-lg font-bold text-white">Register New Horse</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white transition-colors"
+            disabled={loading}
+            className="text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <X size={20} />
           </button>
@@ -337,9 +355,17 @@ export default function RegisterHorseModal({ onClose, onSuccess }) {
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 bg-yellow-500 hover:bg-yellow-400 disabled:opacity-50 text-black font-semibold text-sm py-2.5 rounded-lg transition-colors"
+              aria-busy={loading}
+              className="flex-1 bg-yellow-500 hover:bg-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold text-sm py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2"
             >
-              {loading ? "Submitting..." : "🐴 Submit for Review"}
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                <>🐴 Submit for Review</>
+              )}
             </button>
           </div>
         </form>

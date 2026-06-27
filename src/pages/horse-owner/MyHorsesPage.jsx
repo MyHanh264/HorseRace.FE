@@ -28,6 +28,7 @@ export default function MyHorsesPage() {
   const [showModal, setShowModal] = useState(false);
   const [editHorseId, setEditHorseId] = useState(null);
   const [viewHorseId, setViewHorseId] = useState(null);
+  const [registeringHorse, setRegisteringHorse] = useState(false);
   const navigate = useNavigate();
 
   const fetchHorses = () => {
@@ -87,10 +88,20 @@ export default function MyHorsesPage() {
           </button>
           <button
             onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-400 text-black font-semibold px-4 py-2 rounded-lg text-sm"
+            disabled={registeringHorse}
+            className="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-400 disabled:opacity-50 disabled:cursor-not-allowed text-black font-semibold px-4 py-2 rounded-lg text-sm"
           >
-            <Plus size={16} />
-            Register New Horse
+            {registeringHorse ? (
+              <>
+                <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                Đang xử lý...
+              </>
+            ) : (
+              <>
+                <Plus size={16} />
+                Register New Horse
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -256,11 +267,16 @@ export default function MyHorsesPage() {
       {/* Modals */}
       {showModal && (
         <RegisterHorseModal
-          onClose={() => setShowModal(false)}
+          onClose={() => {
+            setShowModal(false);
+            setRegisteringHorse(false);
+          }}
           onSuccess={() => {
             setShowModal(false);
+            setRegisteringHorse(false);
             fetchHorses();
           }}
+          onRegisteringChange={setRegisteringHorse}
         />
       )}
 
