@@ -10,7 +10,7 @@ import {
   resolveRaceConflict, resumeRace, getRaceStandings,
   startRace, closeRegistration, approveEntry, rejectEntry,
 } from '../../api/admin'
-import api from '../../services/api'
+import { validateOverrideReason } from '../../utils/validation'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -89,14 +89,30 @@ function OverrideModal({ race, legIndex, pauseInfo, onClose, onResolved }) {
   }
 
   async function handleOverride() {
-    if (!overrideReason.trim()) { setError('Bắt buộc nhập lý do override.'); return }
-    if (!getLegValidation().valid) { setError('Mỗi thứ hạng chỉ gán cho 1 Entry duy nhất.'); return }
-    setSubmitting(true); setError('')
+    // Bug #3: dùng shared validateOverrideReason (min 10 ký tự, nhất quán
+    // với AdminConflictResolutionPage).
+    const reasonCheck = validateOverrideReason(overrideReason)
+    if (!reasonCheck.valid) {
+      setError(reasonCheck.error)
+      return
+    }
+    const { valid } = getLegValidation()
+    if (!valid) {
+      setError('Mỗi thứ hạng chỉ gán cho 1 Entry duy nhất.')
+      return
+    }
+
+    setSubmitting(true)
+    setError('')
     try {
       await resolveRaceConflict(race.raceId, legIndex, {
         decisions: Object.entries(decisions).map(([entryId, officialPosition]) => ({ entryId: Number(entryId), officialPosition })),
         overrideReason: overrideReason.trim(),
-      })
+      }
+      // Bước 1: resolve conflict
+      await resolveRaceConflict(race.raceId, legIndex, payload)
+      // Bước 2: resume race (Bug #4) — đảm bảo race chuyển từ Paused → InProgress
+      await resumeRace(race.raceId)
       onResolved()
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || 'Override thất bại.')
@@ -209,14 +225,114 @@ function RaceListCard({ race, onViewEntries, onMonitor, onStartRace }) {
     : '3px solid rgba(255,255,255,0.08)'
 
   return (
-    <div className="gs-card overflow-hidden">
-      <div className="px-5 py-4 flex items-center justify-between gap-4 flex-wrap"
-        style={{ borderLeft: borderColor }}>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1 flex-wrap">{statusChip}</div>
-          <h3 className="font-serif text-lg font-bold text-on-surface truncate">{race.name}</h3>
-          <p className="text-xs text-on-surface-variant mt-0.5">{race.tournamentName || `Tournament #${race.tournamentId}`}</p>
-          <p className="text-[11px] text-on-surface-variant mt-0.5">{fmtDateTime(race.scheduledStartTime)}</p>
+    <>
+      <div className="gs-card overflow-hidden">
+        {/* Card header */}
+        <div
+          className="px-5 py-4 border-b border-white/10"
+          style={{ borderLeft: hasConflict ? '3px solid rgba(249,115,22,0.7)' : '3px solid rgba(251,191,36,0.6)' }}
+        >
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                  race.status === 'InProgress'
+                    ? 'bg-amber-500/15 text-amber-400'
+                    : race.status === 'Paused'
+                    ? 'bg-orange-500/15 text-orange-400'
+                    : race.status === 'PendingResult'
+                    ? 'bg-blue-400/15 text-blue-400'
+                    : 'bg-gray-500/15 text-gray-400'
+                }`}>
+                  {race.status === 'InProgress' ? '● LIVE' : race.status}
+                </span>
+                {execution?.isBetsLocked && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-500/15 text-red-400">🔒 Bets Locked</span>
+                )}
+                {hasConflict && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-orange-500/15 text-orange-400 animate-pulse">
+                    ⚠ CONFLICT
+                  </span>
+                )}
+              </div>
+              <h3 className="font-serif text-xl font-bold text-on-surface">{race.name}</h3>
+              <p className="text-xs text-on-surface-variant mt-0.5">{race.tournamentName || race.tournamentId}</p>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              {race.status === 'Scheduled' && (
+                <button
+                  onClick={() => onStart(race)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-black text-xs font-bold transition-all"
+                >
+                  <Flag size={12} /> Start Race
+                </button>
+              )}
+              {race.status === 'InProgress' && (
+                <button
+                  onClick={onMonitor}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/20 text-xs text-gray-300 hover:bg-white/10 transition-all"
+                >
+                  <Eye size={12} /> Monitor
+                </button>
+              )}
+              {race.status === 'Paused' && (
+                <>
+                  <button
+                    onClick={loadPauseInfo}
+                    disabled={loadingPause}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-orange-500/30 text-xs text-orange-400 hover:bg-orange-500/10 transition-all disabled:opacity-50"
+                  >
+                    <AlertTriangle size={12} />
+                    {loadingPause ? 'Loading...' : 'View Conflict'}
+                  </button>
+                  <button
+                    onClick={handleResume}
+                    disabled={resolving || hasConflict}
+                    title={hasConflict ? 'Vui lòng override conflict trước khi resume' : ''}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {resolving ? <Loader2 size={12} className="animate-spin" /> : <ChevronRight size={12} />}
+                    Resume
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Legs timeline */}
+        <div className="px-5 py-4">
+          <p className="text-[10px] text-on-surface-variant uppercase tracking-wider font-medium mb-3">Leg Progress</p>
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            {legs.map((leg, idx) => {
+              const statusColor = {
+                Confirmed: 'bg-emerald-500 border-emerald-600',
+                Pending: 'bg-surface-container-high border-outline-variant',
+                Conflicted: 'bg-orange-500 border-orange-600 animate-pulse',
+              }[leg.status] ?? 'bg-surface-container-high border-outline-variant'
+
+              return (
+                <div key={idx} className="flex flex-col items-center shrink-0">
+                  <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold text-white ${statusColor}`}>
+                    {leg.status === 'Confirmed' ? '✓' : leg.status === 'Conflicted' ? '⚠' : idx + 1}
+                  </div>
+                  <span className="text-[10px] text-on-surface-variant mt-1">Leg {idx + 1}</span>
+                  <span className="text-[9px] text-gray-600">{leg.confirmationType ?? '—'}</span>
+                  {leg.referee1Submitted && leg.referee2Submitted && (
+                    <span className="text-[9px] text-emerald-400 mt-0.5">✓ both</span>
+                  )}
+                  {!leg.referee1Submitted && !leg.referee2Submitted && (
+                    <span className="text-[9px] text-gray-600 mt-0.5">waiting</span>
+                  )}
+                  {leg.referee1Submitted !== undefined && leg.referee2Submitted !== undefined &&
+                   (leg.referee1Submitted !== leg.referee2Submitted) && (
+                    <span className="text-[9px] text-yellow-400 mt-0.5">partial</span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -413,12 +529,10 @@ export default function AdminRaceExecutionPage() {
     }
   }
 
-  const handleApprove = async (entryId) => {
-    setEntryAction({ id: entryId, type: 'Approved' }); setEntryError('')
-    try { await approveEntry(entryId); await loadEntries(selectedRace.raceId) }
-    catch (err) { setEntryError(err?.message || 'Duyệt entry thất bại') }
-    finally { setEntryAction(null) }
-  }
+  const executableRaces = allRaces.filter(r => r.status === 'InProgress' || r.status === 'Paused')
+  const selectedExecution = selectedRace ? execution : null
+  // Derived flag — race đang có leg Conflicted → không cho Resume từ header.
+  const hasAnyConflict = selectedExecution?.legs?.some((l) => l.status === 'Conflicted')
 
   const handleReject = async (entryId) => {
     setEntryAction({ id: entryId, type: 'Rejected' }); setEntryError('')
@@ -573,28 +687,35 @@ export default function AdminRaceExecutionPage() {
                     <span className="text-xs text-on-surface-variant border border-outline-variant/40 rounded-full px-2 py-0.5">{selectedRace.roundType}</span>
                   )}
                 </div>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                {/* Close Registration — when reg is open */}
-                {isRegOpen && (
-                  <button onClick={handleCloseReg} disabled={regLoading}
-                    className="gs-btn gs-btn-secondary flex items-center gap-2 px-5 py-2.5">
-                    {regLoading
-                      ? <div className="w-3.5 h-3.5 border-2 border-secondary/30 border-t-secondary rounded-full animate-spin" />
-                      : <Lock className="w-4 h-4" />}
-                    Close Registration
-                  </button>
-                )}
-                {/* Start Race — when reg closed and race Scheduled */}
-                {isRegClosed && selectedRace?.status === 'Scheduled' && (
-                  <button onClick={() => handleStartRace(selectedRace)} disabled={regLoading}
-                    className="gs-btn gs-btn-secondary flex items-center gap-2 px-5 py-2.5">
-                    {regLoading
-                      ? <div className="w-3.5 h-3.5 border-2 border-black/20 border-t-black/70 rounded-full animate-spin" />
-                      : <span className="text-base">▶</span>}
-                    Start Race
-                  </button>
+                {selectedRace.status === 'Paused' && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={async () => {
+                        const pause = await getRacePauseInfo(selectedRace.raceId).catch(() => null)
+                        setPauseInfo(pause)
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-orange-500/30 text-xs text-orange-400 hover:bg-orange-500/10 transition-all"
+                    >
+                      <AlertTriangle size={12} /> View Conflict
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await resumeRace(selectedRace.raceId)
+                          setSelectedRace(prev => ({ ...prev, status: 'InProgress' }))
+                          loadExecution(selectedRace.raceId)
+                          loadRaces()
+                        } catch (err) {
+                          alert(err?.message || 'Resume thất bại.')
+                        }
+                      }}
+                      disabled={hasAnyConflict}
+                      title={hasAnyConflict ? 'Vui lòng override conflict trước khi resume' : ''}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <ChevronRight size={12} /> Resume Race
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
