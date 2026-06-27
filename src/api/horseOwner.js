@@ -54,9 +54,16 @@ export async function sendInvitation(payload) {
   return res.data;
 }
 
-export async function getJockeys() {
-  const res = await api.get("/api/jockey-profiles");
-  return res.data;
+export async function getJockeys(keyword = "") {
+  const params = keyword ? { keyword } : {};
+  try {
+    const res = await api.get("/api/jockeys/search", { params });
+    return res.data;
+  } catch (_) {
+    // fallback về endpoint cũ nếu /search chưa deploy
+    const res = await api.get("/api/jockey-profiles", { params });
+    return res.data;
+  }
 }
 
 export async function updateInvitation(invitationId, status, responseReason = null) {
