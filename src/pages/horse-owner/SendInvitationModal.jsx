@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Search, Calendar, Ruler, Users, Lock, Check, XCircle, CheckCheck } from "lucide-react";
+import { X, Search, Calendar, Ruler, Users, Lock, Check, XCircle, CheckCheck, UserPlus } from "lucide-react";
 import {
   getMyHorses,
   getRaces,
@@ -289,165 +289,176 @@ function Step2({ horses, selected, onSelect, onClose, onBack, onNext, selectedRa
   );
 }
 
-// ─── Step 3: Find a Jockey ─────────────────────────────────────────────────
-function Step3({ jockeys, search, onSearch, onClose, onBack, onInvite, selectedRace, selectedHorse }) {
-  const [activeFilters, setActiveFilters] = useState([]);
-  const [invitedIds, setInvitedIds] = useState(new Set());
-  const [sendingId, setSendingId] = useState(null);
-  const [successMsg, setSuccessMsg] = useState("");
-  const [errorMsg, setErrorMsg] = useState("");
+// ─── Step 3: Mời Jockey ────────────────────────────────────────────────────
+const AVATAR_COLORS = ["#7c3aed", "#b45309", "#0f766e", "#be123c", "#1d4ed8", "#047857", "#92400e"];
 
-  const toggleFilter = (f) =>
+const JOCKEY_FILTERS = [
+  { key: "winRate", label: "Tỷ lệ thắng 30%+" },
+  { key: "exp",    label: "Kinh nghiệm cao" },
+  { key: "avail",  label: "Đang rảnh" },
+];
+
+function Step3({ jockeys, search, onSearch, onClose, onInvite, selectedRace, selectedHorse }) {
+  const [activeFilters, setActiveFilters] = useState([]);
+  const [invitedIds, setInvitedIds]       = useState(new Set());
+  const [sendingId, setSendingId]         = useState(null);
+  const [errorMsg, setErrorMsg]           = useState("");
+
+  const toggleFilter = (key) =>
     setActiveFilters((prev) =>
-      prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f]
+      prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key]
     );
 
-  const FILTERS = ["Win Rate 30%+", "Experience", "Available only"];
-
-  // Chỉ hiện jockey có licenseNumber hợp lệ
   const validJockeys = jockeys.filter((j) => j.licenseNumber);
 
   const filtered = validJockeys.filter((j) => {
     const winRate = j.totalRaces > 0 ? Math.round((j.totalWins / j.totalRaces) * 100) : 0;
-    const name = j.fullName ?? `Jockey #${j.userId}`;
+    const name = j.fullName ?? "";
     const matchSearch = `${name} ${j.licenseNumber ?? ""}`.toLowerCase().includes(search.toLowerCase());
-    const matchWin = !activeFilters.includes("Win Rate 30%+") || winRate >= 30;
-    const matchAvail = !activeFilters.includes("Available only") || j.isAvailable !== false;
-    return matchSearch && matchWin && matchAvail;
+    const matchWin   = !activeFilters.includes("winRate") || winRate >= 30;
+    const matchExp   = !activeFilters.includes("exp")    || (j.totalRaces ?? 0) >= 10;
+    const matchAvail = !activeFilters.includes("avail")  || j.isAvailable !== false;
+    return matchSearch && matchWin && matchExp && matchAvail;
   });
 
-  const handleInviteClick = async (jockey) => {
+  const handleInvite = async (jockey) => {
     setErrorMsg("");
-    setSuccessMsg("");
     setSendingId(jockey.userId);
     try {
       await onInvite(jockey);
       setInvitedIds((prev) => new Set([...prev, jockey.userId]));
-      const jockeyLabel = jockey.fullName ?? `Jockey #${jockey.userId}`;
-      setSuccessMsg(
-        `Invitation sent to ${jockeyLabel} for ${selectedHorse?.name ?? "your horse"} in ${selectedRace?.name ?? "the race"}`
-      );
     } catch (err) {
-      const msg = err.message ?? "";
-      if (msg.includes("400")) setErrorMsg("Invalid invitation request. Please check your selection.");
-      else if (msg.includes("409")) setErrorMsg("An invitation to this jockey already exists.");
-      else if (msg.includes("403")) setErrorMsg("You are not authorized to send this invitation.");
-      else setErrorMsg("Failed to send invitation. Please try again.");
+      const status = err?.response?.status;
+      const detail = err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message;
+      if (status === 409) setErrorMsg("Bạn đã mời jockey này rồi.");
+      else if (status === 403) setErrorMsg("Không có quyền gửi lời mời này.");
+      else setErrorMsg(`[${status ?? "?"}] ${detail ?? "Gửi lời mời thất bại."}`);
     } finally {
       setSendingId(null);
     }
   };
 
   return (
-    <div className="p-6 flex flex-col gap-4">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <StepDots step={3} />
-          <h2 className="text-white font-bold text-xl">Step 3: Find a Jockey</h2>
+    <div className="flex flex-col" style={{ maxHeight: "88vh" }}>
+
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/6 flex-shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-yellow-400/15 border border-yellow-400/20 flex items-center justify-center">
+            <UserPlus size={13} className="text-yellow-400" />
+          </div>
+          <h2 className="text-white font-bold text-[15px]">Mời Jockey</h2>
         </div>
-        <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors mt-1">
-          <X size={20} />
+        <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">
+          <X size={17} />
         </button>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-        <input
-          value={search}
-          onChange={(e) => onSearch(e.target.value)}
-          placeholder="Search by name or license..."
-          className="w-full bg-[#1e2a3a] border border-white/10 text-white placeholder-gray-500 rounded-lg pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:border-yellow-500/50"
-        />
+      {/* ── Context banner ─────────────────────────────────────────────────── */}
+      <div className="mx-5 mt-4 p-4 rounded-xl bg-[#0f1810] border-l-4 border-yellow-500/55 flex items-start justify-between gap-3 flex-shrink-0">
+        <div className="min-w-0">
+          <p className="text-[10px] text-yellow-500/65 uppercase tracking-widest font-bold mb-1.5">
+            Cuộc Đua Ưu Tiên
+          </p>
+          <p className="text-white text-[13px] font-semibold leading-snug">
+            {[selectedRace?.tournamentName, selectedRace?.name].filter(Boolean).join(", ")}
+          </p>
+          <div className="flex items-center gap-3 mt-1.5 text-gray-400 text-xs">
+            {selectedHorse?.name && <span>🐴 {selectedHorse.name}</span>}
+            {selectedHorse?.breed && <span>🐎 {selectedHorse.breed}</span>}
+          </div>
+        </div>
+        {/* Race thumbnail */}
+        <div className="w-14 h-14 rounded-xl bg-[#1a2810] border border-white/8 flex items-center justify-center flex-shrink-0 text-2xl">
+          🏇
+        </div>
       </div>
 
-      {/* Filter chips */}
-      <div className="flex gap-2 flex-wrap">
-        {FILTERS.map((f) => (
+      {/* ── Search ─────────────────────────────────────────────────────────── */}
+      <div className="px-5 pt-4 flex-shrink-0">
+        <div className="relative">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          <input
+            value={search}
+            onChange={(e) => onSearch(e.target.value)}
+            placeholder="Tìm kiếm theo tên hoặc số giấy phép..."
+            className="w-full bg-[#141b24] border border-white/10 text-white placeholder-gray-500 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:border-yellow-500/40"
+          />
+        </div>
+      </div>
+
+      {/* ── Filter chips ───────────────────────────────────────────────────── */}
+      <div className="flex gap-2 px-5 pt-3 pb-1 flex-wrap flex-shrink-0">
+        {JOCKEY_FILTERS.map((f) => (
           <button
-            key={f}
-            onClick={() => toggleFilter(f)}
-            className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-              activeFilters.includes(f)
-                ? "bg-yellow-400 border-yellow-400 text-black"
-                : "border-white/20 text-gray-300 hover:border-white/40"
-            }`}
+            key={f.key}
+            onClick={() => toggleFilter(f.key)}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors
+              ${activeFilters.includes(f.key)
+                ? "bg-emerald-500/15 border-emerald-500/50 text-emerald-400"
+                : "border-white/15 text-gray-400 hover:border-white/30 hover:text-gray-200"
+              }`}
           >
-            {f}
+            {f.label}
           </button>
         ))}
       </div>
 
-      {/* Jockey list */}
-      <div className="flex flex-col gap-2 max-h-56 overflow-y-auto pr-1">
+      {/* ── Jockey list ────────────────────────────────────────────────────── */}
+      <div className="flex-1 overflow-y-auto px-5 py-3 space-y-2">
         {filtered.length === 0 ? (
-          <p className="text-gray-500 text-center py-8 text-sm">No eligible jockeys found.</p>
+          <p className="text-center text-gray-600 text-sm py-10">Không tìm thấy jockey phù hợp.</p>
         ) : (
           filtered.map((jockey) => {
-            const available = jockey.isAvailable !== false;
-            const invited = invitedIds.has(jockey.userId);
-            const sending = sendingId === jockey.userId;
-            const displayName = jockey.fullName ?? `Jockey #${jockey.userId}`;
-            const winRate = jockey.totalRaces > 0
-              ? Math.round((jockey.totalWins / jockey.totalRaces) * 100)
-              : 0;
-            const initials = displayName
-              .split(" ")
-              .map((n) => n[0])
-              .join("")
-              .slice(0, 2)
-              .toUpperCase();
+            const winRate  = jockey.totalRaces > 0 ? Math.round((jockey.totalWins / jockey.totalRaces) * 100) : 0;
+            const invited  = invitedIds.has(jockey.userId);
+            const sending  = sendingId === jockey.userId;
+            const name     = jockey.fullName ?? `Jockey #${jockey.userId}`;
+            const initials = name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
+            const avatarBg = AVATAR_COLORS[jockey.userId % AVATAR_COLORS.length];
+
             return (
               <div
                 key={jockey.userId}
-                className={`flex items-center gap-3 border rounded-xl px-4 py-3 transition-colors ${
-                  invited
-                    ? "bg-[#1e2a3a]/60 border-white/5"
-                    : "bg-[#1e2a3a] border-white/10"
-                }`}
+                className={`flex items-center gap-3.5 px-4 py-3.5 rounded-xl border transition-colors
+                  ${invited
+                    ? "bg-white/[0.015] border-white/5"
+                    : "bg-[#0f1318] border-white/7 hover:border-white/12"
+                  }`}
               >
                 {/* Avatar */}
-                <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center text-sm font-bold text-white flex-shrink-0 overflow-hidden">
-                  {jockey.avatarUrl ? (
-                    <img src={jockey.avatarUrl} alt={jockey.fullName} className="w-full h-full object-cover" />
-                  ) : (
-                    initials
-                  )}
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold text-white overflow-hidden"
+                  style={{ background: invited ? "#374151" : avatarBg }}
+                >
+                  {jockey.avatarUrl
+                    ? <img src={jockey.avatarUrl} alt={name} className="w-full h-full object-cover" />
+                    : initials}
                 </div>
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-white font-bold text-sm">{displayName}</p>
-                  <p className="text-gray-500 text-xs mt-0.5">
-                    License #{jockey.licenseNumber}
-                    {jockey.weight ? ` • ${jockey.weight}kg` : ""}
+                  <p className={`text-sm font-bold truncate ${invited ? "text-gray-400" : "text-white"}`}>
+                    {name}
                   </p>
-                  {jockey.totalRaces > 0 && (
-                    <p className="text-gray-500 text-xs mt-0.5">
-                      {jockey.totalRaces} Races Completed
-                      {" • "}
-                      <span className="text-yellow-400 font-semibold">{winRate}% Win Rate</span>
-                    </p>
-                  )}
+                  <p className="text-gray-500 text-xs mt-0.5">
+                    Win Rate: {winRate}%
+                    {jockey.totalRaces > 0 && ` • Exp: ${jockey.totalRaces} kỳ đua`}
+                  </p>
                 </div>
 
-                {/* Action button */}
+                {/* Action */}
                 {invited ? (
-                  <span className="flex-shrink-0 px-4 py-1.5 rounded-lg text-xs font-semibold bg-gray-700 text-gray-400">
-                    Invited
+                  <span className="flex-shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-white/6 border border-white/10 text-gray-400 flex items-center gap-1.5">
+                    Đã mời <Check size={11} strokeWidth={3} />
                   </span>
                 ) : (
                   <button
-                    onClick={() => handleInviteClick(jockey)}
-                    disabled={!available || sending}
-                    className={`flex-shrink-0 px-4 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                      available && !sending
-                        ? "bg-yellow-400 hover:bg-yellow-300 text-black"
-                        : "bg-gray-700 text-gray-500 cursor-not-allowed"
-                    }`}
+                    onClick={() => handleInvite(jockey)}
+                    disabled={sending}
+                    className="flex-shrink-0 px-4 py-1.5 rounded-xl text-xs font-bold bg-yellow-400 hover:bg-yellow-300 text-black disabled:opacity-50 transition-colors"
                   >
-                    {sending ? "..." : available ? "Invite" : "Unavailable"}
+                    {sending ? "..." : "Mời"}
                   </button>
                 )}
               </div>
@@ -456,34 +467,28 @@ function Step3({ jockeys, search, onSearch, onClose, onBack, onInvite, selectedR
         )}
       </div>
 
-      {/* Success banner */}
-      {successMsg && (
-        <div className="flex items-start gap-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-4 py-3 text-emerald-400 text-sm">
-          <Check size={16} className="flex-shrink-0 mt-0.5" />
-          <span>{successMsg}</span>
-        </div>
-      )}
-
-      {/* Error banner */}
+      {/* ── Error ──────────────────────────────────────────────────────────── */}
       {errorMsg && (
-        <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-red-400 text-sm">
-          <span>{errorMsg}</span>
+        <div className="mx-5 text-xs text-red-400 bg-red-500/8 border border-red-500/20 rounded-xl px-4 py-2.5 flex-shrink-0">
+          {errorMsg}
         </div>
       )}
 
-      {/* Footer */}
-      <div className="flex items-center justify-between pt-1">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-1 border border-white/10 text-gray-400 hover:text-white px-4 py-2.5 rounded-xl text-sm transition-colors"
-        >
-          ← Back
-        </button>
+      {/* ── Info note ──────────────────────────────────────────────────────── */}
+      <div className="mx-5 mt-3 flex items-start gap-2.5 p-3.5 bg-emerald-500/8 border border-emerald-500/20 rounded-xl flex-shrink-0">
+        <span className="text-emerald-400 flex-shrink-0 text-sm leading-none mt-0.5">ⓘ</span>
+        <p className="text-emerald-300/80 text-xs leading-relaxed">
+          <span className="text-emerald-400 font-semibold">Lưu ý:</span> Bạn có thể mời nhiều Jockey. Sau khi họ chấp nhận, bạn sẽ chọn 1 người.
+        </p>
+      </div>
+
+      {/* ── Footer ─────────────────────────────────────────────────────────── */}
+      <div className="px-5 py-4 flex justify-end flex-shrink-0">
         <button
           onClick={onClose}
-          className="bg-yellow-400 hover:bg-yellow-300 text-black font-bold px-6 py-2.5 rounded-xl text-sm transition-colors"
+          className="px-6 py-2.5 rounded-xl bg-[#1c2430] hover:bg-white/10 text-white text-sm font-semibold border border-white/10 transition-colors"
         >
-          Done
+          Đóng
         </button>
       </div>
     </div>
@@ -513,13 +518,16 @@ export default function SendInvitationModal({ onClose, onSuccess, initialRace = 
   const [jockeySearch, setJockeySearch] = useState("");
 
   useEffect(() => {
-    Promise.all([getRaces(), getMyHorses(), getJockeys()])
+    Promise.all([
+      getRaces().catch(() => []),
+      getMyHorses().catch(() => []),
+      getJockeys().catch(() => []),
+    ])
       .then(([r, h, j]) => {
         setRaces(Array.isArray(r) ? r : (r?.data ?? []));
         setHorses(Array.isArray(h) ? h : (h?.data ?? []));
         setJockeys(Array.isArray(j) ? j : (j?.data ?? []));
       })
-      .catch(() => setLoadError("Không thể tải dữ liệu, vui lòng thử lại."))
       .finally(() => setLoading(false));
   }, []);
 

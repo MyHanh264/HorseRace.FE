@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { X, Trash2 } from "lucide-react";
 import { getInvitations, deleteInvitation } from "../../api/horseOwner";
-import SendInvitationModal from "./SendInvitationModal";
 import ConfirmJockeyModal from "./ConfirmJockeyModal";
 
 const STATUS_BADGE = {
@@ -42,7 +41,6 @@ export default function InvitationsPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("Sent");
   const [refreshKey, setRefreshKey] = useState(0);
-  const [showModal, setShowModal] = useState(false);
   const [confirmInv, setConfirmInv] = useState(null);
 
   useEffect(() => {
@@ -88,19 +86,11 @@ export default function InvitationsPage() {
   return (
     <div className="p-8">
       {/* Header */}
-      <div className="flex items-start justify-between mb-2">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Invitations</h1>
-          <p className="text-gray-400 text-sm mt-1">
-            Manage riding requests and confirm jockey bookings.
-          </p>
-        </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm transition-colors"
-        >
-          + Send Invitation
-        </button>
+      <div className="mb-2">
+        <h1 className="text-2xl font-bold text-white">Invitations</h1>
+        <p className="text-gray-400 text-sm mt-1">
+          Manage riding requests and confirm jockey bookings.
+        </p>
       </div>
 
       {/* Tabs */}
@@ -244,20 +234,6 @@ export default function InvitationsPage() {
         />
       )}
 
-      {/* Send Invitation Modal */}
-      {showModal && (
-        <SendInvitationModal
-          onClose={() => {
-            setShowModal(false);
-            setLoading(true);
-            setRefreshKey((k) => k + 1);
-          }}
-          onSuccess={() => {
-            setLoading(true);
-            setRefreshKey((k) => k + 1);
-          }}
-        />
-      )}
     </div>
   );
 }

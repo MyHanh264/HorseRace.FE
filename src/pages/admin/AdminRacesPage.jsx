@@ -157,13 +157,36 @@ function RaceModal({ race, tournaments, users, selectedTournamentId, onClose, on
               placeholder="e.g. Al Maktoum Challenge" className={inputCls} />
           </div>
 
-          {/* Scheduled time */}
+          {/* Scheduled time — split into date + time pickers */}
           <div>
             <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
               Scheduled Start Time <span className="text-error">*</span>
             </label>
-            <input required type="datetime-local" value={form.scheduledStartTime}
-              onChange={set('scheduledStartTime')} className={inputCls} />
+            <div className="grid grid-cols-2 gap-3">
+              {/* Date picker — opens calendar */}
+              <input
+                required
+                type="date"
+                value={form.scheduledStartTime?.split('T')[0] ?? ''}
+                min={new Date().toISOString().split('T')[0]}
+                onChange={e => {
+                  const time = form.scheduledStartTime?.split('T')[1] ?? '08:00';
+                  setForm(f => ({ ...f, scheduledStartTime: `${e.target.value}T${time}` }));
+                }}
+                className={inputCls}
+              />
+              {/* Time picker */}
+              <input
+                required
+                type="time"
+                value={form.scheduledStartTime?.split('T')[1]?.slice(0, 5) ?? ''}
+                onChange={e => {
+                  const date = form.scheduledStartTime?.split('T')[0] ?? '';
+                  setForm(f => ({ ...f, scheduledStartTime: `${date}T${e.target.value}` }));
+                }}
+                className={inputCls}
+              />
+            </div>
           </div>
 
           {/* Legs + Max Horses */}
@@ -426,6 +449,7 @@ export default function AdminRacesPage() {
     }
   }
 
+
   // ── Render: Races View ─────────────────────────────────────────────────────
   if (view === 'races') {
     return (
@@ -679,11 +703,6 @@ export default function AdminRacesPage() {
           <p className="text-on-surface-variant text-sm mt-1">{activeRace?.name}</p>
         </div>
 
-        {/* Close Registration — disabled until BE supports it */}
-        <button disabled title="Requires BE support for RegistrationCloseAt"
-          className="gs-btn gs-btn-ghost flex items-center gap-2 opacity-40 cursor-not-allowed">
-          Close Registration
-        </button>
       </div>
 
       {entryError && (
