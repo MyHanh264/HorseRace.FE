@@ -3,6 +3,7 @@ import { useAuth } from "../../context/AuthContext";
 import {
   LayoutDashboard,
   PawPrint,
+  Trophy,
   Mail,
   ClipboardList,
   User,
@@ -12,6 +13,7 @@ import {
 const navItems = [
   { to: "/horse-owner", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/horse-owner/horses", label: "My Horses", icon: PawPrint },
+  { to: "/horse-owner/tournaments", label: "Tournaments", icon: Trophy },
   { to: "/horse-owner/invitations", label: "Invitations", icon: Mail },
   { to: "/horse-owner/entries", label: "My Entries", icon: ClipboardList },
   { to: "/horse-owner/profile", label: "Profile", icon: User },
