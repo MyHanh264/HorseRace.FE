@@ -80,7 +80,7 @@ function InvitationCard({ inv, onAccept, onDecline, accepting, declining }) {
         <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-xs text-gray-400">
           <span className="flex items-center gap-1">
             <User size={10} />
-            {inv.ownerName ?? `Owner #${inv.horseOwnerId}`}
+            {inv.horseOwnerName ?? `Owner #${inv.horseOwnerId}`}
           </span>
           <span className="flex items-center gap-1">
             <Calendar size={10} />
@@ -144,6 +144,7 @@ export default function JockeyDashboard() {
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(null);
   const [declining, setDeclining] = useState(null);
+  const [actionError, setActionError] = useState("");
 
   useEffect(() => {
     Promise.allSettled([getJockeyProfile(userId), getJockeyInvitations()])
@@ -161,6 +162,7 @@ export default function JockeyDashboard() {
 
   const handleAccept = async (invitationId) => {
     setAccepting(invitationId);
+    setActionError("");
     try {
       await updateJockeyInvitation(invitationId, "Accepted");
       setInvitations((prev) =>
@@ -169,7 +171,8 @@ export default function JockeyDashboard() {
         ),
       );
     } catch (err) {
-      console.error("Accept failed:", err);
+      const msg = err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? "Lỗi không xác định";
+      setActionError(`[${err?.response?.status ?? "?"}] ${msg}`);
     } finally {
       setAccepting(null);
     }
@@ -177,6 +180,7 @@ export default function JockeyDashboard() {
 
   const handleDecline = async (invitationId) => {
     setDeclining(invitationId);
+    setActionError("");
     try {
       await updateJockeyInvitation(invitationId, "Declined");
       setInvitations((prev) =>
@@ -185,7 +189,8 @@ export default function JockeyDashboard() {
         ),
       );
     } catch (err) {
-      console.error("Decline failed:", err);
+      const msg = err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? "Lỗi không xác định";
+      setActionError(`[${err?.response?.status ?? "?"}] ${msg}`);
     } finally {
       setDeclining(null);
     }
@@ -270,6 +275,12 @@ export default function JockeyDashboard() {
                   View All <ChevronRight size={14} />
                 </button>
               </div>
+
+              {actionError && (
+                <div className="text-red-400 text-xs bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 mb-3">
+                  {actionError}
+                </div>
+              )}
 
               {loading ? (
                 <div className="space-y-3">
