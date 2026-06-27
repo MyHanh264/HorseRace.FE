@@ -154,9 +154,8 @@ export default function ConfirmJockeyModal({
       setSubmitted(true);
       onConfirmed?.();
     } catch (err) {
-      setSubmitError(
-        err?.message || "Submit entry thất bại. Vui lòng thử lại.",
-      );
+      const detail = err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message;
+      setSubmitError(`[${err?.response?.status ?? "?"}] ${detail ?? "Submit entry thất bại."}`);
     } finally {
       setSubmitting(false);
     }
