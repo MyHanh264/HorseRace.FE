@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import {
   Trophy, Calendar, ChevronLeft, Search, Flag, Users,
 } from "lucide-react";
-import { getTournaments, getRaces, getMyEntries } from "../../api/horseOwner";
+import { getTournaments, getRaces, getMyEntries, getInvitations } from "../../api/horseOwner";
 import { useAuth } from "../../context/AuthContext";
 import SendInvitationModal from "./SendInvitationModal";
 
@@ -123,7 +123,7 @@ function StatCard({ label, value, sub, subCls = "text-gray-500", valueCls = "tex
 
 // ─── RaceCard ─────────────────────────────────────────────────────────────────
 
-function RaceCard({ race, myEntry, index, onRegister }) {
+function RaceCard({ race, myEntry, myInvitation, index, onRegister }) {
   const canRegister = race.status === "Scheduled";
   const filled = race.currentEntries ?? 0;
   const max = race.maxHorses ?? 1;
@@ -205,6 +205,10 @@ function RaceCard({ race, myEntry, index, onRegister }) {
           <span className={`text-[11px] px-3 py-1.5 rounded-lg font-semibold text-center ${ENTRY_STATUS[myEntry.status]?.cls ?? "text-gray-400 bg-gray-500/10 border border-gray-500/20"}`}>
             {ENTRY_STATUS[myEntry.status]?.label ?? myEntry.status}
           </span>
+        ) : myInvitation ? (
+          <span className="text-[11px] px-3 py-1.5 rounded-lg font-semibold text-center text-yellow-400 bg-yellow-400/10 border border-yellow-400/25">
+            {myInvitation.status === "Accepted" ? "Jockey đã nhận ✓" : "Đã mời Jockey"}
+          </span>
         ) : canRegister ? (
           <button
             onClick={() => onRegister(race)}
@@ -224,7 +228,7 @@ function RaceCard({ race, myEntry, index, onRegister }) {
 
 const TABS = ["CÁC CUỘC ĐUA", "ĐĂNG KÝ CỦA TÔI"];
 
-function TournamentDetail({ tournament, races, entryByRace, onBack, onRegister }) {
+function TournamentDetail({ tournament, races, entryByRace, activeInvByRace, onBack, onRegister }) {
   const [activeTab, setActiveTab] = useState("CÁC CUỘC ĐUA");
   const [search, setSearch] = useState("");
 
@@ -420,6 +424,7 @@ function TournamentDetail({ tournament, races, entryByRace, onBack, onRegister }
               key={race.raceId}
               race={race}
               myEntry={entryByRace[race.raceId]}
+              myInvitation={activeInvByRace[race.raceId]}
               index={i}
               onRegister={onRegister}
             />
@@ -434,24 +439,29 @@ function TournamentDetail({ tournament, races, entryByRace, onBack, onRegister }
 
 export default function HorseOwnerTournamentsPage() {
   const { user } = useAuth();
-  const [tournaments, setTournaments] = useState([]);
-  const [races, setRaces]             = useState([]);
-  const [myEntries, setMyEntries]     = useState([]);
-  const [loading, setLoading]         = useState(true);
-  const [selected, setSelected]       = useState(null); // selected tournament
+  const [tournaments, setTournaments]   = useState([]);
+  const [races, setRaces]               = useState([]);
+  const [myEntries, setMyEntries]       = useState([]);
+  const [myInvitations, setMyInvitations] = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [selected, setSelected]         = useState(null);
   const [registerRace, setRegisterRace] = useState(null);
 
-  const refreshEntries = () =>
-    getMyEntries()
-      .then((e) => setMyEntries(Array.isArray(e) ? e : (e?.data ?? [])))
+  const refreshData = () =>
+    Promise.all([getMyEntries(), getInvitations()])
+      .then(([e, inv]) => {
+        setMyEntries(Array.isArray(e) ? e : (e?.data ?? []));
+        setMyInvitations(Array.isArray(inv) ? inv : (inv?.data ?? inv?.invitations ?? []));
+      })
       .catch(console.error);
 
   useEffect(() => {
-    Promise.all([getTournaments(), getRaces(), getMyEntries()])
-      .then(([t, r, e]) => {
+    Promise.all([getTournaments(), getRaces(), getMyEntries(), getInvitations()])
+      .then(([t, r, e, inv]) => {
         setTournaments(Array.isArray(t) ? t : (t?.data ?? []));
         setRaces(Array.isArray(r) ? r : (r?.data ?? []));
         setMyEntries(Array.isArray(e) ? e : (e?.data ?? []));
+        setMyInvitations(Array.isArray(inv) ? inv : (inv?.data ?? inv?.invitations ?? []));
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -471,6 +481,15 @@ export default function HorseOwnerTournamentsPage() {
     myEntries.forEach((e) => { map[e.raceId] = e; });
     return map;
   }, [myEntries]);
+
+  // Map raceId → invitation đang active (Pending hoặc Accepted)
+  const activeInvByRace = useMemo(() => {
+    const map = {};
+    myInvitations
+      .filter((inv) => inv.status === "Pending" || inv.status === "Accepted")
+      .forEach((inv) => { map[inv.raceId] = inv; });
+    return map;
+  }, [myInvitations]);
 
   // ── loading ──
   if (loading) {
@@ -501,6 +520,7 @@ export default function HorseOwnerTournamentsPage() {
           tournament={selected}
           races={racesByTournament[selected.tournamentId] ?? []}
           entryByRace={entryByRace}
+          activeInvByRace={activeInvByRace}
           onBack={() => setSelected(null)}
           onRegister={setRegisterRace}
         />
@@ -510,7 +530,7 @@ export default function HorseOwnerTournamentsPage() {
             initialRace={registerRace}
             existingEntries={myEntries}
             onClose={() => setRegisterRace(null)}
-            onSuccess={refreshEntries}
+            onSuccess={refreshData}
           />
         )}
       </>
