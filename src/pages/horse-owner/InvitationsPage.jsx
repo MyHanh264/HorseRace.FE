@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { X, Trash2 } from "lucide-react";
-import { getInvitations, deleteInvitation } from "../../api/horseOwner";
+import { getInvitations, deleteInvitation, getRaces } from "../../api/horseOwner";
 import ConfirmJockeyModal from "./ConfirmJockeyModal";
 
 const STATUS_BADGE = {
@@ -38,18 +38,22 @@ function HorseAvatar() {
 
 export default function InvitationsPage() {
   const [invitations, setInvitations] = useState([]);
+  const [raceMap, setRaceMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("Sent");
   const [refreshKey, setRefreshKey] = useState(0);
   const [confirmInv, setConfirmInv] = useState(null);
 
   useEffect(() => {
-    getInvitations()
-      .then((data) => {
-        const list = Array.isArray(data)
-          ? data
-          : (data?.data ?? data?.invitations ?? []);
+    Promise.all([getInvitations(), getRaces().catch(() => [])])
+      .then(([data, races]) => {
+        const list = Array.isArray(data) ? data : (data?.data ?? data?.invitations ?? []);
         setInvitations(list);
+        const map = {};
+        (Array.isArray(races) ? races : (races?.data ?? [])).forEach((r) => {
+          map[r.raceId] = r;
+        });
+        setRaceMap(map);
       })
       .catch((err) => {
         console.error("getInvitations failed:", err);
@@ -151,9 +155,9 @@ export default function InvitationsPage() {
                   {inv.raceName ?? "—"}
                 </p>
                 <p className="text-gray-500 text-xs mt-0.5">
-                  {inv.surface && inv.distance
-                    ? `${inv.surface} • ${inv.distance}`
-                    : "Race info TBA"}
+                  {raceMap[inv.raceId]?.tournamentName
+                    ? `${raceMap[inv.raceId].tournamentName}${raceMap[inv.raceId]?.scheduledAt ? ` · ${formatDate(raceMap[inv.raceId].scheduledAt)}` : ""}`
+                    : "—"}
                 </p>
               </div>
 

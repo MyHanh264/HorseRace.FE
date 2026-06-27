@@ -32,6 +32,7 @@ export async function createJockeyInvitation(payload) {
 
 export async function updateJockeyInvitation(invitationId, status, responseReason = null) {
   const res = await api.put(`/api/jockey-invitations/${invitationId}`, {
+    invitationId,
     status,
     responseReason,
   })
