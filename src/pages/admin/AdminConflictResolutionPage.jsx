@@ -11,6 +11,7 @@ import {
   resolveRaceConflict,
   resumeRace,
 } from '../../api/admin'
+import { validateOverrideReason } from '../../utils/validation'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -354,13 +355,9 @@ export default function AdminConflictResolutionPage() {
   }
 
   function getValidation() {
-    if (!overrideReason.trim()) {
-      return { valid: false, error: 'Please provide a reason for the override' }
-    }
-    if (overrideReason.trim().length < 10) {
-      return { valid: false, error: 'Override reason must be at least 10 characters' }
-    }
-    return { valid: true, error: null }
+    // Bug #3: dùng shared validateOverrideReason để đảm bảo rule nhất quán
+    // với OverrideModal trong AdminRaceExecutionPage (min 10 ký tự).
+    return validateOverrideReason(overrideReason)
   }
 
   async function handleOverride() {

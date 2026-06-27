@@ -11,6 +11,7 @@ import {
   resolveRaceConflict, resumeRace, getRaceStandings,
   startRace,
 } from '../../api/admin'
+import { validateOverrideReason } from '../../utils/validation'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -64,8 +65,11 @@ function OverrideModal({ race, legIndex, pauseInfo, onClose, onResolved }) {
   }
 
   async function handleOverride() {
-    if (!overrideReason.trim()) {
-      setError('Bắt buộc nhập lý do override.')
+    // Bug #3: dùng shared validateOverrideReason (min 10 ký tự, nhất quán
+    // với AdminConflictResolutionPage).
+    const reasonCheck = validateOverrideReason(overrideReason)
+    if (!reasonCheck.valid) {
+      setError(reasonCheck.error)
       return
     }
     const { valid } = getLegValidation()
@@ -84,7 +88,10 @@ function OverrideModal({ race, legIndex, pauseInfo, onClose, onResolved }) {
         })),
         overrideReason: overrideReason.trim(),
       }
+      // Bước 1: resolve conflict
       await resolveRaceConflict(race.raceId, legIndex, payload)
+      // Bước 2: resume race (Bug #4) — đảm bảo race chuyển từ Paused → InProgress
+      await resumeRace(race.raceId)
       onResolved()
     } catch (err) {
       setError(err?.response?.data?.message || err?.message || 'Override thất bại.')
@@ -328,8 +335,9 @@ function RaceExecutionCard({ race, execution, standings, onMonitor, onStart }) {
                   </button>
                   <button
                     onClick={handleResume}
-                    disabled={resolving}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold transition-all disabled:opacity-50"
+                    disabled={resolving || hasConflict}
+                    title={hasConflict ? 'Vui lòng override conflict trước khi resume' : ''}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {resolving ? <Loader2 size={12} className="animate-spin" /> : <ChevronRight size={12} />}
                     Resume
@@ -539,6 +547,8 @@ export default function AdminRaceExecutionPage() {
 
   const executableRaces = allRaces.filter(r => r.status === 'InProgress' || r.status === 'Paused')
   const selectedExecution = selectedRace ? execution : null
+  // Derived flag — race đang có leg Conflicted → không cho Resume từ header.
+  const hasAnyConflict = selectedExecution?.legs?.some((l) => l.status === 'Conflicted')
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -654,7 +664,9 @@ export default function AdminRaceExecutionPage() {
                           alert(err?.message || 'Resume thất bại.')
                         }
                       }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold transition-all"
+                      disabled={hasAnyConflict}
+                      title={hasAnyConflict ? 'Vui lòng override conflict trước khi resume' : ''}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <ChevronRight size={12} /> Resume Race
                     </button>
