@@ -737,6 +737,19 @@ export default function AdminRacesPage() {
             </div>
           )}
         </div>
+
+      {showModal && (
+        <RaceModal
+          race={editingRace}
+          tournaments={tournaments}
+          users={users}
+          selectedTournamentId={selectedTournamentId}
+          onClose={() => setShowModal(false)}
+          onSubmit={handleRaceSubmit}
+          submitting={submitting}
+          error={formError}
+        />
+      )}
       </div>
     )
   }

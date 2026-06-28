@@ -8,7 +8,7 @@ import {
   getRaces, getRaceDetail, getTournaments, getUsers,
   getRaceExecutionStatus, getRacePauseInfo,
   resolveRaceConflict, resumeRace, getRaceStandings,
-  startRace, closeRegistration, approveEntry, rejectEntry,
+  startRace, closeRegistration, approveEntry, rejectEntry, getEntries,
 } from '../../api/admin'
 import { validateOverrideReason } from '../../utils/validation'
 
@@ -105,13 +105,11 @@ function OverrideModal({ race, legIndex, pauseInfo, onClose, onResolved }) {
     setSubmitting(true)
     setError('')
     try {
-      await resolveRaceConflict(race.raceId, legIndex, {
+      const payload = {
         decisions: Object.entries(decisions).map(([entryId, officialPosition]) => ({ entryId: Number(entryId), officialPosition })),
         overrideReason: overrideReason.trim(),
       }
-      // Bước 1: resolve conflict
       await resolveRaceConflict(race.raceId, legIndex, payload)
-      // Bước 2: resume race (Bug #4) — đảm bảo race chuyển từ Paused → InProgress
       await resumeRace(race.raceId)
       onResolved()
     } catch (err) {
@@ -207,168 +205,119 @@ function LegStatusChip({ status }) {
 // ─── Race List Card ───────────────────────────────────────────────────────────
 
 function RaceListCard({ race, onViewEntries, onMonitor, onStartRace }) {
-  const isScheduled   = race.status === 'Scheduled'
-  const isInProgress  = race.status === 'InProgress'
-  const isPaused      = race.status === 'Paused'
-  const isPending     = race.status === 'PendingResult'
+  const isScheduled  = race.status === 'Scheduled'
+  const isInProgress = race.status === 'InProgress'
+  const isPaused     = race.status === 'Paused'
+  const isPending    = race.status === 'PendingResult'
 
-  const statusChip = isInProgress
-    ? <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/15 text-amber-400">● LIVE</span>
-    : isPaused
-    ? <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-orange-500/15 text-orange-400 animate-pulse">⚠ PAUSED</span>
-    : isPending
-    ? <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-400/15 text-blue-400">⏳ PENDING RESULT</span>
-    : <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-gray-500/15 text-gray-400">SCHEDULED</span>
-
-  const borderColor = isPaused ? '3px solid rgba(249,115,22,0.7)'
+  const borderColor = isPaused     ? '3px solid rgba(249,115,22,0.7)'
     : isInProgress ? '3px solid rgba(251,191,36,0.6)'
     : '3px solid rgba(255,255,255,0.08)'
 
   return (
-    <>
-      <div className="gs-card overflow-hidden">
-        {/* Card header */}
-        <div
-          className="px-5 py-4 border-b border-white/10"
-          style={{ borderLeft: hasConflict ? '3px solid rgba(249,115,22,0.7)' : '3px solid rgba(251,191,36,0.6)' }}
-        >
-          <div className="flex items-start justify-between gap-3 flex-wrap">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                  race.status === 'InProgress'
-                    ? 'bg-amber-500/15 text-amber-400'
-                    : race.status === 'Paused'
-                    ? 'bg-orange-500/15 text-orange-400'
-                    : race.status === 'PendingResult'
-                    ? 'bg-blue-400/15 text-blue-400'
-                    : 'bg-gray-500/15 text-gray-400'
-                }`}>
-                  {race.status === 'InProgress' ? '● LIVE' : race.status}
-                </span>
-                {execution?.isBetsLocked && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-500/15 text-red-400">🔒 Bets Locked</span>
-                )}
-                {hasConflict && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-orange-500/15 text-orange-400 animate-pulse">
-                    ⚠ CONFLICT
-                  </span>
-                )}
-              </div>
-              <h3 className="font-serif text-xl font-bold text-on-surface">{race.name}</h3>
-              <p className="text-xs text-on-surface-variant mt-0.5">{race.tournamentName || race.tournamentId}</p>
+    <div className="gs-card overflow-hidden">
+      <div className="px-5 py-4 border-b border-white/10" style={{ borderLeft: borderColor }}>
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                isInProgress ? 'bg-amber-500/15 text-amber-400'
+                : isPaused   ? 'bg-orange-500/15 text-orange-400'
+                : isPending  ? 'bg-blue-400/15 text-blue-400'
+                : 'bg-gray-500/15 text-gray-400'
+              }`}>
+                {isInProgress ? '● LIVE' : isPaused ? '⚠ PAUSED' : isPending ? '⏳ PENDING RESULT' : 'SCHEDULED'}
+              </span>
             </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              {race.status === 'Scheduled' && (
-                <button
-                  onClick={() => onStart(race)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-black text-xs font-bold transition-all"
-                >
-                  <Flag size={12} /> Start Race
-                </button>
-              )}
-              {race.status === 'InProgress' && (
-                <button
-                  onClick={onMonitor}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/20 text-xs text-gray-300 hover:bg-white/10 transition-all"
-                >
-                  <Eye size={12} /> Monitor
-                </button>
-              )}
-              {race.status === 'Paused' && (
-                <>
-                  <button
-                    onClick={loadPauseInfo}
-                    disabled={loadingPause}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-orange-500/30 text-xs text-orange-400 hover:bg-orange-500/10 transition-all disabled:opacity-50"
-                  >
-                    <AlertTriangle size={12} />
-                    {loadingPause ? 'Loading...' : 'View Conflict'}
-                  </button>
-                  <button
-                    onClick={handleResume}
-                    disabled={resolving || hasConflict}
-                    title={hasConflict ? 'Vui lòng override conflict trước khi resume' : ''}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {resolving ? <Loader2 size={12} className="animate-spin" /> : <ChevronRight size={12} />}
-                    Resume
-                  </button>
-                </>
-              )}
-            </div>
+            <h3 className="font-serif text-xl font-bold text-on-surface">{race.name}</h3>
+            <p className="text-xs text-on-surface-variant mt-0.5">{race.tournamentName || race.tournamentId}</p>
           </div>
-        </div>
-
-        {/* Legs timeline */}
-        <div className="px-5 py-4">
-          <p className="text-[10px] text-on-surface-variant uppercase tracking-wider font-medium mb-3">Leg Progress</p>
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
-            {legs.map((leg, idx) => {
-              const statusColor = {
-                Confirmed: 'bg-emerald-500 border-emerald-600',
-                Pending: 'bg-surface-container-high border-outline-variant',
-                Conflicted: 'bg-orange-500 border-orange-600 animate-pulse',
-              }[leg.status] ?? 'bg-surface-container-high border-outline-variant'
-
-              return (
-                <div key={idx} className="flex flex-col items-center shrink-0">
-                  <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold text-white ${statusColor}`}>
-                    {leg.status === 'Confirmed' ? '✓' : leg.status === 'Conflicted' ? '⚠' : idx + 1}
-                  </div>
-                  <span className="text-[10px] text-on-surface-variant mt-1">Leg {idx + 1}</span>
-                  <span className="text-[9px] text-gray-600">{leg.confirmationType ?? '—'}</span>
-                  {leg.referee1Submitted && leg.referee2Submitted && (
-                    <span className="text-[9px] text-emerald-400 mt-0.5">✓ both</span>
-                  )}
-                  {!leg.referee1Submitted && !leg.referee2Submitted && (
-                    <span className="text-[9px] text-gray-600 mt-0.5">waiting</span>
-                  )}
-                  {leg.referee1Submitted !== undefined && leg.referee2Submitted !== undefined &&
-                   (leg.referee1Submitted !== leg.referee2Submitted) && (
-                    <span className="text-[9px] text-yellow-400 mt-0.5">partial</span>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          {isScheduled && (
-            <>
-              <button onClick={() => onViewEntries(race)}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-white/20 text-xs text-gray-300 hover:bg-white/10 transition-all">
-                <Users size={13} /> View Entries
-              </button>
-              <button
-                onClick={() => race.registrationCloseAt && onStartRace(race)}
-                disabled={!race.registrationCloseAt}
-                title={!race.registrationCloseAt ? 'Cần đóng đăng ký trước khi bắt đầu' : ''}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                  race.registrationCloseAt
-                    ? 'bg-yellow-400 hover:bg-yellow-300 text-black'
-                    : 'bg-yellow-400/30 text-black/40 cursor-not-allowed'
-                }`}>
-                <span>▶</span> Start Race
-              </button>
-            </>
-          )}
-          {(isInProgress || isPending) && (
-            <button onClick={() => onMonitor(race)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-white/20 text-xs text-gray-300 hover:bg-white/10 transition-all">
-              <Eye size={13} /> Monitor
-            </button>
-          )}
-          {isPaused && (
-            <button onClick={() => onMonitor(race)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-orange-500/30 text-xs text-orange-400 hover:bg-orange-500/10 transition-all">
-              <AlertTriangle size={13} /> View Conflict
-            </button>
-          )}
         </div>
       </div>
+
+      <div className="px-5 py-4 flex items-center justify-end gap-2">
+        {isScheduled && (
+          <>
+            <button onClick={() => onViewEntries(race)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-white/20 text-xs text-gray-300 hover:bg-white/10 transition-all">
+              <Users size={13} /> View Entries
+            </button>
+            <button
+              onClick={() => race.registrationCloseAt && onStartRace(race)}
+              disabled={!race.registrationCloseAt}
+              title={!race.registrationCloseAt ? 'Cần đóng đăng ký trước khi bắt đầu' : ''}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                race.registrationCloseAt
+                  ? 'bg-yellow-400 hover:bg-yellow-300 text-black'
+                  : 'bg-yellow-400/30 text-black/40 cursor-not-allowed'
+              }`}>
+              <Flag size={13} /> Start Race
+            </button>
+          </>
+        )}
+        {(isInProgress || isPending) && (
+          <button onClick={() => onMonitor(race)}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-white/20 text-xs text-gray-300 hover:bg-white/10 transition-all">
+            <Eye size={13} /> Monitor
+          </button>
+        )}
+        {isPaused && (
+          <button onClick={() => onMonitor(race)}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-orange-500/30 text-xs text-orange-400 hover:bg-orange-500/10 transition-all">
+            <AlertTriangle size={13} /> View Conflict
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Page Header ─────────────────────────────────────────────────────────────
+
+function PageHeader({ view, loading, selectedRaceName, onBack, onRefreshList, onRefreshMonitor }) {
+  return (
+    <div className="flex items-center gap-3 mb-6">
+      {view !== 'list' && (
+        <button onClick={onBack}
+          className="w-9 h-9 rounded-xl border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:border-white/20 transition-all">
+          <ArrowLeft size={16} />
+        </button>
+      )}
+      <div className="w-10 h-10 rounded-xl bg-yellow-400/10 border border-yellow-400/25 flex items-center justify-center shrink-0">
+        <Flag size={20} className="text-yellow-400" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <h1 className="font-serif text-2xl font-bold text-on-surface">
+          {view === 'list' ? 'Race Execution' : view === 'entries' ? 'Race Entries' : 'Race Monitor'}
+        </h1>
+        <p className="text-xs text-on-surface-variant truncate">
+          {view === 'list' ? 'Chọn race để xem entries hoặc giám sát' : selectedRaceName ?? ''}
+        </p>
+      </div>
+      {view === 'list' && (
+        <button onClick={onRefreshList}
+          className="flex items-center gap-1.5 text-xs text-on-surface-variant hover:text-white transition-colors px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/20">
+          <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Refresh
+        </button>
+      )}
+      {view === 'monitor' && (
+        <button onClick={onRefreshMonitor}
+          className="flex items-center gap-1.5 text-xs text-on-surface-variant hover:text-white transition-colors px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/20">
+          <RefreshCw size={12} /> Refresh
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ─── Error Banner ─────────────────────────────────────────────────────────────
+
+function ErrorBanner({ msg, onDismiss }) {
+  if (!msg) return null
+  return (
+    <div className="mb-4 p-3.5 rounded-xl bg-error/10 border border-error/25 text-error text-sm flex items-center gap-2">
+      <AlertCircle className="w-4 h-4 shrink-0" />{msg}
+      <button onClick={onDismiss} className="ml-auto"><X className="w-4 h-4" /></button>
     </div>
   )
 }
@@ -428,7 +377,7 @@ export default function AdminRaceExecutionPage() {
       const [detail, racesBasic, allEntries, users, tournaments] = await Promise.all([
         getRaceDetail(raceId),
         getRaces(),
-        api.get('/api/entries').then(r => r.data),
+        getEntries(),
         getUsers(),
         getTournaments(),
       ])
@@ -470,17 +419,51 @@ export default function AdminRaceExecutionPage() {
 
   useEffect(() => {
     isMountedRef.current = true
-    loadRaces()
-    return () => { isMountedRef.current = false }
-  }, [loadRaces])
+    let active = true
+    ;(async () => {
+      try {
+        const races = await getRaces()
+        if (!active) return
+        setAllRaces(races.filter(r =>
+          ['Scheduled', 'InProgress', 'Paused', 'PendingResult'].includes(r.status),
+        ))
+      } catch (err) {
+        if (active) setError(err?.message || 'Không tải được danh sách races.')
+      } finally {
+        if (active) setLoading(false)
+      }
+    })()
+    return () => { active = false; isMountedRef.current = false }
+  }, [])
 
   // Auto-poll when monitoring
   useEffect(() => {
     if (view !== 'monitor' || !selectedRace) return
-    loadExecution(selectedRace.raceId)
-    pollRef.current = setInterval(() => loadExecution(selectedRace.raceId), 6000)
-    return () => clearInterval(pollRef.current)
-  }, [view, selectedRace, loadExecution])
+    const raceId = selectedRace.raceId
+    let active = true
+
+    async function fetchExecution() {
+      try {
+        const [exec, standingsData] = await Promise.all([
+          getRaceExecutionStatus(raceId).catch(() => null),
+          getRaceStandings(raceId).catch(() => []),
+        ])
+        if (!active) return
+        setExecution(exec)
+        setStandings(standingsData)
+        if (exec?.status === 'Paused') {
+          const pause = await getRacePauseInfo(raceId).catch(() => null)
+          if (active) setPauseInfo(pause)
+        } else {
+          if (active) setPauseInfo(null)
+        }
+      } catch { /* silent */ }
+    }
+
+    fetchExecution()
+    pollRef.current = setInterval(fetchExecution, 6000)
+    return () => { active = false; clearInterval(pollRef.current) }
+  }, [view, selectedRace])
 
   // ── Navigation helpers ─────────────────────────────────────────────────────
   function openEntries(race) {
@@ -529,10 +512,19 @@ export default function AdminRaceExecutionPage() {
     }
   }
 
-  const executableRaces = allRaces.filter(r => r.status === 'InProgress' || r.status === 'Paused')
-  const selectedExecution = selectedRace ? execution : null
-  // Derived flag — race đang có leg Conflicted → không cho Resume từ header.
-  const hasAnyConflict = selectedExecution?.legs?.some((l) => l.status === 'Conflicted')
+  const hasAnyConflict = execution?.legs?.some((l) => l.status === 'Conflicted')
+
+  const handleApprove = async (entryId) => {
+    setEntryAction({ id: entryId, type: 'Approved' }); setEntryError('')
+    try {
+      await approveEntry(entryId)
+      await loadEntries(selectedRace.raceId)
+    } catch (err) {
+      setEntryError(err?.message || 'Phê duyệt entry thất bại')
+    } finally {
+      setEntryAction(null)
+    }
+  }
 
   const handleReject = async (entryId) => {
     setEntryAction({ id: entryId, type: 'Rejected' }); setEntryError('')
@@ -565,50 +557,6 @@ export default function AdminRaceExecutionPage() {
   const ref1 = selectedRace?.referee1Id ? userMap[selectedRace.referee1Id] : null
   const ref2 = selectedRace?.referee2Id ? userMap[selectedRace.referee2Id] : null
 
-  // ── Common header ──────────────────────────────────────────────────────────
-  const PageHeader = () => (
-    <div className="flex items-center gap-3 mb-6">
-      {view !== 'list' ? (
-        <button onClick={backToList}
-          className="w-9 h-9 rounded-xl border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:border-white/20 transition-all">
-          <ArrowLeft size={16} />
-        </button>
-      ) : null}
-      <div className="w-10 h-10 rounded-xl bg-yellow-400/10 border border-yellow-400/25 flex items-center justify-center shrink-0">
-        <Flag size={20} className="text-yellow-400" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <h1 className="font-serif text-2xl font-bold text-on-surface">
-          {view === 'list' ? 'Race Execution' : view === 'entries' ? 'Race Entries' : 'Race Monitor'}
-        </h1>
-        <p className="text-xs text-on-surface-variant truncate">
-          {view === 'list'
-            ? 'Chọn race để xem entries hoặc giám sát'
-            : selectedRace?.name ?? ''}
-        </p>
-      </div>
-      {view === 'list' && (
-        <button onClick={() => { setLoading(true); loadRaces() }}
-          className="flex items-center gap-1.5 text-xs text-on-surface-variant hover:text-white transition-colors px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/20">
-          <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Refresh
-        </button>
-      )}
-      {view === 'monitor' && (
-        <button onClick={() => loadExecution(selectedRace?.raceId)}
-          className="flex items-center gap-1.5 text-xs text-on-surface-variant hover:text-white transition-colors px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/20">
-          <RefreshCw size={12} /> Refresh
-        </button>
-      )}
-    </div>
-  )
-
-  // ── Error banner ───────────────────────────────────────────────────────────
-  const ErrorBanner = ({ msg, onDismiss }) => msg ? (
-    <div className="mb-4 p-3.5 rounded-xl bg-error/10 border border-error/25 text-error text-sm flex items-center gap-2">
-      <AlertCircle className="w-4 h-4 shrink-0" />{msg}
-      <button onClick={onDismiss} className="ml-auto"><X className="w-4 h-4" /></button>
-    </div>
-  ) : null
 
   // ═══════════════════════════════════════════════════════════════════════════
   // LIST VIEW
@@ -616,7 +564,10 @@ export default function AdminRaceExecutionPage() {
   if (view === 'list') {
     return (
       <div className="max-w-5xl mx-auto">
-        <PageHeader />
+        <PageHeader view={view} loading={loading} selectedRaceName={selectedRace?.name}
+          onBack={backToList}
+          onRefreshList={() => { setLoading(true); loadRaces() }}
+          onRefreshMonitor={() => loadExecution(selectedRace?.raceId)} />
         <ErrorBanner msg={error} onDismiss={() => setError('')} />
 
         {loading ? (
@@ -659,7 +610,10 @@ export default function AdminRaceExecutionPage() {
 
     return (
       <div className="max-w-5xl mx-auto">
-        <PageHeader />
+        <PageHeader view={view} loading={loading} selectedRaceName={selectedRace?.name}
+          onBack={backToList}
+          onRefreshList={() => { setLoading(true); loadRaces() }}
+          onRefreshMonitor={() => loadExecution(selectedRace?.raceId)} />
         <ErrorBanner msg={error} onDismiss={() => setError('')} />
 
         {/* Closed banner */}
@@ -688,7 +642,7 @@ export default function AdminRaceExecutionPage() {
                   )}
                 </div>
                 {selectedRace.status === 'Paused' && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 mt-2">
                     <button
                       onClick={async () => {
                         const pause = await getRacePauseInfo(selectedRace.raceId).catch(() => null)
@@ -718,6 +672,13 @@ export default function AdminRaceExecutionPage() {
                   </div>
                 )}
               </div>
+              {isRegOpen && (
+                <button onClick={handleCloseReg} disabled={regLoading}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold transition-all disabled:opacity-50 shrink-0">
+                  {regLoading ? <Loader2 size={13} className="animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
+                  Close Registration
+                </button>
+              )}
             </div>
 
             {/* Referees */}
@@ -889,7 +850,10 @@ export default function AdminRaceExecutionPage() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <PageHeader />
+      <PageHeader view={view} loading={loading} selectedRaceName={selectedRace?.name}
+        onBack={backToList}
+        onRefreshList={() => { setLoading(true); loadRaces() }}
+        onRefreshMonitor={() => loadExecution(selectedRace?.raceId)} />
       <ErrorBanner msg={error} onDismiss={() => setError('')} />
 
       {!execution ? (
