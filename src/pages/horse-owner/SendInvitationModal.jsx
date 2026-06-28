@@ -309,7 +309,7 @@ function Step3({ jockeys, search, onSearch, onClose, onInvite, selectedRace, sel
       prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key]
     );
 
-  const validJockeys = jockeys.filter((j) => j.licenseNumber);
+  const validJockeys = jockeys.filter((j) => j.licenseNumber && j.weight);
 
   const filtered = validJockeys.filter((j) => {
     const winRate = j.totalRaces > 0 ? Math.round((j.totalWins / j.totalRaces) * 100) : 0;
@@ -503,7 +503,7 @@ export default function SendInvitationModal({ onClose, onSuccess, initialRace = 
   const [horses, setHorses] = useState([]);
   const [jockeys, setJockeys] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
+  const [loadError] = useState("");
 
   const [selectedRace, setSelectedRace] = useState(initialRace);
   const [selectedHorse, setSelectedHorse] = useState(null);
@@ -536,9 +536,17 @@ export default function SendInvitationModal({ onClose, onSuccess, initialRace = 
     return new Date(dateStr).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
   };
 
-  const filteredRaces = races.filter((r) =>
-    `${r.name ?? ""} ${r.tournamentName ?? ""}`.toLowerCase().includes(raceSearch.toLowerCase())
-  );
+  const now = new Date();
+  const filteredRaces = races
+    .filter((r) => {
+      if (r.status !== "Scheduled") return false;
+      if (!r.registrationOpenAt) return false;
+      if (r.registrationCloseAt && new Date(r.registrationCloseAt) <= now) return false;
+      return true;
+    })
+    .filter((r) =>
+      `${r.name ?? ""} ${r.tournamentName ?? ""}`.toLowerCase().includes(raceSearch.toLowerCase())
+    );
 
   // onInvite chỉ gọi API và throw lỗi — Step3 tự quản lý UI state
   const handleInvite = async (jockey) => {

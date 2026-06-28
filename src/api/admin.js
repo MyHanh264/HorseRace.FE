@@ -122,6 +122,11 @@ export async function getPendingEntries() {
   return res.data
 }
 
+export async function getEntries() {
+  const res = await api.get('/api/entries')
+  return res.data
+}
+
 export async function approveEntry(entryId) {
   const res = await api.post(`/api/admin/entries/${entryId}/approve`)
   return res.data

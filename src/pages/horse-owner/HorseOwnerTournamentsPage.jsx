@@ -5,6 +5,7 @@ import {
 import { getTournaments, getRaces, getMyEntries, getInvitations } from "../../api/horseOwner";
 import { useAuth } from "../../context/AuthContext";
 import SendInvitationModal from "./SendInvitationModal";
+import ConfirmJockeyModal from "./ConfirmJockeyModal";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -123,7 +124,7 @@ function StatCard({ label, value, sub, subCls = "text-gray-500", valueCls = "tex
 
 // ─── RaceCard ─────────────────────────────────────────────────────────────────
 
-function RaceCard({ race, myEntry, myInvitation, index, onRegister }) {
+function RaceCard({ race, myEntry, myInvitation, index, onRegister, onConfirm }) {
   const canRegister = race.status === "Scheduled";
   const filled = race.currentEntries ?? 0;
   const max = race.maxHorses ?? 1;
@@ -206,9 +207,18 @@ function RaceCard({ race, myEntry, myInvitation, index, onRegister }) {
             {ENTRY_STATUS[myEntry.status]?.label ?? myEntry.status}
           </span>
         ) : myInvitation ? (
-          <span className="text-[11px] px-3 py-1.5 rounded-lg font-semibold text-center text-yellow-400 bg-yellow-400/10 border border-yellow-400/25">
-            {myInvitation.status === "Accepted" ? "Jockey đã nhận ✓" : "Đã mời Jockey"}
-          </span>
+          myInvitation.status === "Accepted" ? (
+            <button
+              onClick={() => onConfirm(myInvitation)}
+              className="w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-sm transition-colors"
+            >
+              Confirm Jockey →
+            </button>
+          ) : (
+            <span className="text-[11px] px-3 py-1.5 rounded-lg font-semibold text-center text-yellow-400 bg-yellow-400/10 border border-yellow-400/25">
+              Đã mời Jockey
+            </span>
+          )
         ) : canRegister ? (
           <button
             onClick={() => onRegister(race)}
@@ -228,7 +238,7 @@ function RaceCard({ race, myEntry, myInvitation, index, onRegister }) {
 
 const TABS = ["CÁC CUỘC ĐUA", "ĐĂNG KÝ CỦA TÔI"];
 
-function TournamentDetail({ tournament, races, entryByRace, activeInvByRace, onBack, onRegister }) {
+function TournamentDetail({ tournament, races, entryByRace, activeInvByRace, onBack, onRegister, onConfirm }) {
   const [activeTab, setActiveTab] = useState("CÁC CUỘC ĐUA");
   const [search, setSearch] = useState("");
 
@@ -427,6 +437,7 @@ function TournamentDetail({ tournament, races, entryByRace, activeInvByRace, onB
               myInvitation={activeInvByRace[race.raceId]}
               index={i}
               onRegister={onRegister}
+              onConfirm={onConfirm}
             />
           ))
         )}
@@ -446,6 +457,7 @@ export default function HorseOwnerTournamentsPage() {
   const [loading, setLoading]           = useState(true);
   const [selected, setSelected]         = useState(null);
   const [registerRace, setRegisterRace] = useState(null);
+  const [confirmInv, setConfirmInv]     = useState(null);
 
   const refreshData = () =>
     Promise.all([getMyEntries(), getInvitations()])
@@ -523,6 +535,7 @@ export default function HorseOwnerTournamentsPage() {
           activeInvByRace={activeInvByRace}
           onBack={() => setSelected(null)}
           onRegister={setRegisterRace}
+          onConfirm={setConfirmInv}
         />
 
         {registerRace && (
@@ -531,6 +544,17 @@ export default function HorseOwnerTournamentsPage() {
             existingEntries={myEntries}
             onClose={() => setRegisterRace(null)}
             onSuccess={refreshData}
+          />
+        )}
+
+        {confirmInv && (
+          <ConfirmJockeyModal
+            invitation={confirmInv}
+            onClose={() => setConfirmInv(null)}
+            onConfirmed={() => {
+              setConfirmInv(null);
+              refreshData();
+            }}
           />
         )}
       </>
