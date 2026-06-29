@@ -12,8 +12,10 @@ import {
   X,
   SlidersHorizontal,
   Flag,
+  ShieldAlert,
 } from "lucide-react";
 import api from "../../services/api";
+import { getRaceExecutionStatus } from "../../api/admin";
 
 const TABS = [
   { key: "All", label: "Tất cả" },
@@ -289,10 +291,58 @@ export default function AdminDiscrepanciesPage() {
   const [total, setTotal] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
   const [resolvedCount, setResolvedCount] = useState(0);
+  // Conflict notifications for referee disputes
+  const [activeConflicts, setActiveConflicts] = useState([]); // [{raceId, raceName, legIndex, legNumber}]
+  const [conflictDismissed, setConflictDismissed] = useState({}); // {[raceId]: true}
 
   const showSuccess = (msg) => {
     setSuccessMsg(msg);
     setTimeout(() => setSuccessMsg(""), 3000);
+  };
+
+  // ── Poll for active referee conflicts ──
+  useEffect(() => {
+    let mounted = true;
+
+    async function pollConflicts() {
+      try {
+        const res = await api.get('/api/races');
+        const races = Array.isArray(res.data) ? res.data : [];
+        const inProgressRaces = races.filter(r =>
+          r.status === 'InProgress' || r.status === 'Paused'
+        );
+
+        const conflicts = [];
+        for (const race of inProgressRaces) {
+          try {
+            const execRes = await getRaceExecutionStatus(race.raceId);
+            const exec = execRes?.data ?? execRes;
+            const conflictedLegs = exec?.legs?.filter(l => l.status === 'Conflicted') ?? [];
+            for (const leg of conflictedLegs) {
+              if (!conflictDismissed[race.raceId]) {
+                conflicts.push({
+                  raceId: race.raceId,
+                  raceName: race.name,
+                  legIndex: leg.legIndex ?? 0,
+                  legNumber: (leg.legIndex ?? 0) + 1,
+                });
+              }
+            }
+          } catch { /* skip failed race checks */ }
+        }
+
+        if (mounted) setActiveConflicts(conflicts);
+      } catch { /* silent */ }
+    }
+
+    pollConflicts();
+    const interval = setInterval(pollConflicts, 15000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, [conflictDismissed]);
+
+  const handleDismissConflict = (raceId) => {
+    setConflictDismissed(prev => ({ ...prev, [raceId]: true }));
+    setActiveConflicts(prev => prev.filter(c => c.raceId !== raceId));
   };
 
   const fetchData = useCallback(async () => {
@@ -386,6 +436,39 @@ export default function AdminDiscrepanciesPage() {
         <div className="h-[2px] w-20 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 mt-4" />
       </div>
 
+      {/* Referee Conflict Alerts — hiện khi có conflict chưa được xử lý */}
+      {activeConflicts.map((conflict) => (
+        <div
+          key={`${conflict.raceId}-${conflict.legIndex}`}
+          className="mt-4 p-4 rounded-xl bg-orange-500/15 border border-orange-500/30 flex items-start gap-3 animate-fade-in-up"
+        >
+          <ShieldAlert size={20} className="text-orange-400 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-bold text-orange-400">
+              Trọng tài chênh lệch kết quả
+            </p>
+            <p className="text-xs text-on-surface-variant mt-0.5">
+              Cuộc đua <span className="font-semibold text-orange-300">{conflict.raceName}</span> — Leg {conflict.legNumber} đang có conflict cần admin giải quyết.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <a
+              href={`/admin/race-execution/${conflict.raceId}`}
+              className="px-3 py-1.5 rounded-lg bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/40 text-xs font-semibold text-orange-300 transition-all"
+            >
+              Xử lý ngay
+            </a>
+            <button
+              onClick={() => handleDismissConflict(conflict.raceId)}
+              className="w-7 h-7 rounded-lg bg-surface-container-high hover:bg-surface-container-highest flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-all"
+              title="Bỏ qua"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      ))}
+
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
         <div className="gs-card p-4 flex items-center gap-3">
@@ -473,7 +556,35 @@ export default function AdminDiscrepanciesPage() {
       </div>
 
       {/* Table */}
-      {loading ? (
+      {activeTab === "Conflicts" ? (
+        <div className="space-y-3">
+          {activeConflicts.length === 0 ? (
+            <div className="gs-card p-12 text-center">
+              <ShieldAlert size={40} className="w-10 h-10 text-gray-500 mx-auto mb-4 opacity-60" />
+              <h3 className="font-serif text-lg font-bold text-on-surface mb-2">Không có xung đột nào</h3>
+              <p className="text-on-surface-variant text-sm">Tất cả các leg đều khớp giữa 2 referees.</p>
+            </div>
+          ) : activeConflicts.map((conflict) => (
+            <div key={`${conflict.raceId}-${conflict.legIndex}`} className="gs-card p-5 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center">
+                  <ShieldAlert size={24} className="text-orange-400" />
+                </div>
+                <div>
+                  <p className="font-semibold text-on-surface">{conflict.raceName}</p>
+                  <p className="text-sm text-on-surface-variant">Leg {conflict.legNumber} — 2 referees có kết quả khác nhau</p>
+                </div>
+              </div>
+              <a
+                href={`/admin/races/${conflict.raceId}/conflict`}
+                className="px-4 py-2 rounded-lg bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/40 text-sm font-semibold text-orange-300 transition-all"
+              >
+                Xem & Xử lý
+              </a>
+            </div>
+          ))}
+        </div>
+      ) : loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="flex flex-col items-center gap-3">
             <div className="w-10 h-10 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
