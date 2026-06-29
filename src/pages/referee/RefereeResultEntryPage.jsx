@@ -178,6 +178,9 @@ export default function RefereeResultEntryPage() {
   const [positions, setPositions] = useState({})
   const [draftSaved, setDraftSaved] = useState(false)
 
+  // 401/loading errors - không crash trang mà hiển thị thông báo
+  const [legError, setLegError] = useState('')
+
   // Submission
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
@@ -186,17 +189,20 @@ export default function RefereeResultEntryPage() {
   // Local lock flag — set ngay khi user click submit (trước khi API trả về).
   // Cần thiết để chống double-click & multi-tab duplicate submission.
   // Khởi tạo là false vì raceId chưa có giá trị tại thời điểm init.
-  // Đồng bộ sessionStorage trong useEffect bên dưới.
   const [hasSubmitted, setHasSubmitted] = useState(false)
 
-  // Sync hasSubmitted từ sessionStorage khi race hoặc activeLegIndex thay đổi.
+  // Đồng bộ hasSubmitted từ sessionStorage khi race hoặc activeLegIndex thay đổi.
+  // Reset hasSubmitted về false khi chuyển leg (mỗi leg có sessionStorage key riêng).
   useEffect(() => {
-    // race.raceId là giá trị thực; preselectedRaceId chỉ dùng khi race chưa load.
     const id = race?.raceId ?? preselectedRaceId
     if (id == null) return
     const key = getSubmitSessionKey(id, activeLegIndex)
-    if (typeof window !== 'undefined' && sessionStorage.getItem(key)) {
-      setHasSubmitted(true)
+    if (typeof window !== 'undefined') {
+      if (sessionStorage.getItem(key)) {
+        setHasSubmitted(true)
+      } else {
+        setHasSubmitted(false)
+      }
     }
   }, [race, activeLegIndex, preselectedRaceId])
 
@@ -206,6 +212,10 @@ export default function RefereeResultEntryPage() {
 
   const pollRef = useRef(null)
   const isMountedRef = useRef(true)
+
+  // Dùng ref để tránh stale closure mà không gây re-render loop
+  const positionsRef = useRef(positions)
+  useEffect(() => { positionsRef.current = positions }, [positions])
 
   // ── Load race + execution ──
   const loadRace = useCallback(async (raceId) => {
@@ -234,6 +244,7 @@ export default function RefereeResultEntryPage() {
   const loadLegView = useCallback(async (raceId, legIndex) => {
     setLoadingLeg(true)
     setDraftSaved(false)
+    setLegError('')
     try {
       const view = await getRefereeLegView(raceId, legIndex)
       if (!isMountedRef.current) return
@@ -247,34 +258,57 @@ export default function RefereeResultEntryPage() {
         setHasSubmitted(true)
       }
 
+      // Init entries array nếu không có (phòng trường hợp API trả về null)
+      const entriesData = view?.entries ?? []
+
       // Pre-fill positions from mySubmittedData if available
-      if (view.mySubmittedData && Array.isArray(view.mySubmittedData)) {
-        setPositions(prev => ({
-          ...prev,
-          [legIndex]: Object.fromEntries(
-            view.mySubmittedData.map(item => [item.entryId, item.position ?? '']),
-          ),
-        }))
+      if (view?.mySubmittedData && Array.isArray(view.mySubmittedData)) {
+        setPositions(prev => {
+          const newPos = { ...prev }
+          view.mySubmittedData.forEach(item => {
+            newPos[item.entryId] = item.position ?? ''
+          })
+          return newPos
+        })
       } else {
         // Chỉ reset về rỗng khi CHƯA có entry nào được gán position.
         // Tránh stale-closure reset mất dữ liệu user đang nhập dở.
-        const posSlice = positions[legIndex] ?? {}
+        // Dùng ref thay vì state để tránh dependency loop.
+        const posSlice = positionsRef.current[legIndex] ?? {}
         const hasAnyPosition = Object.values(posSlice).some(
           (p) => p !== null && p !== undefined && p !== '',
         )
-        if (!hasAnyPosition && view.entries) {
+        if (!hasAnyPosition && entriesData.length > 0) {
           const empty = {}
-          view.entries.forEach(e => { empty[e.entryId] = '' })
-          setPositions(prev => ({ ...prev, [legIndex]: empty }))
+          entriesData.forEach(e => { empty[e.entryId] = '' })
+          setPositions(prev => {
+            // Chỉ set nếu state hiện tại cũng trống (tránh overwrite user input)
+            const currentPos = prev[legIndex] ?? {}
+            const currentHasValue = Object.values(currentPos).some(v => v !== '' && v != null)
+            if (currentHasValue) return prev
+            return { ...prev, [legIndex]: empty }
+          })
         }
       }
     } catch (err) {
       if (!isMountedRef.current) return
+      // 401 = race đang conflict, user chưa có quyền xem
+      // 404 = leg không tồn tại hoặc đã confirmed
+      // Các lỗi khác = có thể là race paused hoặc network issue
+      if (err?.response?.status === 401 || err?.response?.status === 403) {
+        setLegError('Bạn không có quyền xem leg này. Race có thể đang có chênh lệch giữa 2 referees.')
+      } else if (err?.response?.status === 404) {
+        setLegError('Leg này không tồn tại hoặc đã được xác nhận.')
+      } else {
+        setLegError('Không tải được dữ liệu leg. Đang thử lại...')
+      }
       console.error('Failed to load leg view:', err)
     } finally {
       if (isMountedRef.current) setLoadingLeg(false)
     }
-  }, [positions])
+  // Xóa positions khỏi deps - dùng positionsRef thay thế để tránh re-render loop
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── Refresh execution status (polling) ──
   const refreshExecution = useCallback(async (raceId) => {
@@ -319,9 +353,13 @@ export default function RefereeResultEntryPage() {
   }, [preselectedRaceId, loadRace])
 
   // Start polling when race is loaded
-  // Polling vẫn chạy sau khi submit để nhận admin override.
+  // Chỉ poll execution status - KHÔNG reload leg view trong polling
+  // để tránh race condition gây reload modal khi user đang nhập liệu.
+  // Dùng ref để track previous leg status thay vì state dependency để tránh infinite loop.
   useEffect(() => {
     if (!race) return
+    let previousLegStatus = null
+
     pollRef.current = setInterval(async () => {
       try {
         const [execData, standingsData] = await Promise.all([
@@ -340,17 +378,39 @@ export default function RefereeResultEntryPage() {
           setHasSubmitted(true)
         }
 
-        // Reload leg view if current leg is still open
-        if (execData.status === 'InProgress' || execData.status === 'Paused') {
-          const currentLegIdx = execData.currentLegIndex ?? activeLegIndex
-          const currentLeg = execData.legs?.[currentLegIdx]
-          if (currentLeg && currentLeg.status === 'Pending') {
-            loadLegView(race.raceId, currentLegIdx)
+        // Kiểm tra leg hiện tại
+        const currentLegIdx = execData.currentLegIndex ?? activeLegIndex
+        const currentLeg = execData.legs?.[currentLegIdx]
+
+        // Khi leg hiện tại được confirm (cả 2 referees cùng đúng)
+        if (currentLegIdx === activeLegIndex && currentLeg?.status === 'Confirmed') {
+          // Auto-advance to next leg if available
+          if (execData.currentLegIndex !== undefined && execData.currentLegIndex !== activeLegIndex) {
+            setTimeout(() => {
+              if (isMountedRef.current) {
+                setActiveLegIndex(execData.currentLegIndex)
+              }
+            }, 2000)
           }
+          return
+        }
+
+        // Chỉ reload leg view khi leg chuyển sang Pending (sau khi admin override)
+        if (execData.status === 'InProgress' || execData.status === 'Paused') {
+          if (currentLeg && currentLeg.status === 'Pending') {
+            // Chỉ reload khi leg mới chuyển sang Pending (so với lần poll trước)
+            if (previousLegStatus !== 'Pending') {
+              loadLegView(race.raceId, currentLegIdx)
+            }
+          }
+          // Update previous status for next iteration
+          previousLegStatus = currentLeg?.status ?? null
         }
       } catch { /* silent polling fail */ }
     }, 8000)
     return () => clearInterval(pollRef.current)
+  // Xóa execution khỏi deps - dùng ref để track thay vì state để tránh infinite loop
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [race, activeLegIndex, loadLegView])
 
   // Load leg view when active leg changes
@@ -438,12 +498,16 @@ export default function RefereeResultEntryPage() {
       await refreshExecution(race.raceId)
 
       // Auto-advance to next leg if matched
+      // Ưu tiên dùng result.nextLegIndex, fallback sang execution.currentLegIndex
       if (result.status === 'Matched' && !result.isRaceComplete) {
-        setTimeout(() => {
-          if (isMountedRef.current && result.nextLegIndex !== undefined) {
-            setActiveLegIndex(result.nextLegIndex)
-          }
-        }, 2000)
+        const nextLegIdx = result.nextLegIndex ?? execution?.currentLegIndex
+        if (nextLegIdx !== undefined && nextLegIdx !== activeLegIndex) {
+          setTimeout(() => {
+            if (isMountedRef.current) {
+              setActiveLegIndex(nextLegIdx)
+            }
+          }, 2000)
+        }
       }
     } catch (err) {
       const msg = err?.response?.data?.error === 'ALREADY_SUBMITTED'
@@ -744,9 +808,42 @@ export default function RefereeResultEntryPage() {
                 <div className="flex items-center justify-center py-16">
                   <Loader2 className="w-6 h-6 text-yellow-400 animate-spin" />
                 </div>
+              ) : legError ? (
+                <div className="py-12 text-center">
+                  <AlertCircle size={40} className="w-10 h-10 text-red-400 mx-auto opacity-60 mb-3" />
+                  <p className="text-sm font-semibold text-red-400 mb-1">{legError}</p>
+                  <button
+                    onClick={() => loadLegView(race.raceId, activeLegIndex)}
+                    className="mt-3 px-4 py-2 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-sm text-on-surface transition-all"
+                  >
+                    Thử lại
+                  </button>
+                </div>
               ) : entries.length === 0 ? (
-                <div className="py-16 text-center text-on-surface-variant text-sm">
-                  Không có entries nào cho leg này.
+                <div className="py-12 text-center">
+                  <div className="mb-3">
+                    {currentLegData?.status === 'Confirmed' ? (
+                      <CheckCircle2 size={40} className="w-10 h-10 text-emerald-400 mx-auto opacity-60" />
+                    ) : currentLegData?.status === 'Conflicted' ? (
+                      <AlertCircle size={40} className="w-10 h-10 text-orange-400 mx-auto opacity-60" />
+                    ) : (
+                      <Info size={40} className="w-10 h-10 text-gray-500 mx-auto opacity-60" />
+                    )}
+                  </div>
+                  <p className="text-sm font-semibold text-on-surface mb-1">
+                    {currentLegData?.status === 'Confirmed'
+                      ? 'Leg này đã được xác nhận'
+                      : currentLegData?.status === 'Conflicted'
+                      ? 'Leg này đang có chênh lệch — chờ admin xử lý'
+                      : 'Chưa có dữ liệu entries'}
+                  </p>
+                  <p className="text-xs text-on-surface-variant">
+                    {currentLegData?.status === 'Confirmed'
+                      ? 'Kết quả của bạn đã được ghi nhận. Chờ admin xác nhận và tiếp tục race.'
+                      : currentLegData?.status === 'Conflicted'
+                      ? 'Admin sẽ xem xét và quyết định kết quả chính thức.'
+                      : 'Đang chờ dữ liệu từ server...'}
+                  </p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">

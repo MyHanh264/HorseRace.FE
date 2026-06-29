@@ -61,18 +61,17 @@ function HorseAvatar({ name, index }) {
 function OverrideModal({ race, legIndex, pauseInfo, onClose, onResolved }) {
   const [decisions, setDecisions] = useState(() => {
     const d = {}
-    if (pauseInfo?.sideBySideComparison) {
-      pauseInfo.sideBySideComparison.forEach(item => {
-        d[item.entryId] = item.referee1Position ?? item.referee2Position ?? 1
-      })
-    }
+    const comparison = pauseInfo?.conflictedLeg?.comparison ?? []
+    comparison.forEach(item => {
+      d[item.entryId] = item.referee1Position ?? item.referee2Position ?? 1
+    })
     return d
   })
   const [overrideReason, setOverrideReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  const entries = pauseInfo?.sideBySideComparison ?? []
+  const entries = pauseInfo?.conflictedLeg?.comparison ?? []
 
   function setPosition(entryId, value) {
     setDecisions(prev => ({ ...prev, [entryId]: Number(value) }))
@@ -89,8 +88,15 @@ function OverrideModal({ race, legIndex, pauseInfo, onClose, onResolved }) {
   }
 
   async function handleOverride() {
-    // Bug #3: dùng shared validateOverrideReason (min 10 ký tự, nhất quán
-    // với AdminConflictResolutionPage).
+    // Validate số lượng decisions phải khớp với approved entries của leg
+    const expectedEntryIds = new Set(entries.map(e => e.entryId))
+    const sentEntryIds = new Set(Object.keys(decisions).map(Number))
+    if (expectedEntryIds.size !== sentEntryIds.size ||
+        ![...expectedEntryIds].every(id => sentEntryIds.has(id))) {
+      setError('Số lượng decisions không khớp với approved entries.')
+      return
+    }
+
     const reasonCheck = validateOverrideReason(overrideReason)
     if (!reasonCheck.valid) {
       setError(reasonCheck.error)
@@ -109,11 +115,12 @@ function OverrideModal({ race, legIndex, pauseInfo, onClose, onResolved }) {
         decisions: Object.entries(decisions).map(([entryId, officialPosition]) => ({ entryId: Number(entryId), officialPosition })),
         overrideReason: overrideReason.trim(),
       }
+      // Backend tự động resume race sau khi override thành công (handler OverrideLegResult.cs).
+      // Gọi thêm resumeRace() sẽ gây 400 vì leg đã Conflicted được resolve → race chuyển InProgress/PendingResult.
       await resolveRaceConflict(race.raceId, legIndex, payload)
-      await resumeRace(race.raceId)
       onResolved()
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || 'Override thất bại.')
+      setError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Override thất bại.')
     } finally {
       setSubmitting(false)
     }
@@ -159,6 +166,7 @@ function OverrideModal({ race, legIndex, pauseInfo, onClose, onResolved }) {
                   className="w-full bg-surface-container-lowest border border-yellow-400/30 rounded-lg px-2 py-1.5 text-sm font-mono text-white focus:outline-none focus:border-yellow-400/60 text-center">
                   {entries.map((_, n) => <option key={n + 1} value={n + 1}>{n + 1}</option>)}
                   <option value="-1">DNF</option>
+                  <option value="-2">DQ</option>
                 </select>
               </div>
             </div>
@@ -354,6 +362,8 @@ export default function AdminRaceExecutionPage() {
   const [pauseInfo,  setPauseInfo]  = useState(null)
   const [showOverride, setShowOverride] = useState(false)
   const pollRef = useRef(null)
+  // Ref để track modal state - tránh polling update pauseInfo khi modal đang mở
+  const modalOpenRef = useRef(false)
 
   // ── Load races ─────────────────────────────────────────────────────────────
   const loadRaces = useCallback(async () => {
@@ -451,10 +461,12 @@ export default function AdminRaceExecutionPage() {
         if (!active) return
         setExecution(exec)
         setStandings(standingsData)
-        if (exec?.status === 'Paused') {
+        // CHỈ update pauseInfo khi modal KHÔNG đang mở
+        // để tránh race condition gây reload modal khi admin đang xem conflict
+        if (exec?.status === 'Paused' && !modalOpenRef.current) {
           const pause = await getRacePauseInfo(raceId).catch(() => null)
           if (active) setPauseInfo(pause)
-        } else {
+        } else if (exec?.status !== 'Paused') {
           if (active) setPauseInfo(null)
         }
       } catch { /* silent */ }
@@ -890,7 +902,10 @@ export default function AdminRaceExecutionPage() {
 
               {selectedRace?.status === 'Paused' && (
                 <div className="flex items-center gap-2">
-                  <button onClick={() => setShowOverride(true)}
+                  <button onClick={() => {
+                    modalOpenRef.current = true
+                    setShowOverride(true)
+                  }}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-orange-500/30 text-xs text-orange-400 hover:bg-orange-500/10 transition-all">
                     <AlertTriangle size={12} /> View Conflict
                   </button>
@@ -964,22 +979,25 @@ export default function AdminRaceExecutionPage() {
                 <div className="grid grid-cols-4 gap-2 mb-2 text-center text-[10px] text-gray-500 uppercase tracking-wider">
                   {['Entry', 'Referee A', 'Referee B', 'Match'].map(h => <div key={h}>{h}</div>)}
                 </div>
-                {pauseInfo.sideBySideComparison?.map(item => (
+                {pauseInfo.conflictedLeg?.comparison?.map(item => (
                   <div key={item.entryId} className="grid grid-cols-4 gap-2 items-center py-2 border-b border-white/5 last:border-0">
                     <div className="text-sm font-semibold text-white truncate">{item.horseName || `Entry #${item.entryId}`}</div>
                     {[item.referee1Position, item.referee2Position].map((pos, i) => (
                       <div key={i} className="text-center">
-                        <span className={`inline-block px-3 py-1 rounded text-sm font-bold font-mono ${item.isMatch ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>{pos ?? '—'}</span>
+                        <span className={`inline-block px-3 py-1 rounded text-sm font-bold font-mono ${item.referee1Position === item.referee2Position ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>{pos ?? '—'}</span>
                       </div>
                     ))}
                     <div className="text-center font-mono text-sm text-yellow-400">
-                      {item.isMatch ? `${getLegPoints(item.referee1Position)}p` : '⚠ conflict'}
+                      {item.referee1Position === item.referee2Position ? `${getLegPoints(item.referee1Position)}p` : '⚠ conflict'}
                     </div>
                   </div>
                 ))}
               </div>
               <div className="px-5 pb-5">
-                <button onClick={() => setShowOverride(true)}
+                <button onClick={() => {
+                  modalOpenRef.current = true
+                  setShowOverride(true)
+                }}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-black text-sm font-bold transition-all">
                   <Shield size={14} /> Override & Confirm Leg Result
                 </button>
@@ -1022,9 +1040,13 @@ export default function AdminRaceExecutionPage() {
           race={selectedRace}
           legIndex={pauseInfo.conflictedLeg?.legIndex ?? 0}
           pauseInfo={pauseInfo}
-          onClose={() => setShowOverride(false)}
+          onClose={() => {
+            setShowOverride(false)
+            modalOpenRef.current = false
+          }}
           onResolved={() => {
             setShowOverride(false)
+            modalOpenRef.current = false
             loadExecution(selectedRace.raceId)
             loadRaces()
           }}
