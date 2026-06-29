@@ -37,11 +37,23 @@ function daysLeft(s) {
 // ─── constants ────────────────────────────────────────────────────────────────
 
 const T_STATUS = {
-  Active:    { label: "ĐANG MỞ ĐK",   cls: "text-yellow-400 border-yellow-400/50 bg-yellow-400/10" },
-  Upcoming:  { label: "SẮP DIỄN RA",  cls: "text-blue-400   border-blue-400/50   bg-blue-400/10"   },
-  Finished:  { label: "ĐÃ KẾT THÚC", cls: "text-gray-400   border-gray-500/50   bg-gray-500/10"   },
-  Cancelled: { label: "ĐÃ HỦY",       cls: "text-red-400    border-red-500/50    bg-red-500/10"    },
+  Draft:     { label: "SẮP DIỄN RA",  cls: "text-blue-400    border-blue-400/50    bg-blue-400/10"    },
+  Open:      { label: "ĐANG MỞ ĐK",   cls: "text-yellow-400  border-yellow-400/50  bg-yellow-400/10"  },
+  Ongoing:   { label: "ĐANG DIỄN RA", cls: "text-emerald-400 border-emerald-400/50 bg-emerald-400/10" },
+  Finished:  { label: "ĐÃ KẾT THÚC", cls: "text-gray-400    border-gray-500/50    bg-gray-500/10"    },
+  Cancelled: { label: "ĐÃ HỦY",       cls: "text-red-400     border-red-500/50     bg-red-500/10"     },
 };
+
+// Nếu BE chưa tự update status, derive từ ngày để tránh hiển thị sai
+function derivedStatus(tournament) {
+  if (tournament.status === "Cancelled") return "Cancelled";
+  if (tournament.status === "Finished")  return "Finished";
+  if (tournament.endDate) {
+    const today = new Date().toISOString().split("T")[0];
+    if (today > String(tournament.endDate).split("T")[0]) return "Finished";
+  }
+  return tournament.status || "Draft";
+}
 
 const ENTRY_STATUS = {
   Pending:  { label: "Chờ duyệt",    cls: "text-yellow-400 bg-yellow-500/10 border border-yellow-500/20" },
@@ -60,7 +72,7 @@ const RACE_BG = [
 // ─── TournamentListCard ───────────────────────────────────────────────────────
 
 function TournamentListCard({ tournament, racesCount, onSelect }) {
-  const meta = T_STATUS[tournament.status] ?? T_STATUS.Upcoming;
+  const meta = T_STATUS[derivedStatus(tournament)] ?? T_STATUS.Draft;
   return (
     <button
       onClick={() => onSelect(tournament)}
@@ -87,10 +99,10 @@ function TournamentListCard({ tournament, racesCount, onSelect }) {
         <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#0d1117]" />
       </div>
 
-      <div className="px-5 pb-5 -mt-2">
+      <div className="px-5 pb-5 -mt-2 relative">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-white font-bold text-base leading-snug group-hover:text-yellow-300 transition-colors truncate">
+            <p className="text-white font-bold text-base leading-snug group-hover:text-yellow-300 transition-colors line-clamp-2">
               {tournament.name}
             </p>
             <p className="text-gray-500 text-xs mt-0.5">
@@ -103,7 +115,7 @@ function TournamentListCard({ tournament, racesCount, onSelect }) {
         </div>
         <div className="flex items-center gap-1.5 mt-3 text-gray-500 text-xs">
           <Flag size={11} />
-          <span>{tournament.raceCount} cuộc đua</span>
+          <span>{racesCount} cuộc đua</span>
         </div>
       </div>
     </button>
@@ -257,7 +269,7 @@ function TournamentDetail({ tournament, races, entryByRace, activeInvByRace, onB
     (r) => r.name?.toLowerCase().includes(search.toLowerCase()),
   );
 
-  const status = T_STATUS[tournament.status] ?? T_STATUS.Upcoming;
+  const status = T_STATUS[derivedStatus(tournament)] ?? T_STATUS.Draft;
 
   return (
     <div className="flex flex-col min-h-full">

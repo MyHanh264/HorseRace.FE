@@ -329,10 +329,12 @@ function Step3({ jockeys, search, onSearch, onClose, onInvite, selectedRace, sel
       setInvitedIds((prev) => new Set([...prev, jockey.userId]));
     } catch (err) {
       const status = err?.response?.status;
-      const detail = err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message;
+      const detail = err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? "";
       if (status === 409) setErrorMsg("Bạn đã mời jockey này rồi.");
       else if (status === 403) setErrorMsg("Không có quyền gửi lời mời này.");
-      else setErrorMsg(`[${status ?? "?"}] ${detail ?? "Gửi lời mời thất bại."}`);
+      else if (status === 400 && detail.toLowerCase().includes("xác nhận"))
+        setErrorMsg("Jockey này đã được xác nhận cưỡi ngựa khác trong cuộc đua. Vui lòng chọn jockey khác.");
+      else setErrorMsg(`[${status ?? "?"}] ${detail || "Gửi lời mời thất bại."}`);
     } finally {
       setSendingId(null);
     }
