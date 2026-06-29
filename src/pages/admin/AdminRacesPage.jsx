@@ -70,7 +70,7 @@ function StatCard({ icon: Icon, iconCls, label, value, sub }) {
 
 // ─── Race Modal (Create / Edit) ───────────────────────────────────────────────
 
-function RaceModal({ race, tournaments, users, selectedTournamentId, onClose, onSubmit, submitting, error }) {
+function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, onClose, onSubmit, submitting, error }) {
   const isEdit = !!race
   const [form, setForm] = useState({
     tournamentId:       race?.tournamentId       ?? selectedTournamentId ?? '',
@@ -104,6 +104,32 @@ function RaceModal({ race, tournaments, users, selectedTournamentId, onClose, on
 
   const refereeMismatch = form.referee1Id && form.referee2Id && form.referee1Id === form.referee2Id
 
+  const refereeConflict = useMemo(() => {
+    if (!form.scheduledStartTime || (!form.referee1Id && !form.referee2Id)) return null
+    const currentTourId = Number(form.tournamentId)
+    const st = new Date(form.scheduledStartTime)
+    const sameTime = (dt) => {
+      if (!dt) return false
+      const d = new Date(dt)
+      return d.getFullYear() === st.getFullYear() &&
+        d.getMonth()    === st.getMonth()    &&
+        d.getDate()     === st.getDate()     &&
+        d.getHours()    === st.getHours()    &&
+        d.getMinutes()  === st.getMinutes()
+    }
+    const ref1 = String(form.referee1Id)
+    const ref2 = String(form.referee2Id)
+    return allRaces.find(r => {
+      if (r.tournamentId === currentTourId) return false
+      if (r.raceId === race?.raceId)        return false
+      if (!sameTime(r.scheduledStartTime))  return false
+      return (
+        (ref1 && (String(r.referee1Id) === ref1 || String(r.referee2Id) === ref1)) ||
+        (ref2 && (String(r.referee1Id) === ref2 || String(r.referee2Id) === ref2))
+      )
+    }) ?? null
+  }, [form.referee1Id, form.referee2Id, form.scheduledStartTime, form.tournamentId, allRaces, race])
+
   const inputCls = 'w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40'
 
   return (
@@ -133,6 +159,14 @@ function RaceModal({ race, tournaments, users, selectedTournamentId, onClose, on
           {refereeMismatch && (
             <div className="p-3 rounded-lg bg-error/10 border border-error/25 text-error text-sm flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />Referee 1 và Referee 2 phải khác nhau
+            </div>
+          )}
+          {refereeConflict && (
+            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-400 text-sm flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>
+                Trọng tài đã được assign vào race <strong>"{refereeConflict.name}"</strong> (tournament khác) cùng khung giờ này. Bạn vẫn có thể tiếp tục.
+              </span>
             </div>
           )}
 
@@ -743,6 +777,7 @@ export default function AdminRacesPage() {
           race={editingRace}
           tournaments={tournaments}
           users={users}
+          allRaces={raceDetails}
           selectedTournamentId={selectedTournamentId}
           onClose={() => setShowModal(false)}
           onSubmit={handleRaceSubmit}
@@ -1041,6 +1076,7 @@ export default function AdminRacesPage() {
           race={editingRace}
           tournaments={tournaments}
           users={users}
+          allRaces={raceDetails}
           selectedTournamentId={selectedTournamentId}
           onClose={() => setShowModal(false)}
           onSubmit={handleRaceSubmit}
