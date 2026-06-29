@@ -1,49 +1,39 @@
-import { NavLink, Outlet } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
+import { NavLink, Outlet } from 'react-router-dom'
 import {
-  LayoutDashboard,
-  PawPrint,
-  Trophy,
-  Mail,
-  ClipboardList,
-  User,
-  LogOut,
-} from "lucide-react";
+  LayoutDashboard, Target, BookOpen, Wallet,
+  BarChart2, User, LogOut,
+} from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
 
 const navItems = [
-  { to: "/horse-owner", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/horse-owner/horses", label: "My Horses", icon: PawPrint },
-  { to: "/horse-owner/tournaments", label: "Tournaments", icon: Trophy },
-  { to: "/horse-owner/invitations", label: "Invitations", icon: Mail },
-  { to: "/horse-owner/entries", label: "My Entries", icon: ClipboardList },
-  { to: "/horse-owner/profile", label: "Profile", icon: User },
-];
+  { to: '/spectator',             label: 'Dashboard',       icon: LayoutDashboard, end: true },
+  { to: '/spectator/races',       label: 'Races & Betting', icon: Target },
+  { to: '/spectator/predictions', label: 'My Predictions',  icon: BookOpen },
+  { to: '/spectator/wallet',      label: 'Point Wallet',    icon: Wallet },
+  { to: '/spectator/leaderboard', label: 'Leaderboard',     icon: BarChart2 },
+  { to: '/spectator/profile',     label: 'Profile',         icon: User },
+]
 
 function getInitials(name) {
-  if (!name) return "O";
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
+  if (!name) return 'S'
+  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
 }
 
-export default function HorseOwnerLayout() {
-  const { user, logout } = useAuth();
+export default function SpectatorLayout() {
+  const { user, logout } = useAuth()
 
   return (
-    <div className="flex h-screen font-sans" style={{ background: "#0D1117", color: "#E6EDF3" }}>
+    <div className="flex h-screen font-sans" style={{ background: '#0D1117', color: '#E6EDF3' }}>
       {/* Sidebar */}
       <aside className="w-[200px] h-screen fixed left-0 top-0 flex flex-col bg-[#111418] border-r border-white/10 flex-shrink-0">
         {/* Logo */}
         <div className="flex items-center gap-3 px-4 py-5 border-b border-white/10">
           <div className="w-9 h-9 rounded-full bg-primary-container/50 border border-primary/20 flex items-center justify-center text-base flex-shrink-0">
-            🐴
+            🏇
           </div>
           <div className="min-w-0">
             <p className="text-primary font-bold text-sm leading-tight">GrandStride</p>
-            <p className="text-gray-500 text-[10px]">Owner Portal</p>
+            <p className="text-gray-500 text-[10px]">Spectator Account</p>
           </div>
         </div>
 
@@ -56,10 +46,9 @@ export default function HorseOwnerLayout() {
               end={end}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors w-full
-                ${
-                  isActive
-                    ? "bg-primary-container/30 text-primary font-semibold"
-                    : "text-gray-400 hover:bg-white/5 hover:text-white"
+                ${isActive
+                  ? 'bg-primary-container/30 text-primary font-semibold'
+                  : 'text-gray-400 hover:bg-white/5 hover:text-white'
                 }`
               }
             >
@@ -69,17 +58,15 @@ export default function HorseOwnerLayout() {
           ))}
         </nav>
 
-        {/* Footer — user + logout */}
+        {/* User + logout */}
         <div className="p-3 border-t border-white/10 space-y-2">
           <div className="flex items-center gap-2.5 px-2 py-2">
             <div className="w-7 h-7 rounded-full bg-primary-container/60 border border-primary/30 flex items-center justify-center text-[10px] font-bold text-on-primary-container flex-shrink-0">
               {getInitials(user?.fullName)}
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-semibold text-white truncate">
-                {user?.fullName || "Horse Owner"}
-              </p>
-              <p className="text-[10px] text-gray-500 truncate">{user?.email ?? ""}</p>
+              <p className="text-xs font-semibold text-white truncate">{user?.fullName || 'Spectator'}</p>
+              <p className="text-[10px] text-gray-500 truncate">{user?.email ?? ''}</p>
             </div>
           </div>
           <button
@@ -92,10 +79,10 @@ export default function HorseOwnerLayout() {
         </div>
       </aside>
 
-      {/* Page content */}
+      {/* Main */}
       <main className="flex-1 overflow-auto ml-[200px]">
         <Outlet />
       </main>
     </div>
-  );
+  )
 }

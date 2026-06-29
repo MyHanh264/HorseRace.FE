@@ -1,115 +1,83 @@
-import { getAccessToken } from "../utils/token";
-
-const BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-function authHeader() {
-  return { Authorization: `Bearer ${getAccessToken()}` };
-}
+import api from "../services/api";
 
 export async function getMyHorses() {
-  const res = await fetch(`${BASE_URL}/api/horses`, {
-    headers: authHeader(),
-  });
-  if (!res.ok) throw new Error(`Lỗi lấy danh sách ngựa (${res.status})`);
-  return res.json();
+  const res = await api.get("/api/horses");
+  return res.data;
 }
 
 export async function registerHorse(payload) {
-  const res = await fetch(`${BASE_URL}/api/horses`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeader() },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error(`Đăng ký ngựa thất bại (${res.status})`);
-  return res.json();
+  const res = await api.post("/api/horses", payload);
+  return res.data;
 }
 
 export async function getHorseById(horseId) {
-  const res = await fetch(`${BASE_URL}/api/horses/${horseId}`, {
-    headers: authHeader(),
-  });
-  if (!res.ok) throw new Error(`Lỗi lấy thông tin ngựa (${res.status})`);
-  return res.json();
+  const res = await api.get(`/api/horses/${horseId}`);
+  return res.data;
 }
 
 export async function updateHorse(horseId, payload) {
-  const res = await fetch(`${BASE_URL}/api/horses/${horseId}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json", ...authHeader() },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error(`Cập nhật ngựa thất bại (${res.status})`);
-  return res.json();
+  const res = await api.put(`/api/horses/${horseId}`, payload);
+  // BE trả 204 No Content khi không có body
+  if (res.status === 204 || res.status === 200 && Object.keys(res.data || {}).length === 0) {
+    return true;
+  }
+  return res.data;
 }
 
 export async function getMyEntries() {
-  const res = await fetch(`${BASE_URL}/api/entries`, {
-    headers: authHeader(),
-  });
-  if (!res.ok) throw new Error(`Lỗi lấy entries (${res.status})`);
-  return res.json();
+  const res = await api.get("/api/entries");
+  return res.data;
 }
 
 export async function submitEntry(payload) {
-  const res = await fetch(`${BASE_URL}/api/entries`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeader() },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error(`Đăng ký entry thất bại (${res.status})`);
-  return res.json();
+  const res = await api.post("/api/entries", payload);
+  return res.data;
 }
-//Lấy danh sách các cuộc đua để hiển thị trong form đăng kí entry
+
 export async function getRaces() {
-  const res = await fetch(`${BASE_URL}/api/races`, {
-    headers: authHeader(),
-  });
-  if (!res.ok) throw new Error(`Lỗi lấy danh sách races (${res.status})`);
-  return res.json();
+  const res = await api.get("/api/races");
+  return res.data;
 }
-//Lấy danh sách các giải đấu để hiển thị trong form đăng kí entry
+
 export async function getTournaments() {
-  const res = await fetch(`${BASE_URL}/api/tournaments`, {
-    headers: authHeader(),
-  });
-  if (!res.ok) throw new Error(`Lỗi lấy tournaments (${res.status})`);
-  return res.json();
+  const res = await api.get("/api/tournaments");
+  return res.data;
 }
-//Lấy danh sách các lời mời tham gia giải đấu cho horse owner
+
 export async function getInvitations() {
-  const res = await fetch(`${BASE_URL}/api/jockey-invitations`, {
-    headers: authHeader(),
-  });
-  if (!res.ok) throw new Error(`Lỗi lấy invitations (${res.status})`);
-  return res.json();
+  const res = await api.get("/api/jockey-invitations");
+  return res.data;
 }
+
 export async function sendInvitation(payload) {
-  const res = await fetch(`${BASE_URL}/api/jockey-invitations`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeader() },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error(`Gửi invitation thất bại (${res.status})`);
-  return res.json();
+  const res = await api.post("/api/jockey-invitations", payload);
+  return res.data;
 }
 
-export async function getJockeys() {
-  const res = await fetch(`${BASE_URL}/api/jockey-profiles`, {
-    headers: authHeader(),
-  });
-  if (!res.ok) throw new Error(`Lỗi lấy danh sách jockey (${res.status})`);
-  return res.json();
+export async function getJockeys(keyword = "") {
+  const params = keyword ? { keyword } : {};
+  try {
+    const res = await api.get("/api/jockeys/search", { params });
+    return res.data;
+  } catch (_) {
+    // fallback về endpoint cũ nếu /search chưa deploy
+    const res = await api.get("/api/jockey-profiles", { params });
+    return res.data;
+  }
 }
 
-//Xóa lời mời tham gia giải đấu
+export async function updateInvitation(invitationId, status, responseReason = null) {
+  const res = await api.put(`/api/jockey-invitations/${invitationId}`, {
+    invitationId,
+    status,
+    responseReason,
+  });
+  if (res.status === 204) return true;
+  return res.data;
+}
+
 export async function deleteInvitation(invitationId) {
-  const res = await fetch(
-    `${BASE_URL}/api/jockey-invitations/${invitationId}`,
-    {
-      method: "DELETE",
-      headers: authHeader(),
-    },
-  );
-  if (!res.ok) throw new Error(`Xóa invitation thất bại (${res.status})`);
-  return res.json();
+  const res = await api.delete(`/api/jockey-invitations/${invitationId}`);
+  if (res.status === 204) return true;
+  return res.data;
 }
