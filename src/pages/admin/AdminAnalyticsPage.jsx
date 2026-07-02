@@ -67,7 +67,14 @@ export default function DashboardAdmin() {
           </p>
         </div>
 
-        {/* Time filters */}
+        {/* Time filters 
+        
+        
+        
+        
+        
+        test ui for time filters 
+            */}
         <div className="flex bg-white/5 border border-white/10 rounded-xl p-1 gap-1">
           {TIME_FILTERS.map((f) => (
             <button
@@ -86,7 +93,7 @@ export default function DashboardAdmin() {
         </div>
       </div>
 
-      {/* Stat cards */}
+      
       <div className="grid grid-cols-4 gap-4">
         {STATS.map((stat) => {
           const Icon = stat.icon;
