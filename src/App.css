@@ -1,0 +1,58 @@
+/* App.css — Legacy Vite scaffold (kept for reference, unused) */
+
+.counter {
+  font-size: 16px;
+  padding: 5px 10px;
+  border-radius: 5px;
+  margin-bottom: 24px;
+}
+
+.admin-page {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 28px 24px 40px;
+  text-align: left;
+}
+
+.admin-table-wrap {
+  margin-top: 16px;
+  border: 1px solid var(--color-outline-variant);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--color-surface-container-low);
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 820px;
+}
+
+.admin-table th {
+  background: var(--color-surface-container-high);
+  color: var(--color-on-surface-variant);
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-outline-variant);
+}
+
+.admin-table td {
+  padding: 14px 16px;
+  vertical-align: middle;
+  border-bottom: 1px solid rgba(64, 73, 65, 0.4);
+  color: var(--color-on-surface);
+  font-size: 14px;
+}
+
+.admin-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.mono {
+  font-family: 'Inter', monospace;
+}

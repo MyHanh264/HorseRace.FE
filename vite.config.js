@@ -14,4 +14,13 @@ export default defineConfig({
       "@": resolve(__dirname, "./src"),
     },
   },
+  server: {
+    proxy: {
+      "/api": {
+        target: "https://horseracemanagementsystem.onrender.com",
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
 });
