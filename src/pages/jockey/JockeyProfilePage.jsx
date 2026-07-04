@@ -139,6 +139,8 @@ export default function JockeyProfilePage() {
   const [loading, setLoading] = useState(() => Boolean(userId));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [profileExists, setProfileExists] = useState(false);
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [updatingPw, setUpdatingPw] = useState(false);
@@ -155,6 +157,7 @@ export default function JockeyProfilePage() {
         setBio(data.bio ?? "");
         setTotalRaces(data.totalRaces ?? 0);
         setTotalWins(data.totalWins ?? 0);
+        setProfileExists(true);
       })
       .catch((err) => console.error("Fetch jockey profile failed:", err))
       .finally(() => setLoading(false));
@@ -168,17 +171,34 @@ export default function JockeyProfilePage() {
   const handleSave = async () => {
     if (!userId) return;
     setSaving(true);
+    setSaveError("");
     try {
-      await api.put(`/api/jockey-profiles/${userId}`, {
-        userId: userId,
-        licenseNumber: licenseNumber,
+      const payload = {
+        userId,
+        licenseNumber,
         weight: Number(weight) || 0,
         bio: biography,
-      });
+      };
+
+      if (profileExists) {
+        const res = await api.put(`/api/jockey-profiles/${userId}`, payload);
+        if (res.data?.success === false) {
+          throw new Error("Cập nhật thất bại — profile không tồn tại.");
+        }
+      } else {
+        await api.post(`/api/jockey-profiles`, payload);
+        setProfileExists(true);
+      }
+
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {
-      console.error("Update profile failed:", err);
+      const msg =
+        err?.response?.data?.message ??
+        err?.response?.data?.detail ??
+        err?.message ??
+        "Lưu thất bại.";
+      setSaveError(msg);
     } finally {
       setSaving(false);
     }
@@ -423,7 +443,12 @@ export default function JockeyProfilePage() {
       </div>
 
       {/* Save button */}
-      <div className="flex justify-end mt-5">
+      <div className="flex flex-col items-end gap-2 mt-5">
+        {saveError && (
+          <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+            {saveError}
+          </p>
+        )}
         <button
           onClick={handleSave}
           disabled={saving}
