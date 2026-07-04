@@ -1,18 +1,22 @@
 import { useState, useEffect } from "react";
 import { X, Trash2 } from "lucide-react";
-import { getInvitations, deleteInvitation, getRaces } from "../../api/horseOwner";
+import { getInvitations, deleteInvitation, getRaces, getMyEntries } from "../../api/horseOwner";
 import ConfirmJockeyModal from "./ConfirmJockeyModal";
 
 const STATUS_BADGE = {
-  Accepted: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40",
-  Pending: "bg-yellow-500/20 text-yellow-400 border border-yellow-500/40",
-  Declined: "bg-red-500/20 text-red-400 border border-red-500/40",
+  Accepted:  "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40",
+  Confirmed: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40",
+  Pending:   "bg-yellow-500/20 text-yellow-400 border border-yellow-500/40",
+  Declined:  "bg-red-500/20 text-red-400 border border-red-500/40",
+  Cancelled: "bg-gray-500/20 text-gray-400 border border-gray-500/40",
 };
 
 const ROW_ACCENT = {
-  Accepted: "border-l-2 border-l-emerald-500",
-  Pending: "border-l-2 border-l-transparent",
-  Declined: "border-l-2 border-l-transparent",
+  Accepted:  "border-l-2 border-l-emerald-500",
+  Confirmed: "border-l-2 border-l-emerald-500",
+  Pending:   "border-l-2 border-l-transparent",
+  Declined:  "border-l-2 border-l-transparent",
+  Cancelled: "border-l-2 border-l-transparent",
 };
 
 const TABS = ["Sent", "Pending Response"];
@@ -39,21 +43,33 @@ function HorseAvatar() {
 export default function InvitationsPage() {
   const [invitations, setInvitations] = useState([]);
   const [raceMap, setRaceMap] = useState({});
+  const [anyEntryKeys, setAnyEntryKeys] = useState(new Set());
+  const [myJockeyKeys, setMyJockeyKeys] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("Sent");
   const [refreshKey, setRefreshKey] = useState(0);
   const [confirmInv, setConfirmInv] = useState(null);
 
   useEffect(() => {
-    Promise.all([getInvitations(), getRaces().catch(() => [])])
-      .then(([data, races]) => {
+    Promise.all([
+      getInvitations(),
+      getRaces().catch(() => []),
+      getMyEntries().catch(() => []),
+    ])
+      .then(([data, races, entries]) => {
         const list = Array.isArray(data) ? data : (data?.data ?? data?.invitations ?? []);
         setInvitations(list);
+
         const map = {};
         (Array.isArray(races) ? races : (races?.data ?? [])).forEach((r) => {
           map[r.raceId] = r;
         });
         setRaceMap(map);
+
+        const entryList = Array.isArray(entries) ? entries : (entries?.data ?? entries?.entries ?? []);
+        const activeEntries = entryList.filter((e) => e.status === "Pending" || e.status === "Approved");
+        setAnyEntryKeys(new Set(activeEntries.map((e) => `${e.raceId}_${e.horseId}`)));
+        setMyJockeyKeys(new Set(activeEntries.map((e) => `${e.raceId}_${e.horseId}_${e.jockeyId}`)));
       })
       .catch((err) => {
         console.error("getInvitations failed:", err);
@@ -195,14 +211,30 @@ export default function InvitationsPage() {
 
               {/* Action */}
               <div className="flex items-center justify-end gap-2">
-                {inv.status === "Accepted" && (
-                  <button
-                    onClick={() => setConfirmInv(inv)}
-                    className="bg-yellow-500 hover:bg-yellow-400 text-black text-xs font-bold px-4 py-1.5 rounded-lg transition-colors"
-                  >
-                    Confirm
-                  </button>
-                )}
+                {(inv.status === "Accepted" || inv.status === "Confirmed") && (() => {
+                  const raceHorseKey   = `${inv.raceId}_${inv.horseId}`;
+                  const jockeyKey      = `${inv.raceId}_${inv.horseId}_${inv.jockeyId}`;
+                  const submittedSame  = myJockeyKeys.has(jockeyKey);
+                  const submittedOther = !submittedSame && anyEntryKeys.has(raceHorseKey);
+                  const disabled       = submittedSame || submittedOther;
+                  const label          = submittedSame  ? "Đã nộp Entry"
+                                       : submittedOther ? "Đã chốt jockey khác"
+                                       : "Xác nhận & Nộp Entry";
+                  return (
+                    <button
+                      onClick={() => !disabled && setConfirmInv(inv)}
+                      disabled={disabled}
+                      title={submittedOther ? "Race này đã có entry với jockey khác" : ""}
+                      className={`text-xs font-bold px-4 py-1.5 rounded-lg transition-colors
+                        ${disabled
+                          ? "bg-gray-600 text-gray-400 cursor-not-allowed opacity-60"
+                          : "bg-yellow-500 hover:bg-yellow-400 text-black cursor-pointer"
+                        }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })()}
                 {inv.status === "Pending" && (
                   <button
                     onClick={() => handleDelete(inv.invitationId ?? inv.id)}

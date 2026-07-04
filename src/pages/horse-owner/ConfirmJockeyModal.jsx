@@ -142,7 +142,9 @@ export default function ConfirmJockeyModal({
     setSubmitting(true);
     setSubmitError("");
     try {
-      await updateInvitation(inv.invitationId ?? inv.id, "Confirmed");
+      if (inv.status !== "Confirmed") {
+        await updateInvitation(inv.invitationId ?? inv.id, "Confirmed");
+      }
 
       await submitEntry({
         horseId:      inv.horseId,
