@@ -213,33 +213,34 @@ function RaceCard({ race, myEntry, myInvitation, index, onRegister, onConfirm })
       </div>
 
       {/* Action */}
-      <div className="flex flex-col items-center justify-center px-5 w-[164px] flex-shrink-0 border-l border-white/5">
-        {myEntry ? (
+      <div className="flex flex-col items-center justify-center gap-2 px-5 w-[164px] flex-shrink-0 border-l border-white/5">
+        {/* Hiện badge entry nếu có */}
+        {myEntry && (
           <span className={`text-[11px] px-3 py-1.5 rounded-lg font-semibold text-center ${ENTRY_STATUS[myEntry.status]?.cls ?? "text-gray-400 bg-gray-500/10 border border-gray-500/20"}`}>
             {ENTRY_STATUS[myEntry.status]?.label ?? myEntry.status}
           </span>
-        ) : myInvitation ? (
-          myInvitation.status === "Accepted" ? (
-            <button
-              onClick={() => onConfirm(myInvitation)}
-              className="w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-sm transition-colors"
-            >
-              Confirm Jockey →
-            </button>
-          ) : (
-            <span className="text-[11px] px-3 py-1.5 rounded-lg font-semibold text-center text-yellow-400 bg-yellow-400/10 border border-yellow-400/25">
-              Đã mời Jockey
-            </span>
-          )
-        ) : canRegister ? (
+        )}
+
+        {/* Hiện nút Confirm nếu có invitation Accepted chưa nộp entry */}
+        {myInvitation && (myInvitation.status === "Accepted" || myInvitation.status === "Confirmed") && !myEntry && (
+          <button
+            onClick={() => onConfirm(myInvitation)}
+            className="w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-sm transition-colors"
+          >
+            Confirm Jockey →
+          </button>
+        )}
+
+        {/* Nút đăng ký — luôn hiện nếu race còn mở, dù đã có entry khác */}
+        {canRegister ? (
           <button
             onClick={() => onRegister(race)}
             className="w-full py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-black font-bold text-sm transition-colors"
           >
-            Đăng Ký Ngựa
+            {myEntry ? "Đăng ký thêm" : "Đăng Ký Ngựa"}
           </button>
         ) : (
-          <span className="text-gray-600 text-xs text-center">{race.status}</span>
+          !myEntry && <span className="text-gray-600 text-xs text-center">{race.status}</span>
         )}
       </div>
     </div>

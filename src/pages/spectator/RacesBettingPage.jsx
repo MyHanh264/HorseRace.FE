@@ -60,7 +60,6 @@ function Countdown({ target }) {
 // ─── Bet Panel ────────────────────────────────────────────────────────────────
 
 function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, onBetPlaced }) {
-  const { user } = useAuth()
 
   const [selectedEntryId, setSelectedEntryId] = useState('')
   const [betAmount, setBetAmount]             = useState('')
@@ -72,7 +71,9 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
   const alreadyBet   = myPredictions.some(p => p.raceId === race.raceId)
   const canBet       = race.status === 'Scheduled' && !alreadyBet
   const amount       = Number(betAmount) || 0
-  const estPayout    = selectedEntryId && amount > 0 ? `~${fmtBalance(amount * 2)} pts` : '—'
+  const selectedEntry = entries.find(e => e.entryId === Number(selectedEntryId))
+  const selectedOdds  = selectedEntry?.currentOdds ?? 1.0
+  const estPayout    = selectedEntryId && amount > 0 ? `~${fmtBalance(amount * selectedOdds)} pts` : '—'
 
   const validate = () => {
     if (!selectedEntryId) return 'Hãy chọn ngựa đua.'
@@ -88,16 +89,9 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
     setSubmitting(true)
     setBetError('')
     try {
-      await placePrediction({
-        raceId:        race.raceId,
-        spectatorId:   user.userId,
-        firstEntryId:  Number(selectedEntryId),
-        secondEntryId: Number(selectedEntryId),
-        thirdEntryId:  Number(selectedEntryId),
-        betAmount:     amount,
-        oddsLocked1:   1.0,
-        oddsLocked2:   1.0,
-        oddsLocked3:   1.0,
+      await placePrediction(race.raceId, {
+        entryId:   Number(selectedEntryId),
+        betAmount: amount,
       })
       setBetSuccess(true)
       setBetAmount('')
@@ -144,7 +138,9 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
                       <p className="text-sm font-semibold text-on-surface">{horse?.name ?? `Entry #${e.entryId}`}</p>
                     </div>
                   </div>
-                  <span className="text-secondary font-bold font-mono text-sm">—</span>
+                  <span className="text-secondary font-bold font-mono text-sm">
+                    {e.currentOdds != null ? `${e.currentOdds}x` : '—'}
+                  </span>
                 </div>
               )
             })}

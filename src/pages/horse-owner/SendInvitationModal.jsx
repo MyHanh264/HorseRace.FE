@@ -298,7 +298,7 @@ const JOCKEY_FILTERS = [
   { key: "avail",  label: "Đang rảnh" },
 ];
 
-function Step3({ jockeys, search, onSearch, onClose, onInvite, selectedRace, selectedHorse }) {
+function Step3({ jockeys, search, onSearch, onClose, onInvite, selectedRace, selectedHorse, blockedJockeyIds = new Set() }) {
   const [activeFilters, setActiveFilters] = useState([]);
   const [invitedIds, setInvitedIds]       = useState(new Set());
   const [sendingId, setSendingId]         = useState(null);
@@ -414,24 +414,26 @@ function Step3({ jockeys, search, onSearch, onClose, onInvite, selectedRace, sel
           filtered.map((jockey) => {
             const winRate  = jockey.totalRaces > 0 ? Math.round((jockey.totalWins / jockey.totalRaces) * 100) : 0;
             const invited  = invitedIds.has(jockey.userId);
+            const blocked  = blockedJockeyIds.has(jockey.userId);
             const sending  = sendingId === jockey.userId;
             const name     = jockey.fullName ?? `Jockey #${jockey.userId}`;
             const initials = name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
             const avatarBg = AVATAR_COLORS[jockey.userId % AVATAR_COLORS.length];
+            const dimmed   = invited || blocked;
 
             return (
               <div
                 key={jockey.userId}
                 className={`flex items-center gap-3.5 px-4 py-3.5 rounded-xl border transition-colors
-                  ${invited
-                    ? "bg-white/[0.015] border-white/5"
+                  ${dimmed
+                    ? "bg-white/[0.015] border-white/5 opacity-60"
                     : "bg-[#0f1318] border-white/7 hover:border-white/12"
                   }`}
               >
                 {/* Avatar */}
                 <div
                   className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold text-white overflow-hidden"
-                  style={{ background: invited ? "#374151" : avatarBg }}
+                  style={{ background: dimmed ? "#374151" : avatarBg }}
                 >
                   {jockey.avatarUrl
                     ? <img src={jockey.avatarUrl} alt={name} className="w-full h-full object-cover" />
@@ -440,7 +442,7 @@ function Step3({ jockeys, search, onSearch, onClose, onInvite, selectedRace, sel
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-bold truncate ${invited ? "text-gray-400" : "text-white"}`}>
+                  <p className={`text-sm font-bold truncate ${dimmed ? "text-gray-400" : "text-white"}`}>
                     {name}
                   </p>
                   <p className="text-gray-500 text-xs mt-0.5">
@@ -450,7 +452,11 @@ function Step3({ jockeys, search, onSearch, onClose, onInvite, selectedRace, sel
                 </div>
 
                 {/* Action */}
-                {invited ? (
+                {blocked ? (
+                  <span className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-500/10 border border-red-500/20 text-red-400">
+                    Đã vào entry
+                  </span>
+                ) : invited ? (
                   <span className="flex-shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-white/6 border border-white/10 text-gray-400 flex items-center gap-1.5">
                     Đã mời <Check size={11} strokeWidth={3} />
                   </span>
@@ -510,12 +516,17 @@ export default function SendInvitationModal({ onClose, onSuccess, initialRace = 
   const [selectedRace, setSelectedRace] = useState(initialRace);
   const [selectedHorse, setSelectedHorse] = useState(null);
 
-  // Horse IDs already registered for the currently-selected race
-  const registeredHorseIds = new Set(
-    existingEntries
-      .filter((e) => selectedRace && e.raceId === selectedRace.raceId)
-      .map((e) => e.horseId)
+  const activeEntriesForRace = existingEntries.filter((e) =>
+    selectedRace &&
+    e.raceId === selectedRace.raceId &&
+    (e.status === "Pending" || e.status === "Approved")
   );
+
+  // Horse IDs already registered for the currently-selected race
+  const registeredHorseIds = new Set(activeEntriesForRace.map((e) => e.horseId));
+
+  // Jockey IDs already committed in an active entry for this race (cannot be invited again)
+  const blockedJockeyIds = new Set(activeEntriesForRace.map((e) => e.jockeyId));
   const [raceSearch, setRaceSearch] = useState("");
   const [jockeySearch, setJockeySearch] = useState("");
 
@@ -608,6 +619,7 @@ export default function SendInvitationModal({ onClose, onSuccess, initialRace = 
                 onInvite={handleInvite}
                 selectedRace={selectedRace}
                 selectedHorse={selectedHorse}
+                blockedJockeyIds={blockedJockeyIds}
               />
             )}
           </>

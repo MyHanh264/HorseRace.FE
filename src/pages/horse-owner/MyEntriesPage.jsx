@@ -1,23 +1,46 @@
 import { useState, useEffect } from "react";
-import { getMyEntries, getRaces } from "../../api/horseOwner";
+import { getMyEntries, getRaces, withdrawEntry } from "../../api/horseOwner";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 const STATUS_BADGE = {
-  Approved: "bg-emerald-500 text-white",
-  Pending: "bg-yellow-500 text-black",
+  Approved:  "bg-emerald-500 text-white",
+  Pending:   "bg-yellow-500 text-black",
   PendingReview: "bg-yellow-500 text-black",
-  Rejected: "bg-red-500 text-white",
+  Rejected:  "bg-red-500 text-white",
+  Withdrawn: "bg-gray-500 text-white",
+  Cancelled: "bg-gray-500 text-white",
 };
 
-const STATUS_FILTERS = ["All", "Approved", "Pending", "Rejected"];
+const STATUS_FILTERS = ["Tất cả", "Approved", "Pending", "Rejected", "Đã rút"];
 
 export default function MyEntriesPage() {
   const [entries, setEntries] = useState([]);
   const [races, setRaces] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("All");
+  const [activeTab, setActiveTab] = useState("Tất cả");
   const [expandedId, setExpandedId] = useState(null);
   const [search, setSearch] = useState("");
+  const [confirmWithdrawId, setConfirmWithdrawId] = useState(null);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawError, setWithdrawError] = useState("");
+
+  const handleWithdraw = async (entryId) => {
+    setWithdrawing(true);
+    setWithdrawError("");
+    try {
+      await withdrawEntry(entryId);
+      setEntries((prev) =>
+        prev.map((e) => e.entryId === entryId ? { ...e, status: "Withdrawn" } : e)
+      );
+      setConfirmWithdrawId(null);
+      setActiveTab("Đã rút");
+    } catch (err) {
+      const detail = err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message;
+      setWithdrawError(`[${err?.response?.status ?? "?"}] ${detail ?? "Rút đăng ký thất bại."}`);
+    } finally {
+      setWithdrawing(false);
+    }
+  };
 
   useEffect(() => {
     Promise.all([getMyEntries(), getRaces()])
@@ -61,12 +84,12 @@ export default function MyEntriesPage() {
   };
 
   const filtered = entries
-    .filter((e) =>
-      activeTab === "All"
-        ? true
-        : e.status === activeTab ||
-          (activeTab === "Pending" && e.status === "PendingReview"),
-    )
+    .filter((e) => {
+      if (activeTab === "Tất cả") return true;
+      if (activeTab === "Đã rút") return e.status === "Withdrawn" || e.status === "Cancelled";
+      if (activeTab === "Pending") return e.status === "Pending" || e.status === "PendingReview";
+      return e.status === activeTab;
+    })
     .filter((e) => {
       if (!search) return true;
       const race = getRaceById(e.raceId);
@@ -181,7 +204,9 @@ export default function MyEntriesPage() {
                       ? "border-l-emerald-500"
                       : entry.status === "Rejected"
                         ? "border-l-red-500"
-                        : "border-l-yellow-500"
+                        : entry.status === "Withdrawn" || entry.status === "Cancelled"
+                          ? "border-l-gray-500"
+                          : "border-l-yellow-500"
                   }`}
                 >
                   {/* Race & Date */}
@@ -244,7 +269,40 @@ export default function MyEntriesPage() {
                   </div>
 
                   {/* Action */}
-                  <div>
+                  <div className="flex items-center gap-2">
+                    {entry.status === "Pending" && (
+                      confirmWithdrawId === entry.entryId ? (
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-red-400 text-xs whitespace-nowrap">Xác nhận rút?</span>
+                            <button
+                              onClick={() => handleWithdraw(entry.entryId)}
+                              disabled={withdrawing}
+                              className="text-xs px-2 py-0.5 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded transition-colors"
+                            >
+                              {withdrawing ? "…" : "Rút"}
+                            </button>
+                            <button
+                              onClick={() => { setConfirmWithdrawId(null); setWithdrawError(""); }}
+                              disabled={withdrawing}
+                              className="text-xs px-2 py-0.5 bg-white/10 hover:bg-white/20 text-gray-300 rounded transition-colors"
+                            >
+                              Hủy
+                            </button>
+                          </div>
+                          {withdrawError && confirmWithdrawId === entry.entryId && (
+                            <span className="text-red-400 text-[10px] leading-tight">{withdrawError}</span>
+                          )}
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmWithdrawId(entry.entryId)}
+                          className="text-xs px-2.5 py-1 border border-red-500/40 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors whitespace-nowrap"
+                        >
+                          Rút đăng ký
+                        </button>
+                      )
+                    )}
                     <button
                       onClick={() =>
                         setExpandedId(
@@ -307,11 +365,21 @@ export default function MyEntriesPage() {
                         </span>
                       </div>
                       <div className="bg-[#1a2035] rounded-lg p-3 border border-white/10">
-                        <p className="text-xs text-gray-500 mb-1">
-                          Race Status
-                        </p>
+                        <p className="text-xs text-gray-500 mb-1">Race Status</p>
                         <p className="text-sm text-white font-medium">
                           {race?.status ?? "—"}
+                        </p>
+                      </div>
+                      <div className="bg-[#1a2035] rounded-lg p-3 border border-white/10">
+                        <p className="text-xs text-gray-500 mb-1">Ngày nộp</p>
+                        <p className="text-sm text-white font-medium">
+                          {entry.submittedAt ? formatDate(entry.submittedAt) : "—"}
+                        </p>
+                      </div>
+                      <div className="bg-[#1a2035] rounded-lg p-3 border border-white/10">
+                        <p className="text-xs text-gray-500 mb-1">Ngày duyệt</p>
+                        <p className="text-sm text-white font-medium">
+                          {entry.approvedAt ? formatDate(entry.approvedAt) : "Chưa duyệt"}
                         </p>
                       </div>
                     </div>
