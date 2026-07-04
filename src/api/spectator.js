@@ -16,13 +16,13 @@ export async function getMyPredictions(userId) {
   return all.filter(p => p.spectatorId === userId)
 }
 
-export async function placePrediction(payload) {
-  const res = await api.post('/api/predictions', payload)
+export async function placePrediction(raceId, payload) {
+  const res = await api.post(`/api/predictions/races/${raceId}`, payload)
   return res.data
 }
 
 export async function cancelPrediction(predictionId) {
-  const res = await api.delete(`/api/predictions/${predictionId}`)
+  const res = await api.delete(`/api/predictions/${predictionId}/cancel`)
   return res.data
 }
 
