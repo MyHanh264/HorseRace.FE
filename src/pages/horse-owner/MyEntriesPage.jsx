@@ -199,7 +199,9 @@ export default function MyEntriesPage() {
 
                   {/* Tournament */}
                   <div>
-                    <p className="text-gray-300 text-sm font-medium">—</p>
+                    <p className="text-gray-300 text-sm font-medium">
+                      {entry.tournamentName ?? "—"}
+                    </p>
                     <p className="text-gray-500 text-xs">
                       {race?.status ?? "—"}
                     </p>
@@ -208,13 +210,17 @@ export default function MyEntriesPage() {
                   {/* Horse & Jockey */}
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-lg bg-gray-700 overflow-hidden shrink-0 flex items-center justify-center text-gray-600 text-xs">
-                      🐎
+                      {entry.horseImageUrl
+                        ? <img src={entry.horseImageUrl} alt={entry.horseName} className="w-full h-full object-cover" />
+                        : "🐎"}
                     </div>
                     <div>
                       <p className="text-white text-sm font-medium">
-                        Horse #{entry.horseId}
+                        {entry.horseName ?? `Horse #${entry.horseId}`}
                       </p>
-                      <p className="text-gray-500 text-xs">TBA</p>
+                      <p className="text-gray-500 text-xs">
+                        {entry.jockeyName ?? "TBA"}
+                      </p>
                     </div>
                   </div>
 
@@ -286,7 +292,9 @@ export default function MyEntriesPage() {
                       </div>
                       <div className="bg-[#1a2035] rounded-lg p-3 border border-white/10">
                         <p className="text-xs text-gray-500 mb-1">Jockey</p>
-                        <p className="text-sm text-gray-500">TBA</p>
+                        <p className="text-sm text-white font-medium">
+                          {entry.jockeyName ?? "TBA"}
+                        </p>
                       </div>
                       <div className="bg-[#1a2035] rounded-lg p-3 border border-white/10">
                         <p className="text-xs text-gray-500 mb-1">
