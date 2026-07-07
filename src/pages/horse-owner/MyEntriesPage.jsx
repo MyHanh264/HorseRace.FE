@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getMyEntries, getRaces, withdrawEntry } from "../../api/horseOwner";
+import { getMyEntries, getRaces, withdrawEntry, getRaceResults } from "../../api/horseOwner";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 const STATUS_BADGE = {
@@ -16,6 +16,7 @@ const STATUS_FILTERS = ["Tất cả", "Approved", "Pending", "Rejected", "Đã r
 export default function MyEntriesPage() {
   const [entries, setEntries] = useState([]);
   const [races, setRaces] = useState([]);
+  const [resultMap, setResultMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("Tất cả");
   const [expandedId, setExpandedId] = useState(null);
@@ -43,8 +44,8 @@ export default function MyEntriesPage() {
   };
 
   useEffect(() => {
-    Promise.all([getMyEntries(), getRaces()])
-      .then(([entriesData, racesData]) => {
+    Promise.all([getMyEntries(), getRaces(), getRaceResults()])
+      .then(([entriesData, racesData, resultsData]) => {
         const entryList = Array.isArray(entriesData)
           ? entriesData
           : (entriesData?.data ?? entriesData?.entries ?? []);
@@ -53,6 +54,9 @@ export default function MyEntriesPage() {
           : (racesData?.data ?? racesData?.races ?? []);
         setEntries(entryList);
         setRaces(raceList);
+        const map = {};
+        resultsData.forEach((r) => { map[r.entryId] = r; });
+        setResultMap(map);
       })
       .catch((err) => {
         console.error("Failed:", err);
@@ -191,6 +195,15 @@ export default function MyEntriesPage() {
         ) : (
           filtered.map((entry) => {
             const race = getRaceById(entry.raceId);
+            const result = resultMap[entry.entryId];
+            const isFinished = race?.status === "Finished";
+            const posLabel = result
+              ? result.isRaceDQ ? "DQ"
+                : result.finalPosition === 1 ? "🥇 1st"
+                : result.finalPosition === 2 ? "🥈 2nd"
+                : result.finalPosition === 3 ? "🥉 3rd"
+                : `#${result.finalPosition}`
+              : null;
             return (
               <div
                 key={entry.entryId}
@@ -260,6 +273,11 @@ export default function MyEntriesPage() {
                           : entry.status}
                       </span>
                     </div>
+                    {isFinished && posLabel && (
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded ${result?.isRaceDQ ? "text-red-400" : "text-yellow-300"}`}>
+                        {posLabel}
+                      </span>
+                    )}
                     {race?.status === "InProgress" && (
                       <p className="text-emerald-400 text-xs">● Live</p>
                     )}
@@ -382,6 +400,28 @@ export default function MyEntriesPage() {
                           {entry.approvedAt ? formatDate(entry.approvedAt) : "Chưa duyệt"}
                         </p>
                       </div>
+                      {isFinished && result && (
+                        <>
+                          <div className="bg-[#1a2035] rounded-lg p-3 border border-white/10">
+                            <p className="text-xs text-gray-500 mb-1">Kết quả</p>
+                            <p className={`text-sm font-bold ${result.isRaceDQ ? "text-red-400" : "text-yellow-300"}`}>
+                              {posLabel}
+                            </p>
+                          </div>
+                          <div className="bg-[#1a2035] rounded-lg p-3 border border-white/10">
+                            <p className="text-xs text-gray-500 mb-1">Prize Points</p>
+                            <p className="text-sm text-emerald-400 font-bold">
+                              +{result.totalPoints} pts
+                            </p>
+                          </div>
+                          <div className="bg-[#1a2035] rounded-lg p-3 border border-white/10">
+                            <p className="text-xs text-gray-500 mb-1">Leg thắng</p>
+                            <p className="text-sm text-white font-medium">
+                              {result.legWinCount} / {result.legTop3Count} top-3
+                            </p>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}

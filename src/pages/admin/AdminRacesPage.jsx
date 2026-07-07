@@ -2,12 +2,13 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Flag, Plus, ChevronDown, Edit2, Trash2, X, AlertCircle,
   Users, CheckCircle, XCircle, ArrowLeft, UserCheck, Eye,
-  LockOpen, Lock,
+  LockOpen, Lock, Send, RotateCcw, MoreVertical,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
   getTournaments, getRaces, getRaceDetail, createRace, updateRace, deleteRace,
   getUsers, approveEntry, rejectEntry, openRegistration, closeRegistration, startRace,
+  publishRace, unpublishRace,
 } from '../../api/admin'
 import api from '../../services/api'
 
@@ -319,6 +320,7 @@ export default function AdminRacesPage() {
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError]   = useState('')
   const [deletingId, setDeletingId] = useState(null)
+  const [openMenuId, setOpenMenuId] = useState(null)
 
   // ── Entry approve/reject ──
   const [entryAction, setEntryAction]   = useState(null) // { id, type }
@@ -395,6 +397,13 @@ export default function AdminRacesPage() {
       .catch(err => setError(err?.message || 'Không tải được dữ liệu'))
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    if (!openMenuId) return
+    const close = () => setOpenMenuId(null)
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [openMenuId])
 
   // ── Derived data ──────────────────────────────────────────────────────────
   const userMap       = useMemo(() => Object.fromEntries(users.map(u => [u.userId, u])),             [users])
@@ -506,6 +515,32 @@ export default function AdminRacesPage() {
       setActiveRace(null)
     } catch (err) {
       setEntryError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Bắt đầu race thất bại')
+    } finally {
+      setRegLoading(null)
+    }
+  }
+
+  const handlePublishRace = async (raceId) => {
+    setRegLoading(raceId)
+    setError('')
+    try {
+      await publishRace(raceId)
+      await loadAll()
+    } catch (err) {
+      setError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Publish race thất bại')
+    } finally {
+      setRegLoading(null)
+    }
+  }
+
+  const handleUnpublishRace = async (raceId) => {
+    setRegLoading(raceId)
+    setError('')
+    try {
+      await unpublishRace(raceId)
+      await loadAll()
+    } catch (err) {
+      setError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Unpublish race thất bại')
     } finally {
       setRegLoading(null)
     }
@@ -645,7 +680,12 @@ export default function AdminRacesPage() {
                     const ref2 = race.referee2Id ? userMap[race.referee2Id] : null
 
                     return (
-                      <tr key={race.raceId} className={`animate-fade-in-up delay-row-${(i % 4)+1}`} style={{ opacity: 0, animationFillMode: 'forwards' }}>
+                      <tr
+                        key={race.raceId}
+                        onClick={() => openEntriesView(race)}
+                        className={`animate-fade-in-up delay-row-${(i % 4)+1} cursor-pointer hover:bg-surface-container/60`}
+                        style={{ opacity: 0, animationFillMode: 'forwards' }}
+                      >
 
                         {/* Name */}
                         <td>
@@ -696,7 +736,7 @@ export default function AdminRacesPage() {
                               {ref2 && <span className="text-xs text-on-surface-variant">{ref2.fullName}</span>}
                             </div>
                           ) : (
-                            <button onClick={() => openEdit(race)}
+                            <button onClick={e => { e.stopPropagation(); openEdit(race) }}
                               className="text-xs text-secondary hover:text-secondary/80 flex items-center gap-1 transition-colors">
                               <Plus className="w-3 h-3" /> Assign
                             </button>
@@ -711,57 +751,81 @@ export default function AdminRacesPage() {
                         </td>
 
                         {/* Actions */}
-                        <td>
-                          {deletingId === race.raceId ? (
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-xs text-error">Confirm?</span>
-                              <button onClick={() => handleDelete(race.raceId)} className="gs-btn gs-btn-danger gs-btn-sm">Delete</button>
-                              <button onClick={() => setDeletingId(null)} className="gs-btn gs-btn-ghost gs-btn-sm">Cancel</button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {race.status === 'Scheduled' && !raceRegMap[race.raceId]?.registrationOpenAt && (
-                                <button
-                                  onClick={() => handleOpenRegistration(race.raceId)}
-                                  disabled={regLoading === race.raceId}
-                                  className="gs-btn gs-btn-primary gs-btn-sm flex items-center gap-1">
-                                  {regLoading === race.raceId
-                                    ? <div className="w-3 h-3 border-2 border-on-primary/30 border-t-on-primary rounded-full animate-spin" />
-                                    : <LockOpen className="w-3.5 h-3.5" />}
-                                  Open Reg
-                                </button>
-                              )}
-                              {race.status === 'Scheduled' && raceRegMap[race.raceId]?.registrationOpenAt && !raceRegMap[race.raceId]?.registrationCloseAt && (
-                                <button
-                                  onClick={() => handleCloseRegistration(race.raceId)}
-                                  disabled={regLoading === race.raceId}
-                                  className="gs-btn gs-btn-danger gs-btn-sm flex items-center gap-1">
-                                  {regLoading === race.raceId
-                                    ? <div className="w-3 h-3 border-2 border-error/30 border-t-error rounded-full animate-spin" />
-                                    : <Lock className="w-3.5 h-3.5" />}
-                                  Close Reg
-                                </button>
-                              )}
-                              {(race.status === 'InProgress' || race.status === 'Paused') && (
-                                <button onClick={() => navigate('/admin/race-execution')}
-                                  className="gs-btn gs-btn-outline-gold gs-btn-sm flex items-center gap-1">
-                                  <Eye className="w-3.5 h-3.5" /> Monitor
-                                </button>
-                              )}
-                              <button onClick={() => navigate(`/admin/races/${race.raceId}/entries`)}
-                                className="gs-btn gs-btn-outline-emerald gs-btn-sm flex items-center gap-1">
-                                <Users className="w-3.5 h-3.5" /> Entries
+                        <td onClick={e => e.stopPropagation()}>
+                          <div className="flex items-center gap-2">
+                            {/* Primary lifecycle button */}
+                            {race.status === 'Scheduled' && !raceRegMap[race.raceId]?.registrationOpenAt && (
+                              <button onClick={() => handleOpenRegistration(race.raceId)} disabled={regLoading === race.raceId}
+                                className="gs-btn gs-btn-primary gs-btn-sm flex items-center gap-1">
+                                {regLoading === race.raceId ? <div className="w-3 h-3 border-2 border-on-primary/30 border-t-on-primary rounded-full animate-spin" /> : <LockOpen className="w-3.5 h-3.5" />}
+                                Open Reg
                               </button>
-                              <button onClick={() => openEdit(race)}
-                                className="gs-btn gs-btn-ghost gs-btn-sm flex items-center gap-1">
-                                <Edit2 className="w-3.5 h-3.5" /> Edit
-                              </button>
-                              <button onClick={() => setDeletingId(race.raceId)}
+                            )}
+                            {race.status === 'Scheduled' && raceRegMap[race.raceId]?.registrationOpenAt && !raceRegMap[race.raceId]?.registrationCloseAt && (
+                              <button onClick={() => handleCloseRegistration(race.raceId)} disabled={regLoading === race.raceId}
                                 className="gs-btn gs-btn-danger gs-btn-sm flex items-center gap-1">
-                                <Trash2 className="w-3.5 h-3.5" />
+                                {regLoading === race.raceId ? <div className="w-3 h-3 border-2 border-error/30 border-t-error rounded-full animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
+                                Close Reg
                               </button>
+                            )}
+                            {(race.status === 'InProgress' || race.status === 'Paused') && (
+                              <button onClick={() => navigate('/admin/race-execution')}
+                                className="gs-btn gs-btn-outline-gold gs-btn-sm flex items-center gap-1">
+                                <Eye className="w-3.5 h-3.5" /> Monitor
+                              </button>
+                            )}
+                            {race.status === 'PendingResult' && (
+                              <button onClick={() => handlePublishRace(race.raceId)} disabled={regLoading === race.raceId}
+                                className="gs-btn gs-btn-primary gs-btn-sm flex items-center gap-1">
+                                {regLoading === race.raceId ? <div className="w-3 h-3 border-2 border-on-primary/30 border-t-on-primary rounded-full animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                                Publish
+                              </button>
+                            )}
+                            {race.status === 'Finished' && (
+                              <button onClick={() => handleUnpublishRace(race.raceId)} disabled={regLoading === race.raceId}
+                                className="gs-btn gs-btn-ghost gs-btn-sm flex items-center gap-1 text-on-surface-variant">
+                                {regLoading === race.raceId ? <div className="w-3 h-3 border-2 border-on-surface-variant/30 border-t-on-surface-variant rounded-full animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                                Unpublish
+                              </button>
+                            )}
+
+                            {/* ⋮ overflow menu */}
+                            <div className="relative">
+                              <button
+                                onClick={e => { e.stopPropagation(); setOpenMenuId(openMenuId === race.raceId ? null : race.raceId) }}
+                                className="w-8 h-8 rounded-lg border border-outline-variant/40 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors"
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
+                              {openMenuId === race.raceId && (
+                                <div className="absolute right-0 mt-1 bg-surface-container border border-outline-variant/40 rounded-xl shadow-xl z-20 min-w-[130px] py-1 overflow-hidden">
+                                  <button
+                                    onClick={() => { openEdit(race); setOpenMenuId(null) }}
+                                    className="w-full text-left px-3 py-2 text-sm text-on-surface hover:bg-surface-container-high flex items-center gap-2 transition-colors"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" /> Edit
+                                  </button>
+                                  <div className="border-t border-outline-variant/30 my-1" />
+                                  {deletingId === race.raceId ? (
+                                    <div className="px-3 py-2">
+                                      <p className="text-xs text-error mb-1.5">Xác nhận xóa?</p>
+                                      <div className="flex gap-1.5">
+                                        <button onClick={() => handleDelete(race.raceId)} className="gs-btn gs-btn-danger gs-btn-sm flex-1">Xóa</button>
+                                        <button onClick={() => setDeletingId(null)} className="gs-btn gs-btn-ghost gs-btn-sm">Hủy</button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => setDeletingId(race.raceId)}
+                                      className="w-full text-left px-3 py-2 text-sm text-error hover:bg-error/10 flex items-center gap-2 transition-colors"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                             </div>
-                          )}
+                          </div>
                         </td>
                       </tr>
                     )

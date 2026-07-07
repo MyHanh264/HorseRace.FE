@@ -160,6 +160,16 @@ export async function startRace(raceId, payload = {}) {
   return res.data
 }
 
+export async function publishRace(raceId) {
+  const res = await api.post(`/api/races/${raceId}/publish`)
+  return res.data
+}
+
+export async function unpublishRace(raceId) {
+  const res = await api.post(`/api/races/${raceId}/unpublish`)
+  return res.data
+}
+
 /**
  * GET /api/races/{raceId}/execution
  * Lấy trạng thái execution đầy đủ (leg status, referee submissions).
