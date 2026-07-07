@@ -81,3 +81,9 @@ export async function deleteInvitation(invitationId) {
   if (res.status === 204) return true;
   return res.data;
 }
+
+export async function withdrawEntry(entryId) {
+  const res = await api.delete(`/api/entries/${entryId}`);
+  if (res.status === 204) return true;
+  return res.data;
+}
