@@ -365,6 +365,10 @@ export default function LegSubmissionPage() {
   // Positions state: { [entryId]: position | -1 | -2 | null }
   const [positions, setPositions] = useState({})
 
+  // Dùng ref để tránh stale closure mà không gây re-render loop
+  const positionsRef = useRef(positions)
+  useEffect(() => { positionsRef.current = positions }, [positions])
+
   // ── Load data ──
   const loadLegData = useCallback(async () => {
     try {
@@ -400,13 +404,19 @@ export default function LegSubmissionPage() {
       } else {
         // Chỉ reset về rỗng khi CHƯA có entry nào được gán position.
         // Tránh stale-closure reset mất dữ liệu user đang nhập dở.
-        const hasAnyPosition = Object.values(positions).some(
+        // Dùng ref thay vì state để tránh dependency loop.
+        const hasAnyPosition = Object.values(positionsRef.current).some(
           (p) => p !== null && p !== undefined && p !== '',
         )
         if (!hasAnyPosition && viewData.entries) {
           const emptyPos = {}
           viewData.entries.forEach((e) => { emptyPos[e.entryId] = null })
-          setPositions(emptyPos)
+          setPositions(prev => {
+            // Chỉ set nếu state hiện tại cũng trống (tránh overwrite user input)
+            const hasCurrentValue = Object.values(prev).some(v => v !== null && v !== undefined && v !== '')
+            if (hasCurrentValue) return prev
+            return emptyPos
+          })
         }
       }
     } catch (err) {
@@ -416,7 +426,9 @@ export default function LegSubmissionPage() {
     } finally {
       if (isMountedRef.current) setLoading(false)
     }
-  }, [raceId, legIndex, positions])
+  // Xóa positions khỏi deps - dùng positionsRef thay thế để tránh re-render loop
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [raceId, legIndex])
 
   // ── Initial load ──
   useEffect(() => {
@@ -426,17 +438,19 @@ export default function LegSubmissionPage() {
   }, [loadLegData])
 
   // ── Polling for updates ──
-  // Polling vẫn chạy sau khi submit để nhận admin override.
-  // Khi server báo mySubmitted = true (do tab khác đã submit),
-  // ta force-lock UI ngay để chống duplicate submission.
+  // Chỉ poll để kiểm tra trạng thái - KHÔNG reload toàn bộ leg view liên tục
+  // để tránh race condition gây reload modal khi user đang nhập liệu.
+  // Dùng ref để track previous legView state thay vì state dependency để tránh infinite loop.
   useEffect(() => {
     const POLL_MS = 5000
+    let previousOpponentSubmitted = null
+
     const pollRef = setInterval(async () => {
       try {
         const view = await getRefereeLegView(raceId, legIndex)
         if (!isMountedRef.current) return
-        setLegView(view)
 
+        // Chỉ cập nhật những field cần thiết, không reset toàn bộ legView
         const sessionFlag = Boolean(
           sessionStorage.getItem(getSubmitSessionKey(raceId, legIndex)),
         )
@@ -444,23 +458,50 @@ export default function LegSubmissionPage() {
           setHasSubmitted(true)
         }
 
-        // Khi admin override xong, leg chuyển sang Confirmed/Resolved và
-        // mySubmitted có thể bị clear → reload data và điều hướng về dashboard.
+        // Khi admin override xong hoặc cả 2 referees đều đúng,
+        // leg chuyển sang Confirmed/Resolved.
         const legStatus = view?.legStatus
         if (legStatus === 'Confirmed' || legStatus === 'Resolved') {
-          if (!view?.mySubmitted) {
-            navigate(`/referee/races/${raceId}`)
-            return
-          }
+          // Leg đã được confirm - kiểm tra xem có next leg không
+          // Fetch execution status để biết có leg tiếp theo không
+          getRaceExecutionStatus(raceId).then(execData => {
+            if (!isMountedRef.current) return
+            const nextLegIdx = execData?.currentLegIndex
+            if (nextLegIdx !== undefined && nextLegIdx !== legIndex) {
+              // Có leg tiếp theo - chuyển đến leg đó
+              navigate(`/referee/races/${raceId}/legs/${nextLegIdx}`)
+            } else if (!view?.mySubmitted) {
+              // Không còn leg nào hoặc leg đã hoàn thành - về dashboard
+              navigate(`/referee/races/${raceId}`)
+            }
+          }).catch(() => {
+            // Nếu fetch thất bại, vẫn hiển thị kết quả
+            if (isMountedRef.current) setLegView(view)
+          })
+          return
         }
 
+        // Chỉ cập nhật opponentSubmitted status nếu thay đổi
+        // Dùng biến local thay vì state để tránh trigger effect
+        if (previousOpponentSubmitted === null || view.opponentSubmitted !== previousOpponentSubmitted) {
+          if (view.opponentSubmitted !== legView?.opponentSubmitted) {
+            setLegView(prev => prev ? { ...prev, opponentSubmitted: view.opponentSubmitted } : view)
+          }
+          previousOpponentSubmitted = view.opponentSubmitted
+        }
+
+        // Chỉ reload toàn bộ khi submitted data thay đổi
         if (view.mySubmitted && view.mySubmittedData) {
           setPositions((prev) => {
             const newPos = { ...prev }
+            let hasChanges = false
             view.mySubmittedData.forEach((item) => {
-              newPos[item.entryId] = item.position ?? null
+              if (newPos[item.entryId] !== (item.position ?? null)) {
+                hasChanges = true
+                newPos[item.entryId] = item.position ?? null
+              }
             })
-            return newPos
+            return hasChanges ? newPos : prev
           })
         }
       } catch {
@@ -468,6 +509,8 @@ export default function LegSubmissionPage() {
       }
     }, POLL_MS)
     return () => clearInterval(pollRef)
+  // Xóa legView khỏi deps - dùng biến local track thay vì state để tránh infinite loop
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [raceId, legIndex, navigate])
 
   // ── Position handlers ──
@@ -539,6 +582,17 @@ export default function LegSubmissionPage() {
 
       // Reload data
       await loadLegData()
+
+      // Auto-advance to next leg if both referees matched
+      // Ưu tiên dùng result.nextLegIndex, fallback sang execution.currentLegIndex
+      if (result.status === 'Matched') {
+        const nextLegIdx = result.nextLegIndex ?? execution?.currentLegIndex
+        if (nextLegIdx !== undefined && nextLegIdx !== legIndex) {
+          setTimeout(() => {
+            navigate(`/referee/races/${raceId}/legs/${nextLegIdx}`)
+          }, 2000)
+        }
+      }
     } catch (err) {
       const msg = err?.response?.data?.error === 'ALREADY_SUBMITTED'
         ? 'You have already submitted results for this leg.'
