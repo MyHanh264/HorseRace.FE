@@ -4,6 +4,10 @@ import api from '../services/api'
 let roleCache = null
 let rolePromise = null
 
+// Fallback roleId when caller supplies an unknown roleCode.
+// Keep in sync with backend Role seed (SPECTATOR = 5).
+const FALLBACK_ROLE_ID = 5
+
 export async function getAllRoles() {
   const res = await api.get('/api/roles')
   return res.data
@@ -65,13 +69,18 @@ export async function rejectUser(userId, reason) {
 // Get all users - Backend returns flat array: [{ userId, email, fullName, roleId, isActive }, ...]
 // GET /api/users
 export async function getAllUser({ page = 1, pageSize = 10, search = "", sort = "createdAt", sortDirection = "desc", role = "", status = "" } = {}) {
-  const res = await api.get('/api/users')
+  const params = { page, pageSize, search, sort, sortDirection }
+  if (role) params.role = role
+  if (status) params.status = status
+  const res = await api.get('/api/users', { params })
   return res.data
 }
 
 // Get users by status (filter client-side from getAllUser)
 export async function getUsersByStatus(status, { page = 1, pageSize = 10, search = "" } = {}) {
-  const res = await api.get('/api/users')
+  const params = { page, pageSize, search }
+  if (status) params.status = status
+  const res = await api.get('/api/users', { params })
   return res.data
 }
 
@@ -94,7 +103,7 @@ export async function updateUser(id, data) {
   if (typeof data.roleCode === 'string' && roleMap.length > 0) {
     roleId = roleMap.find((r) => r.code === data.roleCode)?.roleId || data.roleId
   }
-  if (!roleId) roleId = 5 // fallback SPECTATOR
+  if (!roleId) roleId = FALLBACK_ROLE_ID
 
   const payload = {
     UserId: id,
@@ -122,7 +131,7 @@ export async function createUser(data) {
   if (typeof data.roleCode === 'string' && roleMap.length > 0) {
     roleId = roleMap.find((r) => r.code === data.roleCode)?.roleId || data.roleId
   }
-  if (!roleId) roleId = 5 // fallback SPECTATOR
+  if (!roleId) roleId = FALLBACK_ROLE_ID
 
   const payload = {
     Email: data.email,
@@ -176,31 +185,34 @@ export async function getUserHistory(userId, { page = 1, pageSize = 20 } = {}) {
   return res.data
 }
 
-// ─── Horses ───────────────────────────────────────────────────────────────────
+// ─── Horses (Admin) ───────────────────────────────────────────────────────────
+//
+// Scope: Admin-side CRUD (approve/reject/revoke workflow, pending list).
+// FE consumers (AdminHorsesPage) only need: getPendingHorses, approveHorse,
+// rejectHorse, revokeHorse. Generic read endpoints live in
+// `api/horseOwner.js` / `api/spectator.js` — do NOT add them back here.
 
-export async function getAllHorse({ page = 1, pageSize = 10, search = "", sort = "createdAt", sortDirection = "desc" } = {}) {
-  const params = { page, pageSize, search, sort, sortDirection }
-  const res = await api.get('/api/admin/horses', { params })
+export async function getPendingHorses() {
+  const res = await api.get("/api/admin/horses/pending")
   return res.data
 }
 
-export async function getHorseById(id) {
-  const res = await api.get(`/api/admin/horses/${id}`)
+// Duyệt ngựa
+export async function approveHorse(horseId) {
+  const res = await api.post(`/api/admin/horses/${horseId}/approve`)
   return res.data
 }
 
-export async function deleteHorse(id) {
-  const res = await api.delete(`/api/admin/horses/${id}`)
+//Từ chối ngựa
+export async function rejectHorse(horseId, reason) {
+  // Backend yêu cầu reason (không được null)
+  const res = await api.post(`/api/admin/horses/${horseId}/reject`, { reason })
   return res.data
 }
 
-export async function updateHorse(id, data) {
-  const res = await api.put(`/api/admin/horses/${id}`, data)
-  return res.data
-}
-
-export async function createHorse(data) {
-  const res = await api.post('/api/admin/horses', data)
+// Thu hồi ngựa đã duyệt (chỉ work trên Approved → chuyển thành Rejected)
+export async function revokeHorse(horseId) {
+  const res = await api.post(`/api/admin/horses/${horseId}/revoke`)
   return res.data
 }
 
@@ -217,56 +229,45 @@ export async function getTournamentById(id) {
   return res.data
 }
 
-export async function createTournament(data) {
-  const res = await api.post('/api/admin/tournaments', data)
+export async function updateTournament(id, payload) {
+  const res = await api.put(`/api/tournaments/${id}`, payload)
   return res.data
 }
 
-export async function updateTournament(id, data) {
-  const res = await api.put(`/api/admin/tournaments/${id}`, data)
+export async function createTournament(payload) {
+  const res = await api.post(`/api/tournaments`, payload)
   return res.data
 }
 
 export async function deleteTournament(id) {
-  const res = await api.delete(`/api/admin/tournaments/${id}`)
-  return res.data
-}
-
-export async function approveTournament(id) {
-  const res = await api.post(`/api/admin/tournaments/${id}/approve`)
-  return res.data
-}
-
-export async function rejectTournament(id, reason) {
-  const res = await api.post(`/api/admin/tournaments/${id}/reject`, { reason: reason || null })
+  const res = await api.delete(`/api/tournaments/${id}`)
   return res.data
 }
 
 // ─── Races ────────────────────────────────────────────────────────────────────
 
-export async function getAllRaces({ page = 1, pageSize = 10, search = "", sort = "raceDate", sortDirection = "desc" } = {}) {
-  const params = { page, pageSize, search, sort, sortDirection }
-  const res = await api.get('/api/admin/races', { params })
+export async function getRaces() {
+  const res = await api.get('/api/races')
   return res.data
 }
 
-export async function getRaceById(id) {
-  const res = await api.get(`/api/admin/races/${id}`)
+export async function getRaceDetail(id) {
+  const res = await api.get(`/api/races/${id}`)
   return res.data
 }
 
-export async function createRace(data) {
-  const res = await api.post('/api/admin/races', data)
+export async function createRace(payload) {
+  const res = await api.post('/api/races', payload)
   return res.data
 }
 
-export async function updateRace(id, data) {
-  const res = await api.put(`/api/admin/races/${id}`, data)
+export async function updateRace(id, payload) {
+  const res = await api.put(`/api/races/${id}`, payload)
   return res.data
 }
 
 export async function deleteRace(id) {
-  const res = await api.delete(`/api/admin/races/${id}`)
+  const res = await api.delete(`/api/races/${id}`)
   return res.data
 }
 
@@ -358,49 +359,14 @@ export async function getPointAdjustmentHistory({ page = 1, pageSize = 20, targe
   return res.data
 }
 
-export async function adjustPoints(targetType, targetId, points, reason) {
-  const res = await api.post('/api/admin/points/adjust', { targetType, targetId, points, reason })
-  return res.data
-}
+// NOTE: `getAllHorses` / `getHorseDetail` were duplicates of public horse APIs
+// in `api/horseOwner.js` / `api/spectator.js` and had no consumer inside
+// `src/`. Removed — import from those modules instead.
+//
+// `getPendingHorses` / `approveHorse` / `rejectHorse` / `revokeHorse` are
+// already defined above in the Admin Horses section — do not redeclare.
 
 
-// Lấy TẤT CẢ ngựa (dùng cho bảng quản lý - lọc theo tab ở FE)
-// Lưu ý: Response chỉ trả { horseId, name, status, breed }, thiếu các field khác
-export async function getAllHorses() {
-  const res = await api.get("/api/admin/horses")
-  return res.data
-}
-
-// Lấy chi tiết 1 ngựa (dùng khi cần đầy đủ fields: color, birthYear, ownerName, etc.)
-export async function getHorseDetail(horseId) {
-  const res = await api.get(`/api/horses/${horseId}`)
-  return res.data
-}
-
-// Lấy danh sách ngựa đang chờ duyệt (legacy - dùng getAllHorses thay thế)
-export async function getPendingHorses() {
-  const res = await api.get("/api/admin/horses/pending")
-  return res.data
-}
-
-// Duyệt ngựa
-export async function approveHorse(horseId) {
-  const res = await api.post(`/api/admin/horses/${horseId}/approve`)
-  return res.data
-}
-
-//Từ chối ngựa
-export async function rejectHorse(horseId, reason) {
-  // Backend yêu cầu reason (không được null)
-  const res = await api.post(`/api/admin/horses/${horseId}/reject`, { reason })
-  return res.data
-}
-
-// Thu hồi ngựa đã duyệt (chỉ work trên Approved → chuyển thành Rejected)
-export async function revokeHorse(horseId) {
-  const res = await api.post(`/api/admin/horses/${horseId}/revoke`)
-  return res.data
-}
 
 // ─── Entries ──────────────────────────────────────────────────────────────────
 
@@ -505,15 +471,13 @@ export async function getRaceStandings(raceId) {
   return res.data
 }
 
-// ─── Aliases for backward compatibility ──────────────────────────────────────
+// NOTE: Backward-compat aliases intentionally removed.
+// - `getTournaments` / `getTournamentDetail` → consumers must import from
+//   `api/spectator`, `api/horseOwner`, `api/jockey` directly.
+// - `getAllRaces` / `getRaceById` never existed; their aliases were crashing
+//   the module at load time. Use `getRaces` / `getRaceDetail` below.
 
-export const getTournaments = getAllTournaments
-export const getTournamentDetail = getTournamentById
-export const getRaces = getAllRaces
-export const getRaceDetail = getRaceById
-
-// getUsers used by AdminRacesPage expects a simple array of users
-export async function getUsers() {
-  const res = await api.get('/api/users', { params: { page: 1, pageSize: 1000 } })
-  return res.data?.items ?? res.data ?? []
-}
+// NOTE: `getUsers` removed — it was a duplicate of `getAllUser` that hardcoded
+// `pageSize: 1000`. Call sites that need a flat user list (e.g. AdminRacesPage
+// dropdown) should call `getAllUser({ page: 1, pageSize: 1000 })` explicitly
+// so the page size lives at the call site, not inside the API layer.

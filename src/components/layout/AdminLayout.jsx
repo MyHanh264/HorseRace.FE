@@ -31,10 +31,11 @@ export default function AdminLayout() {
           }}
         >
           <span className="text-[10px] font-sans">
-            &copy; {new Date().getFullYear()} GRANDSTRIDE TURF CLUB INC. ALL RIGHTS RESERVED.
+            &copy; {new Date().getFullYear()} GRANDSTRIDE TURF CLUB INC. TẤT CẢ
+            QUYỀN ĐƯỢC BẢO LƯU
           </span>
           <span className="font-mono text-[10px] tracking-wide">
-            GSL-V4.2 // CLOUD INGRESS ACTIVE
+            PHL-V4.2 // CLOUD INGRESS ACTIVE
           </span>
         </footer>
       </div>

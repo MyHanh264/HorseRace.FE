@@ -9,20 +9,20 @@ import GrandNationalPosterArt from '../../assets/GrandNationalPosterArt.jpg'
 const PUBLIC_ROLES = [
   {
     code: 'SPECTATOR',
-    title: 'Spectator',
-    description: 'Watch races, predict results, and earn rewards.',
+    title: 'Khán giả',
+    description: 'Xem giải, dự đoán kết quả và nhận thưởng.',
     icon: '◎',
   },
   {
     code: 'HORSE_OWNER',
-    title: 'Horse Owner',
-    description: 'Register horses, hire jockeys, and manage schedules.',
+    title: 'Chủ ngựa',
+    description: 'Đăng ký ngựa, thuê jockey và quản lý lịch.',
     icon: '♞',
   },
   {
     code: 'JOCKEY',
-    title: 'Jockey',
-    description: 'Receive invitations, confirm rides, and track your career.',
+    title: 'Tay đua ngựa',
+    description: 'Nhận lời mời, xác nhận và theo dõi thành tích.',
     icon: '⚑',
   },
 ]
@@ -40,16 +40,16 @@ const INITIAL_FORM = {
 }
 
 function validateClient(form) {
-  if (!form.email?.includes('@')) return 'Please enter a valid email address.'
-  if (!form.password || form.password.length < 8) return 'Password must be at least 8 characters.'
-  if (form.password !== form.confirmPassword) return 'Passwords do not match.'
-  if (!form.fullName?.trim()) return 'Full name is required.'
-  if (!form.phoneNumber?.trim()) return 'Phone number is required.'
-  if (!PUBLIC_ROLES.some((r) => r.code === form.roleCode)) return 'Invalid role selected.'
+  if (!form.email?.includes('@')) return 'Email không hợp lệ.'
+  if (!form.password || form.password.length < 8) return 'Mật khẩu phải có ít nhất 8 ký tự.'
+  if (form.password !== form.confirmPassword) return 'Mật khẩu xác nhận không khớp.'
+  if (!form.fullName?.trim()) return 'Họ tên là bắt buộc.'
+  if (!form.phoneNumber?.trim()) return 'Số điện thoại là bắt buộc.'
+  if (!PUBLIC_ROLES.some((r) => r.code === form.roleCode)) return 'Vai trò không hợp lệ.'
   if (form.roleCode === 'JOCKEY') {
-    if (!form.licenseNumber?.trim()) return 'License number is required for jockeys.'
+    if (!form.licenseNumber?.trim()) return 'Số chứng chỉ hành nghề là bắt buộc với Kỵ sĩ.'
     const w = parseFloat(form.weight)
-    if (Number.isNaN(w) || w <= 0) return 'Weight must be a valid positive number.'
+    if (Number.isNaN(w) || w <= 0) return 'Cân nặng phải là số dương hợp lệ.'
   }
   return null
 }
@@ -127,10 +127,10 @@ export default function RegisterPage() {
         />
         <div className="register-visual-overlay" />
         <div className="register-visual-content">
-          <p className="register-eyebrow">Become a Member</p>
-          <h1>Join the World of Horse Racing</h1>
+          <p className="register-eyebrow">Trở Thành Thành Viên</p>
+          <h1>Gia Nhập Thế Giới Đua Ngựa</h1>
           <p>
-            Create your account today and start your journey with GrandStride.
+            Tạo tài khoản ngay hôm nay và bắt đầu hành trình cùng GrandStride.
           </p>
         </div>
       </div>
@@ -139,7 +139,7 @@ export default function RegisterPage() {
       <div className="register-container">
         <div className="register-card">
           <div className="register-card-header">
-            <h2>Create New Account</h2>
+            <h2>Tạo Tài Khoản Mới</h2>
           </div>
 
           {success ? (
@@ -150,11 +150,11 @@ export default function RegisterPage() {
                     <div className="w-10 h-10 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">
                       <Loader2 className="w-5 h-5 text-amber-400 animate-spin" />
                     </div>
-                    <span className="register-success-badge">Pending Approval</span>
+                    <span className="register-success-badge">Đang chờ duyệt</span>
                   </div>
-                  <h3>Registration Successful</h3>
+                  <h3>Đăng ký thành công</h3>
                   <p>
-                    Your account for <strong>{success.fullName}</strong> is awaiting admin approval.
+                    Tài khoản của <strong>{success.fullName}</strong> đang chờ quản trị viên phê duyệt.
                   </p>
                   <div className="register-success-actions">
                     <Link
@@ -162,14 +162,14 @@ export default function RegisterPage() {
                       to="/login"
                       state={{ email: success.email }}
                     >
-                      Go to Sign In
+                      Về trang đăng nhập
                     </Link>
                     <button
                       type="button"
                       className="register-btn register-btn--ghost"
                       onClick={() => setSuccess(null)}
                     >
-                      Register Another Account
+                      Đăng ký tài khoản khác
                     </button>
                   </div>
                 </>
@@ -179,11 +179,11 @@ export default function RegisterPage() {
                     <div className="w-10 h-10 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center">
                       <CheckCircle className="w-5 h-5 text-primary" />
                     </div>
-                    <span className="register-success-badge" style={{ background: 'rgba(141,214,166,0.15)', color: 'var(--color-primary)', borderColor: 'rgba(141,214,166,0.3)' }}>Success</span>
+                    <span className="register-success-badge" style={{ background: 'rgba(141,214,166,0.15)', color: 'var(--color-primary)', borderColor: 'rgba(141,214,166,0.3)' }}>Thành công</span>
                   </div>
-                  <h3>Registration Complete</h3>
+                  <h3>Đăng ký hoàn tất</h3>
                   <p>
-                    Welcome, <strong>{success.fullName}</strong>. Email: <strong>{success.email}</strong>. Sign in to continue.
+                    Chào <strong>{success.fullName}</strong>. Email: <strong>{success.email}</strong>. Hãy đăng nhập để tiếp tục.
                   </p>
                   <div className="register-success-actions">
                     <Link
@@ -191,14 +191,14 @@ export default function RegisterPage() {
                       to="/login"
                       state={{ email: success.email }}
                     >
-                      Sign In Now
+                      Đăng nhập ngay
                     </Link>
                     <button
                       type="button"
                       className="register-btn register-btn--ghost"
                       onClick={() => setSuccess(null)}
                     >
-                      Register Another Account
+                      Đăng ký tài khoản khác
                     </button>
                   </div>
                 </>
@@ -208,7 +208,7 @@ export default function RegisterPage() {
             <form className="register-form" onSubmit={onSubmit} noValidate>
               {/* Role selector */}
               <fieldset className="register-fieldset">
-                <legend>Select a Role</legend>
+                <legend>Chọn vai trò</legend>
                 <div className="register-role-grid">
                   {PUBLIC_ROLES.map((role) => (
                     <label
@@ -235,12 +235,12 @@ export default function RegisterPage() {
               {/* Form fields */}
               <div className="register-grid">
                 <label className="register-field register-field--full">
-                  <span>Full Name</span>
+                  <span>Họ và tên</span>
                   <input
                     type="text"
                     name="fullName"
                     autoComplete="name"
-                    placeholder="John Smith"
+                    placeholder="Nguyễn Văn A"
                     value={form.fullName}
                     onChange={(e) => setField('fullName', e.target.value)}
                     required
@@ -261,7 +261,7 @@ export default function RegisterPage() {
                 </label>
 
                 <label className="register-field">
-                  <span>Phone Number</span>
+                  <span>Số điện thoại</span>
                   <input
                     type="tel"
                     name="phoneNumber"
@@ -274,13 +274,13 @@ export default function RegisterPage() {
                 </label>
 
                 <label className="register-field">
-                  <span>Password</span>
+                  <span>Mật khẩu</span>
                   <div className="register-input-wrap">
                     <input
                       type={showPassword ? 'text' : 'password'}
                       name="password"
                       autoComplete="new-password"
-                      placeholder="Min. 8 characters"
+                      placeholder="Tối thiểu 8 ký tự"
                       value={form.password}
                       onChange={(e) => setField('password', e.target.value)}
                       required
@@ -290,20 +290,20 @@ export default function RegisterPage() {
                       type="button"
                       className="register-toggle-pw"
                       onClick={() => setShowPassword((v) => !v)}
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
                     >
-                      {showPassword ? 'Hide' : 'Show'}
+                      {showPassword ? 'Ẩn' : 'Hiện'}
                     </button>
                   </div>
                 </label>
 
                 <label className="register-field">
-                  <span>Confirm Password</span>
+                  <span>Xác nhận mật khẩu</span>
                   <input
                     type={showPassword ? 'text' : 'password'}
                     name="confirmPassword"
                     autoComplete="new-password"
-                    placeholder="Re-enter your password"
+                    placeholder="Nhập lại mật khẩu"
                     value={form.confirmPassword}
                     onChange={(e) => setField('confirmPassword', e.target.value)}
                     required
@@ -314,14 +314,14 @@ export default function RegisterPage() {
               {/* Jockey fields */}
               {isJockey ? (
                 <fieldset className="register-fieldset">
-                  <legend>Jockey Profile</legend>
+                  <legend>Hồ sơ Kỵ sĩ</legend>
                   <div className="register-grid">
                     <label className="register-field">
-                      <span>License Number</span>
+                      <span>Số chứng chỉ hành nghề</span>
                       <input
                         type="text"
                         name="licenseNumber"
-                        placeholder="e.g. JKY-2024-001"
+                        placeholder="VD: JKY-2024-001"
                         value={form.licenseNumber}
                         onChange={(e) => setField('licenseNumber', e.target.value)}
                         required={isJockey}
@@ -329,7 +329,7 @@ export default function RegisterPage() {
                     </label>
 
                     <label className="register-field">
-                      <span>Weight (kg)</span>
+                      <span>Cân nặng (kg)</span>
                       <input
                         type="number"
                         name="weight"
@@ -343,11 +343,11 @@ export default function RegisterPage() {
                     </label>
 
                     <label className="register-field register-field--full">
-                      <span>Bio / Experience (optional)</span>
+                      <span>Tiểu sử / kinh nghiệm (tùy chọn)</span>
                       <textarea
                         name="bio"
                         rows={3}
-                        placeholder="Briefly describe your racing experience..."
+                        placeholder="Mô tả ngắn về kinh nghiệm thi đấu..."
                         value={form.bio}
                         onChange={(e) => setField('bio', e.target.value)}
                       />
@@ -368,18 +368,18 @@ export default function RegisterPage() {
                   type="submit"
                   disabled={submitting}
                 >
-                  {submitting ? 'Creating account…' : 'Create Account'}
+                  {submitting ? 'Đang đăng ký…' : 'Đăng ký tài khoản'}
                 </button>
                 <p className="register-footnote">
-                  Spectators receive <strong className="text-secondary">100 initial points</strong> on registration.
+                  Khán giả nhận <strong className="text-secondary">100 điểm</strong> khởi tạo.
                 </p>
                 <p className="register-footnote">
-                  Already have an account?{' '}
+                  Đã có tài khoản?{' '}
                   <Link
                     to="/login"
                     style={{ color: 'var(--color-secondary)', fontWeight: 600, textDecoration: 'none' }}
                   >
-                    Sign in
+                    Đăng nhập
                   </Link>
                 </p>
               </div>
@@ -392,7 +392,7 @@ export default function RegisterPage() {
             className="flex items-center gap-2 text-on-surface-variant/60 hover:text-primary transition-all duration-200 cursor-pointer bg-transparent border-none text-xs font-semibold uppercase tracking-wider mt-2"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Home
+            Quay về trang chủ
           </button>
         </div>
       </div>

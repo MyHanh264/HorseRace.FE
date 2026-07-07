@@ -5,7 +5,7 @@ import {
   ChevronRight, ArrowLeft, Users, UserCheck, CheckCircle, XCircle, X,
 } from 'lucide-react'
 import {
-  getRaces, getRaceDetail, getTournaments, getUsers,
+  getRaces, getRaceDetail, getAllTournaments, getAllUser,
   getRaceExecutionStatus, getRacePauseInfo,
   resolveRaceConflict, resumeRace, getRaceStandings,
   startRace, closeRegistration, approveEntry, rejectEntry, getEntries,
@@ -388,8 +388,8 @@ export default function AdminRaceExecutionPage() {
         getRaceDetail(raceId),
         getRaces(),
         getEntries(),
-        getUsers(),
-        getTournaments(),
+        getAllUser({ page: 1, pageSize: 1000 }),
+        getAllTournaments(),
       ])
       if (!isMountedRef.current) return
       setSelectedRace(prev => ({ ...prev, ...detail, status: detail?.status ?? prev?.status }))

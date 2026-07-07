@@ -20,7 +20,6 @@ import {
   Users,
   TrendingUp,
   Star,
-  Crown,
 } from 'lucide-react'
 
 export default function Dashboard() {
@@ -61,21 +60,21 @@ export default function Dashboard() {
           className="flex items-center gap-2 text-on-surface-variant hover:text-primary text-xs font-semibold uppercase tracking-wider transition-all bg-transparent border-none cursor-pointer py-1"
         >
           <Target className="w-4 h-4" />
-          Tournaments
+          Giải đấu
         </button>
         <button
           onClick={() => onNavigate('racedetails')}
           className="flex items-center gap-2 text-on-surface-variant hover:text-primary text-xs font-semibold uppercase tracking-wider transition-all bg-transparent border-none cursor-pointer py-1"
         >
           <Flag className="w-4 h-4" />
-          Race Schedule
+          Lịch đua
         </button>
         <button
-          onClick={() => alert('Leaderboard contains results from 2024 to 2026. Detailed reports coming soon!')}
+          onClick={() => alert('Bảng xếp hạng lưu giữ kết quả từ năm 2024 đến năm 2026. Báo cáo chi tiết đang chuẩn bị tải!')}
           className="flex items-center gap-2 text-on-surface-variant hover:text-primary text-xs font-semibold uppercase tracking-wider transition-all bg-transparent border-none cursor-pointer py-1"
         >
           <Trophy className="w-4 h-4" />
-          Leaderboard
+          Bảng xếp hạng
         </button>
       </div>
 
@@ -97,18 +96,19 @@ export default function Dashboard() {
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/10 border border-secondary/25 backdrop-blur-md">
             <Sparkles className="w-4 h-4 text-secondary animate-pulse" />
             <span className="text-secondary font-mono text-xs tracking-[0.2em] font-bold uppercase">
-              Elite Horse Racing Management Platform
+              Nền tảng quản lý đua ngựa hàng đầu
             </span>
           </div>
 
           <h1 className="font-serif text-4xl sm:text-5xl md:text-[58px] text-white font-bold leading-[1.1] max-w-3xl drop-shadow-xl">
-            Where Champions{' '}
-            <span className="text-secondary">Are Made</span>
+            Nơi Những Nhà Vô Địch{' '}
+            <span className="text-secondary">Ra Đời</span>
           </h1>
 
           <p className="font-sans text-base sm:text-lg text-on-surface-variant max-w-xl leading-relaxed">
-            Manage elite stables, train champion thoroughbreds, compete in thrilling
-            races, and cement your legacy on the world's premier horse racing stage.
+            Nắm quyền kiểm soát chuồng ngựa ưu tú nhất. Huấn luyện chiến mã
+            thuần chủng hàng đầu, tham gia những vòng đua kịch tính và khẳng
+            định huyền thoại của bạn trên đấu trường.
           </p>
 
           <div className="flex flex-wrap gap-4 mt-4">
@@ -117,7 +117,7 @@ export default function Dashboard() {
               className="gs-btn gs-btn-secondary gs-btn-lg flex items-center gap-2 shadow-xl shadow-secondary/15"
             >
               <Target className="w-5 h-5" />
-              View Race Schedule
+              Xem Lịch Đua
             </button>
             <button
               onClick={() => isAuthenticated ? onNavigate('racedetails') : onNavigate('signup')}
@@ -126,12 +126,12 @@ export default function Dashboard() {
               {isAuthenticated ? (
                 <>
                   <Users className="w-5 h-5" />
-                  Go to Dashboard
+                  Vào Dashboard
                 </>
               ) : (
                 <>
                   <Star className="w-5 h-5" />
-                  Register Now
+                  Đăng Ký Ngay
                 </>
               )}
             </button>
@@ -141,19 +141,19 @@ export default function Dashboard() {
           <div className="flex flex-wrap gap-8 mt-6 pt-6 border-t border-white/10">
             <div>
               <span className="text-2xl font-bold text-secondary">1,200+</span>
-              <span className="block text-[11px] text-white/60 uppercase tracking-wider mt-0.5">Athletes</span>
+              <span className="block text-[11px] text-white/60 uppercase tracking-wider mt-0.5">Vận động viên</span>
             </div>
             <div>
               <span className="text-2xl font-bold text-secondary">48</span>
-              <span className="block text-[11px] text-white/60 uppercase tracking-wider mt-0.5">Races / Year</span>
+              <span className="block text-[11px] text-white/60 uppercase tracking-wider mt-0.5">Vòng đua/năm</span>
             </div>
             <div>
               <span className="text-2xl font-bold text-secondary">5</span>
-              <span className="block text-[11px] text-white/60 uppercase tracking-wider mt-0.5">User Roles</span>
+              <span className="block text-[11px] text-white/60 uppercase tracking-wider mt-0.5">Vai trò</span>
             </div>
             <div>
               <span className="text-2xl font-bold text-secondary">24/7</span>
-              <span className="block text-[11px] text-white/60 uppercase tracking-wider mt-0.5">Live Monitoring</span>
+              <span className="block text-[11px] text-white/60 uppercase tracking-wider mt-0.5">Giám sát</span>
             </div>
           </div>
         </div>
@@ -166,18 +166,18 @@ export default function Dashboard() {
             <div className="inline-flex items-center gap-2 mb-2">
               <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
               <span className="text-xs text-primary font-mono font-bold tracking-widest uppercase">
-                Live Matches
+                Trận Đấu Trực Tiếp
               </span>
             </div>
             <h2 className="font-serif text-3xl text-on-surface font-bold mt-1">
-              Upcoming Races
+              Vòng Đua Sắp Diễn Ra
             </h2>
           </div>
           <button
             onClick={() => onNavigate('racedetails')}
             className="hidden sm:flex items-center gap-2 text-primary hover:text-primary/80 text-xs font-bold uppercase tracking-wider transition-all bg-transparent border-none cursor-pointer"
           >
-            Full Schedule
+            Lịch Trình Chi Tiết
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
@@ -207,8 +207,8 @@ export default function Dashboard() {
               />
               <div className="absolute top-4 left-4 z-20">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[rgba(11,20,28,0.85)] backdrop-blur-md text-primary text-xs font-bold uppercase tracking-wider border border-primary/25">
-                  <Crown className="w-3.5 h-3.5" />
-                  Featured Event
+                  <Star className="w-3.5 h-3.5" />
+                  Sự Kiện Nổi Bật
                 </span>
               </div>
               {/* Corner gold glow */}
@@ -217,12 +217,13 @@ export default function Dashboard() {
 
             <div className="p-6">
               <h2 className="font-serif text-3xl text-on-surface font-bold mb-3 leading-tight">
-                Triple Crown<br />
-                <span className="text-secondary">Championship</span>
+                Giải Đấu Triple Crown<br />
+                <span className="text-secondary">Danh Giá</span>
               </h2>
               <p className="text-on-surface-variant text-sm leading-relaxed mb-6">
-                The most prestigious event of the racing season. Only the finest
-                stables and elite thoroughbreds compete for legendary glory.
+                Giải đấu danh giá và đầy kịch tính nhất của mùa giải đua năm nay.
+                Chỉ những chuồng ngựa tinh anh hàng đầu được mời tham gia tranh tài
+                giành vinh quang huyền thoại.
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
@@ -231,8 +232,8 @@ export default function Dashboard() {
                     <Calendar className="w-4.5 h-4.5 text-primary" />
                   </div>
                   <div>
-                    <span className="text-on-surface-variant text-[10px] block uppercase tracking-wider font-bold mb-0.5">Date</span>
-                    <span className="text-on-surface text-xs font-bold font-mono">Nov 12 — 20</span>
+                    <span className="text-on-surface-variant text-[10px] block uppercase tracking-wider font-bold mb-0.5">Thời Gian</span>
+                    <span className="text-on-surface text-xs font-bold font-mono">12 - 20 thg 11</span>
                   </div>
                 </div>
 
@@ -241,8 +242,8 @@ export default function Dashboard() {
                     <MapPin className="w-4.5 h-4.5 text-primary" />
                   </div>
                   <div>
-                    <span className="text-on-surface-variant text-[10px] block uppercase tracking-wider font-bold mb-0.5">Venue</span>
-                    <span className="text-on-surface text-xs font-bold">Virtual Ascot Racecourse</span>
+                    <span className="text-on-surface-variant text-[10px] block uppercase tracking-wider font-bold mb-0.5">Địa Điểm</span>
+                    <span className="text-on-surface text-xs font-bold">Trường Đua Ảo Ascot</span>
                   </div>
                 </div>
 
@@ -251,8 +252,8 @@ export default function Dashboard() {
                     <Swords className="w-4.5 h-4.5 text-primary" />
                   </div>
                   <div>
-                    <span className="text-on-surface-variant text-[10px] block uppercase tracking-wider font-bold mb-0.5">Race Rounds</span>
-                    <span className="text-on-surface text-xs font-bold font-mono">12 Races</span>
+                    <span className="text-on-surface-variant text-[10px] block uppercase tracking-wider font-bold mb-0.5">Số Kỳ Đua</span>
+                    <span className="text-on-surface text-xs font-bold font-mono">12 Trận đua</span>
                   </div>
                 </div>
 
@@ -262,7 +263,7 @@ export default function Dashboard() {
                     <Award className="w-4.5 h-4.5 text-secondary" />
                   </div>
                   <div>
-                    <span className="text-secondary text-[10px] block uppercase tracking-wider font-bold mb-0.5">Prize Pool</span>
+                    <span className="text-secondary text-[10px] block uppercase tracking-wider font-bold mb-0.5">Quỹ Giải Thưởng</span>
                     <span className="text-secondary text-lg font-extrabold font-mono leading-none">1,500,000 GS</span>
                   </div>
                 </div>
@@ -272,11 +273,11 @@ export default function Dashboard() {
 
           <div className="p-6 pt-0">
             <button
-              onClick={() => alert('Tournament portal: Pre-registration and race schedule coming soon!')}
+              onClick={() => alert('Hệ thống đang tải Trung tâm Giải đấu: Đăng ký sơ tuyển và Lịch đấu chủng tộc sẽ sớm công bố!')}
               className="w-full gs-btn gs-btn-secondary py-3.5 flex items-center justify-center gap-2"
             >
               <Trophy className="w-4.5 h-4.5" />
-              Tournament Portal
+              Cổng Giải Đấu
             </button>
           </div>
         </div>
@@ -291,7 +292,7 @@ export default function Dashboard() {
                   <Trophy className="w-4 h-4 text-secondary" />
                 </div>
                 <h2 className="font-serif text-lg text-on-surface font-bold leading-none">
-                  Leaderboard
+                  Bảng Xếp Hạng
                 </h2>
               </div>
               <div className="flex items-center gap-1.5">
@@ -307,9 +308,9 @@ export default function Dashboard() {
           {/* Tabs */}
           <div className="px-5 pt-4 pb-3 flex gap-1 border-b border-outline-variant/10">
             {[
-              { key: 'combined', label: 'All' },
-              { key: 'horses', label: 'Horses' },
-              { key: 'jockeys', label: 'Jockeys' },
+              { key: 'combined', label: 'Tất Cả' },
+              { key: 'horses', label: 'Chiến Mã' },
+              { key: 'jockeys', label: 'Nài Ngựa' },
             ].map((tab) => (
               <button
                 key={tab.key}
@@ -330,7 +331,7 @@ export default function Dashboard() {
             <div className="mb-4">
               <input
                 type="text"
-                placeholder="Search horses or jockeys..."
+                placeholder="Tìm chiến mã hoặc nài ngựa..."
                 value={searchRank}
                 onChange={(e) => setSearchRank(e.target.value)}
                 className="w-full bg-surface-container-lowest border border-outline-variant/30 text-xs rounded-xl px-3.5 py-2.5 text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40"
@@ -343,7 +344,7 @@ export default function Dashboard() {
                 <div>
                   <h3 className="text-secondary font-mono text-[10px] uppercase tracking-widest mb-3 font-bold pb-1 border-b border-outline-variant/20 flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-secondary" />
-                    Top Horses
+                    Chiến Mã Hàng Đầu
                   </h3>
                   <div className="flex flex-col gap-1">
                     {filteredHorses.length > 0 ? (
@@ -359,16 +360,16 @@ export default function Dashboard() {
                             </div>
                             <div>
                               <span className="text-on-surface text-sm font-semibold block group-hover:text-primary transition-colors">{horse.name}</span>
-                              <span className="text-on-surface-variant text-[11px]">Stable: {horse.stable}</span>
+                              <span className="text-on-surface-variant text-[11px]">Chuồng: {horse.stable}</span>
                             </div>
                           </div>
                           <span className="text-on-surface font-mono text-xs font-bold bg-surface-container px-2.5 py-1 rounded-lg">
-                            {horse.pts.toLocaleString()} pts
+                            {horse.pts.toLocaleString()} điểm
                           </span>
                         </div>
                       ))
                     ) : (
-                      <p className="text-xs text-on-surface-variant/60 py-3 italic text-center">No horses found.</p>
+                      <p className="text-xs text-on-surface-variant/60 py-3 italic text-center">Không tìm thấy chiến mã nào.</p>
                     )}
                   </div>
                 </div>
@@ -379,7 +380,7 @@ export default function Dashboard() {
                 <div className={activeRankTab === 'combined' ? 'pt-2' : ''}>
                   <h3 className="text-secondary font-mono text-[10px] uppercase tracking-widest mb-3 font-bold pb-1 border-b border-outline-variant/20 flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-secondary" />
-                    Top Jockeys
+                    Nài Ngựa Xuất Sắc
                   </h3>
                   <div className="flex flex-col gap-1">
                     {filteredJockeys.length > 0 ? (
@@ -399,12 +400,12 @@ export default function Dashboard() {
                             <span className="text-on-surface text-sm font-semibold group-hover:text-primary transition-colors">{jockey.name}</span>
                           </div>
                           <span className="text-on-surface font-mono text-xs font-bold bg-surface-container px-2.5 py-1 rounded-lg">
-                            {jockey.wins} wins
+                            {jockey.wins} thắng
                           </span>
                         </div>
                       ))
                     ) : (
-                      <p className="text-xs text-on-surface-variant/60 py-3 italic text-center">No jockeys found.</p>
+                      <p className="text-xs text-on-surface-variant/60 py-3 italic text-center">Không tìm thấy nài ngựa nào.</p>
                     )}
                   </div>
                 </div>
@@ -414,10 +415,10 @@ export default function Dashboard() {
             {/* Footer CTA */}
             <div className="mt-5 pt-4 border-t border-outline-variant/20 text-center">
               <button
-                onClick={() => alert('Leaderboard contains results from 2024 to 2026.')}
+                onClick={() => alert('Bảng xếp hạng lưu giữ kết quả từ năm 2024 đến năm 2026.')}
                 className="inline-flex items-center gap-2 text-on-surface-variant hover:text-secondary text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer bg-transparent border-none"
               >
-                View Full Leaderboard
+                Xem Toàn Bộ BXH
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -429,10 +430,10 @@ export default function Dashboard() {
       <section className="py-12 w-full max-w-[1280px] mx-auto px-6 sm:px-8">
         <div className="text-center mb-10">
           <h2 className="font-serif text-3xl font-bold text-on-surface mb-2">
-            Why Choose GrandStride?
+            Tại Sao Chọn GrandStride?
           </h2>
           <p className="text-on-surface-variant text-sm max-w-xl mx-auto">
-            The complete horse racing management platform built for serious competitors.
+            Nền tảng quản lý đua ngựa toàn diện dành cho những người yêu thể thao đỉnh cao.
           </p>
         </div>
 
@@ -440,18 +441,18 @@ export default function Dashboard() {
           {[
             {
               icon: <TrendingUp className="w-6 h-6 text-primary" />,
-              title: 'Professional Management',
-              desc: 'Track your entire stable operation, race schedules, and performance results in one unified dashboard.',
+              title: 'Quản Lý Chuyên Nghiệp',
+              desc: 'Theo dõi toàn bộ hoạt động của chuồng ngựa, lịch thi đấu và kết quả đua một cách chi tiết.',
             },
             {
               icon: <Users className="w-6 h-6 text-primary" />,
-              title: 'Horse Racing Community',
-              desc: 'Connect with fellow enthusiasts, share expertise, and grow together in a thriving competitive environment.',
+              title: 'Cộng Đồng Đua Ngựa',
+              desc: 'Kết nối với những người yêu đua ngựa, chia sẻ kinh nghiệm và cùng nhau phát triển.',
             },
             {
               icon: <Award className="w-6 h-6 text-secondary" />,
-              title: 'Premium Rewards',
-              desc: 'Compete in exclusive tournaments with prize pools reaching millions of GS and unlock incredible perks.',
+              title: 'Giải Thưởng Hấp Dẫn',
+              desc: 'Tham gia các giải đấu với quỹ giải thưởng lên đến hàng triệu GS và nhận nhiều ưu đãi.',
             },
           ].map((feat, i) => (
             <div key={i} className={`gs-card p-6 animate-fade-in-up delay-row-${i + 1}`} style={{ opacity: 0, animationFillMode: 'forwards' }}>

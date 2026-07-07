@@ -40,7 +40,7 @@ import {
 
 function formatDate(value) {
   if (!value) return "—";
-  return new Date(value).toLocaleString("en-GB");
+  return new Date(value).toLocaleString("vi-VN");
 }
 
 function formatDateShort(value) {
@@ -990,7 +990,7 @@ export default function AdminUsersPage() {
       await loadData();
       await loadStats();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to approve account.");
+      setError(err instanceof Error ? err.message : "Duyệt tài khoản thất bại");
     } finally {
       setActionId(null);
     }
@@ -1459,7 +1459,7 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      {/* Table */}
+{/* Table */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="flex flex-col items-center gap-3">
