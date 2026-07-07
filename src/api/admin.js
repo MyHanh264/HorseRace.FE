@@ -77,16 +77,6 @@ export async function getHorseById(id) {
   return res.data
 }
 
-export async function approveHorse(id) {
-  const res = await api.post(`/api/admin/horses/${id}/approve`)
-  return res.data
-}
-
-export async function rejectHorse(id, reason) {
-  const res = await api.post(`/api/admin/horses/${id}/reject`, { reason: reason || null })
-  return res.data
-}
-
 export async function deleteHorse(id) {
   const res = await api.delete(`/api/admin/horses/${id}`)
   return res.data
@@ -175,11 +165,6 @@ export async function approveRace(id) {
 
 export async function rejectRace(id, reason) {
   const res = await api.post(`/api/admin/races/${id}/reject`, { reason: reason || null })
-  return res.data
-}
-
-export async function startRace(id) {
-  const res = await api.post(`/api/admin/races/${id}/start`)
   return res.data
 }
 
