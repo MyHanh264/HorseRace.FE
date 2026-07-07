@@ -77,31 +77,6 @@ export async function getHorseById(id) {
   return res.data
 }
 
-export async function approveHorse(id) {
-  const res = await api.post(`/api/admin/horses/${id}/approve`)
-  return res.data
-}
-
-export async function rejectHorse(id, reason) {
-  const res = await api.post(`/api/admin/horses/${id}/reject`, { reason: reason || null })
-  return res.data
-}
-
-export async function deleteHorse(id) {
-  const res = await api.delete(`/api/admin/horses/${id}`)
-  return res.data
-}
-
-export async function updateHorse(id, data) {
-  const res = await api.put(`/api/admin/horses/${id}`, data)
-  return res.data
-}
-
-export async function createHorse(data) {
-  const res = await api.post('/api/admin/horses', data)
-  return res.data
-}
-
 // ─── Tournaments ────────────────────────────────────────────────────────────────
 
 export async function getAllTournaments({ page = 1, pageSize = 10, search = "", sort = "name", sortDirection = "asc" } = {}) {
@@ -178,17 +153,7 @@ export async function rejectRace(id, reason) {
   return res.data
 }
 
-export async function startRace(id) {
-  const res = await api.post(`/api/admin/races/${id}/start`)
-  return res.data
-}
-
-export async function finishRace(id) {
-  const res = await api.post(`/api/admin/races/${id}/finish`)
-  return res.data
-}
-
-// ─── Discrepancies ─────────────────────────────────────────────────────────────
+// ─── Race Execution ──────────────────────────────────────────────────────────
 
 export async function getAllDiscrepancies({ page = 1, pageSize = 10, search = "", sort = "createdAt", sortDirection = "desc", status = "" } = {}) {
   const params = { page, pageSize, search, sort, sortDirection }
