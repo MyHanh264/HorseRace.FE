@@ -45,9 +45,10 @@ function initials(str = "") {
 }
 
 function InvitationCard({ inv, onAccept, onDecline, actioning }) {
-  const isPending = inv.status === "Pending";
-  const isAccepted = inv.status === "Accepted";
-  const isDeclined = inv.status === "Declined";
+  const isPending   = inv.status === "Pending";
+  const isAccepted  = inv.status === "Accepted" || inv.status === "Confirmed";
+  const isDeclined  = inv.status === "Declined";
+  const isCancelled = inv.status === "Cancelled";
 
   const ownerLabel = `Owner #${inv.horseOwnerId}`;
   const color = avatarColor(ownerLabel);
@@ -57,9 +58,10 @@ function InvitationCard({ inv, onAccept, onDecline, actioning }) {
     <div
       className={`bg-[#0f1628] rounded-xl overflow-hidden flex
       border border-white/8
-      ${isPending ? "border-l-[3px] border-l-yellow-500" : ""}
-      ${isAccepted ? "border-l-[3px] border-l-emerald-500" : ""}
-      ${isDeclined ? "border-l-[3px] border-l-red-500 opacity-70" : ""}
+      ${isPending   ? "border-l-[3px] border-l-yellow-500" : ""}
+      ${isAccepted  ? "border-l-[3px] border-l-emerald-500" : ""}
+      ${isDeclined  ? "border-l-[3px] border-l-red-500 opacity-70" : ""}
+      ${isCancelled ? "border-l-[3px] border-l-gray-500 opacity-60" : ""}
     `}
     >
       {/* ── FROM ── */}
@@ -86,7 +88,7 @@ function InvitationCard({ inv, onAccept, onDecline, actioning }) {
         </div>
         <div className="min-w-0">
           <p className="text-white font-bold text-sm">
-            Horse #{inv.horseOwnerId}
+            {inv.horseName ?? `Horse #${inv.horseId}`}
           </p>
           <p className="text-gray-500 text-xs mt-0.5">— • —</p>
           {/* Stats badges */}
@@ -147,6 +149,15 @@ function InvitationCard({ inv, onAccept, onDecline, actioning }) {
               Add Reason
             </button>
           </>
+        ) : isCancelled ? (
+          <div className="text-center">
+            <span className="text-xs px-2.5 py-1 rounded-md border font-medium bg-gray-500/15 text-gray-400 border-gray-500/30">
+              Đã hủy
+            </span>
+            <p className="text-gray-500 text-[10px] mt-2 leading-tight">
+              Chủ ngựa đã<br />chốt jockey khác
+            </p>
+          </div>
         ) : (
           <span
             className={`text-xs px-2.5 py-1 rounded-md border font-medium uppercase tracking-wide text-center

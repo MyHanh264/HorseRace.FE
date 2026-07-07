@@ -1,18 +1,22 @@
 import { useState, useEffect } from "react";
 import { X, Trash2 } from "lucide-react";
-import { getInvitations, deleteInvitation } from "../../api/horseOwner";
-import SendInvitationModal from "./SendInvitationModal";
+import { getInvitations, deleteInvitation, getRaces, getMyEntries } from "../../api/horseOwner";
+import ConfirmJockeyModal from "./ConfirmJockeyModal";
 
 const STATUS_BADGE = {
-  Accepted: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40",
-  Pending: "bg-yellow-500/20 text-yellow-400 border border-yellow-500/40",
-  Declined: "bg-red-500/20 text-red-400 border border-red-500/40",
+  Accepted:  "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40",
+  Confirmed: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40",
+  Pending:   "bg-yellow-500/20 text-yellow-400 border border-yellow-500/40",
+  Declined:  "bg-red-500/20 text-red-400 border border-red-500/40",
+  Cancelled: "bg-gray-500/20 text-gray-400 border border-gray-500/40",
 };
 
 const ROW_ACCENT = {
-  Accepted: "border-l-2 border-l-emerald-500",
-  Pending: "border-l-2 border-l-transparent",
-  Declined: "border-l-2 border-l-transparent",
+  Accepted:  "border-l-2 border-l-emerald-500",
+  Confirmed: "border-l-2 border-l-emerald-500",
+  Pending:   "border-l-2 border-l-transparent",
+  Declined:  "border-l-2 border-l-transparent",
+  Cancelled: "border-l-2 border-l-transparent",
 };
 
 const TABS = ["Sent", "Pending Response"];
@@ -38,18 +42,34 @@ function HorseAvatar() {
 
 export default function InvitationsPage() {
   const [invitations, setInvitations] = useState([]);
+  const [raceMap, setRaceMap] = useState({});
+  const [anyEntryKeys, setAnyEntryKeys] = useState(new Set());
+  const [myJockeyKeys, setMyJockeyKeys] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("Sent");
   const [refreshKey, setRefreshKey] = useState(0);
-  const [showModal, setShowModal] = useState(false);
+  const [confirmInv, setConfirmInv] = useState(null);
 
   useEffect(() => {
-    getInvitations()
-      .then((data) => {
-        const list = Array.isArray(data)
-          ? data
-          : (data?.data ?? data?.invitations ?? []);
+    Promise.all([
+      getInvitations(),
+      getRaces().catch(() => []),
+      getMyEntries().catch(() => []),
+    ])
+      .then(([data, races, entries]) => {
+        const list = Array.isArray(data) ? data : (data?.data ?? data?.invitations ?? []);
         setInvitations(list);
+
+        const map = {};
+        (Array.isArray(races) ? races : (races?.data ?? [])).forEach((r) => {
+          map[r.raceId] = r;
+        });
+        setRaceMap(map);
+
+        const entryList = Array.isArray(entries) ? entries : (entries?.data ?? entries?.entries ?? []);
+        const activeEntries = entryList.filter((e) => e.status === "Pending" || e.status === "Approved");
+        setAnyEntryKeys(new Set(activeEntries.map((e) => `${e.raceId}_${e.horseId}`)));
+        setMyJockeyKeys(new Set(activeEntries.map((e) => `${e.raceId}_${e.horseId}_${e.jockeyId}`)));
       })
       .catch((err) => {
         console.error("getInvitations failed:", err);
@@ -86,19 +106,11 @@ export default function InvitationsPage() {
   return (
     <div className="p-8">
       {/* Header */}
-      <div className="flex items-start justify-between mb-2">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Invitations</h1>
-          <p className="text-gray-400 text-sm mt-1">
-            Manage riding requests and confirm jockey bookings.
-          </p>
-        </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-2.5 rounded-lg text-sm transition-colors"
-        >
-          + Send Invitation
-        </button>
+      <div className="mb-2">
+        <h1 className="text-2xl font-bold text-white">Invitations</h1>
+        <p className="text-gray-400 text-sm mt-1">
+          Manage riding requests and confirm jockey bookings.
+        </p>
       </div>
 
       {/* Tabs */}
@@ -159,9 +171,9 @@ export default function InvitationsPage() {
                   {inv.raceName ?? "—"}
                 </p>
                 <p className="text-gray-500 text-xs mt-0.5">
-                  {inv.surface && inv.distance
-                    ? `${inv.surface} • ${inv.distance}`
-                    : "Race info TBA"}
+                  {raceMap[inv.raceId]?.tournamentName
+                    ? `${raceMap[inv.raceId].tournamentName}${raceMap[inv.raceId]?.scheduledAt ? ` · ${formatDate(raceMap[inv.raceId].scheduledAt)}` : ""}`
+                    : "—"}
                 </p>
               </div>
 
@@ -169,7 +181,7 @@ export default function InvitationsPage() {
               <div className="flex items-center gap-2.5">
                 <HorseAvatar />
                 <p className="text-gray-300 text-sm">
-                  {inv.horseName ?? `Horse #${inv.horseOwnerId}`}
+                  {inv.horseName ?? `Horse #${inv.horseId}`}
                 </p>
               </div>
 
@@ -199,14 +211,33 @@ export default function InvitationsPage() {
 
               {/* Action */}
               <div className="flex items-center justify-end gap-2">
-                {inv.status === "Accepted" && (
-                  <button className="bg-yellow-500 hover:bg-yellow-400 text-black text-xs font-bold px-4 py-1.5 rounded-lg transition-colors">
-                    Confirm
-                  </button>
-                )}
+                {(inv.status === "Accepted" || inv.status === "Confirmed") && (() => {
+                  const raceHorseKey   = `${inv.raceId}_${inv.horseId}`;
+                  const jockeyKey      = `${inv.raceId}_${inv.horseId}_${inv.jockeyId}`;
+                  const submittedSame  = myJockeyKeys.has(jockeyKey);
+                  const submittedOther = !submittedSame && anyEntryKeys.has(raceHorseKey);
+                  const disabled       = submittedSame || submittedOther;
+                  const label          = submittedSame  ? "Đã nộp Entry"
+                                       : submittedOther ? "Đã chốt jockey khác"
+                                       : "Xác nhận & Nộp Entry";
+                  return (
+                    <button
+                      onClick={() => !disabled && setConfirmInv(inv)}
+                      disabled={disabled}
+                      title={submittedOther ? "Race này đã có entry với jockey khác" : ""}
+                      className={`text-xs font-bold px-4 py-1.5 rounded-lg transition-colors
+                        ${disabled
+                          ? "bg-gray-600 text-gray-400 cursor-not-allowed opacity-60"
+                          : "bg-yellow-500 hover:bg-yellow-400 text-black cursor-pointer"
+                        }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })()}
                 {inv.status === "Pending" && (
                   <button
-                    onClick={() => handleDelete(inv.invitationId)}
+                    onClick={() => handleDelete(inv.invitationId ?? inv.id)}
                     className="w-8 h-8 rounded-full border border-white/10 bg-white/5 hover:border-red-500/40 hover:bg-red-500/10 flex items-center justify-center text-gray-400 hover:text-red-400 transition-colors"
                   >
                     <X size={14} />
@@ -214,7 +245,7 @@ export default function InvitationsPage() {
                 )}
                 {inv.status === "Declined" && (
                   <button
-                    onClick={() => handleDelete(inv.invitationId)}
+                    onClick={() => handleDelete(inv.invitationId ?? inv.id)}
                     className="w-8 h-8 rounded-lg border border-white/10 bg-white/5 hover:border-red-500/40 hover:bg-red-500/10 flex items-center justify-center text-gray-400 hover:text-red-400 transition-colors"
                   >
                     <Trash2 size={14} />
@@ -226,20 +257,19 @@ export default function InvitationsPage() {
         )}
       </div>
 
-      {/* Modal */}
-      {showModal && (
-        <SendInvitationModal
-          onClose={() => {
-            setShowModal(false);
-            setLoading(true);
-            setRefreshKey((k) => k + 1);
-          }}
-          onSuccess={() => {
+      {/* Confirm Jockey Modal */}
+      {confirmInv && (
+        <ConfirmJockeyModal
+          invitation={confirmInv}
+          onClose={() => setConfirmInv(null)}
+          onConfirmed={() => {
+            setConfirmInv(null);
             setLoading(true);
             setRefreshKey((k) => k + 1);
           }}
         />
       )}
+
     </div>
   );
 }

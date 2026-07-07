@@ -1,44 +1,7 @@
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Trophy, Target, TrendingUp, BarChart2 } from "lucide-react";
-
-const MOCK_HORSE = {
-  horseId: 1,
-  name: "Emerald Sovereign",
-  breed: "Thoroughbred",
-  birthYear: 2020,
-  color: "Bay",
-  status: "Approved",
-  imageUrl: null,
-  owner: "Apex Stables",
-  jockey: "Marcus Vance",
-};
-
-const MOCK_RESULTS = [
-  { raceId: 1, finalPosition: 1, totalPoints: 30 },
-  { raceId: 2, finalPosition: 3, totalPoints: 18 },
-  { raceId: 3, finalPosition: 2, totalPoints: 24 },
-  { raceId: 4, finalPosition: 5, totalPoints: 6 },
-  { raceId: 5, finalPosition: 1, totalPoints: 30 },
-];
-
-const MOCK_UPCOMING = [
-  {
-    raceId: 6,
-    name: "The Royal Gold Cup",
-    date: "JUN 15",
-    time: "15:40",
-    venue: "Ascot • 9m 4f • Turf",
-    status: "Entry Ready",
-  },
-  {
-    raceId: 7,
-    name: "Summer Sprint Stakes",
-    date: "JUL 02",
-    time: "14:15",
-    venue: "Newmarket • 9f • Turf",
-    status: "Registration Pending",
-  },
-];
+import { getHorseById } from "../../api/horseOwner";
 
 const STATUS_STYLE = {
   Approved: "bg-emerald-500/20 text-emerald-400 border border-emerald-700",
@@ -55,21 +18,24 @@ const POSITION_STYLE = (pos) => {
 
 export default function HorseDetailPage() {
   const navigate = useNavigate();
+  const { horseId } = useParams();
+  const [horse, setHorse] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // TODO: fetch real data khi có API
-  // useEffect(() => {
-  //   getHorseById(horseId).then(...)
-  //   getRaceResults(horseId).then(...)
-  // }, [horseId])
+  useEffect(() => {
+    getHorseById(horseId)
+      .then(setHorse)
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [horseId]);
 
-  const horse = MOCK_HORSE;
-  const results = MOCK_RESULTS;
-  const upcoming = MOCK_UPCOMING;
+  const results = [];
+  const upcoming = [];
 
   const totalRaces = results.length;
-  const wins = results.filter((r) => r.finalPosition === 1).length;
-  const top3 = results.filter((r) => r.finalPosition <= 3).length;
-  const winRate = totalRaces > 0 ? ((wins / totalRaces) * 100).toFixed(1) : 0;
+  const wins = 0;
+  const top3 = 0;
+  const winRate = 0;
   const avgFinish =
     totalRaces > 0
       ? (
@@ -77,6 +43,9 @@ export default function HorseDetailPage() {
         ).toFixed(1)
       : 0;
   const recentForm = [...results].reverse().slice(0, 5);
+
+  if (loading) return <div className="p-8 text-gray-400">Loading...</div>;
+  if (!horse) return <div className="p-8 text-red-400">Horse not found.</div>;
 
   return (
     <div className="p-8 max-w-4xl mx-auto">

@@ -1,400 +1,681 @@
-import { useEffect, useState, useCallback } from "react"
+import { useCallback, useEffect, useState } from "react";
 import {
-  getAllDiscrepancies,
-  resolveDiscrepancy,
-  deleteDiscrepancy,
-} from "../../api/admin"
-import {
-  AlertTriangle,
   Search,
-  ChevronLeft,
-  ChevronRight,
+  RefreshCw,
   Eye,
   CheckCircle,
   XCircle,
-  Trash2,
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  Download,
   X,
-  ChevronUp,
-  ChevronDown,
-  MessageSquare,
-} from "lucide-react"
+  Flag,
+  ShieldAlert,
+} from "lucide-react";
+import api from "../../services/api";
+import { getRaceExecutionStatus } from "../../api/admin";
 
-function formatDate(value) {
-  if (!value) return "—"
-  return new Date(value).toLocaleDateString("en-US", {
-    year: "numeric", month: "short", day: "numeric",
-  })
-}
-
-function getStatusBadge(status) {
-  switch (status) {
-    case "RESOLVED": return "gs-badge gs-badge-success"
-    case "PENDING":  return "gs-badge gs-badge-warning"
-    case "DISMISSED": return "gs-badge gs-badge-error"
-    default: return "gs-badge gs-badge-neutral"
-  }
-}
-
-function getPriorityBadge(p) {
-  switch (p) {
-    case "HIGH":   return "gs-badge gs-badge-error"
-    case "MEDIUM": return "gs-badge gs-badge-warning"
-    case "LOW":    return "gs-badge gs-badge-neutral"
-    default: return "gs-badge gs-badge-neutral"
-  }
-}
+const TABS = [
+  { key: "All", label: "Tất cả" },
+  { key: "Pending", label: "Chờ xử lý" },
+  { key: "Resolved", label: "Đã xử lý" },
+  { key: "Dismissed", label: "Bác bỏ" },
+];
 
 const TYPE_LABELS = {
-  SCORE_DISPUTE: "Score Dispute",
-  RACE_RESULT: "Race Result",
-  JOCKEY_COMPLAINT: "Jockey Complaint",
-  BETTING_DISPUTE: "Betting Dispute",
-  OTHER: "Other",
+  PredictionMismatch: "Sai lệch dự đoán",
+  ResultMismatch: "Sai lệch kết quả",
+  PointCalculation: "Lỗi tính điểm",
+  Other: "Khác",
+};
+
+const TYPE_COLORS = {
+  PredictionMismatch: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+  ResultMismatch: "bg-red-500/10 text-red-400 border-red-500/20",
+  PointCalculation: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+  Other: "bg-gray-500/10 text-gray-400 border-gray-500/20",
+};
+
+const STATUS_BADGE = {
+  Pending: "bg-yellow-500/20 text-yellow-400 border border-yellow-700",
+  Resolved: "bg-emerald-500/20 text-emerald-400 border border-emerald-700",
+  Dismissed: "bg-gray-500/20 text-gray-400 border border-gray-700",
+};
+
+const STATUS_LABELS = {
+  Pending: "Chờ xử lý",
+  Resolved: "Đã xử lý",
+  Dismissed: "Bác bỏ",
+};
+
+function formatDate(v) {
+  if (!v) return "—";
+  return new Date(v).toLocaleString("vi-VN", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
+
+function DiscrepancyDetailModal({ item, onClose, onResolve }) {
+  const [resolution, setResolution] = useState("");
+  const [action, setAction] = useState("Dismissed");
+  const [adjustedPoints, setAdjustedPoints] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  if (!item) return null;
+
+  const handleSubmit = async () => {
+    if (!resolution.trim()) {
+      setError("Vui lòng nhập nội dung xử lý.");
+      return;
+    }
+    setSubmitting(true);
+    setError("");
+    try {
+      await onResolve(item.discrepancyId, {
+        resolution: resolution.trim(),
+        action,
+        adjustedPointsAwarded: action === "AdjustPoints" ? parseInt(adjustedPoints) : 0,
+      });
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Xử lý thất bại.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="bg-[#1a2035] rounded-2xl w-full max-w-2xl border border-white/10 shadow-2xl overflow-hidden animate-fade-in-up max-h-[90vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+              <Flag className="w-4 h-4 text-amber-400" />
+            </div>
+            <div>
+              <h2 className="font-serif font-bold text-on-surface">Chi tiết sai lệch</h2>
+              <p className="text-xs text-on-surface-variant">ID: #{item.discrepancyId}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-surface-container-high hover:bg-surface-container-highest flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-all">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto p-6 space-y-5 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${STATUS_BADGE[item.status] || "gs-badge-neutral"}`}>
+              {STATUS_LABELS[item.status] || item.status}
+            </span>
+            <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${TYPE_COLORS[item.type] || TYPE_COLORS.Other}`}>
+              {TYPE_LABELS[item.type] || item.type}
+            </span>
+          </div>
+
+          <div className="bg-surface-container-lowest rounded-xl p-4 border border-white/5">
+            <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-1">Cuộc đua</p>
+            <p className="text-sm font-semibold text-on-surface">{item.raceName || "—"}</p>
+            <p className="text-xs text-on-surface-variant mt-0.5">{formatDate(item.raceDate)}</p>
+          </div>
+
+          <div className="bg-surface-container-lowest rounded-xl p-4 border border-white/5">
+            <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-2">Người báo cáo</p>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-surface-container-highest border border-outline-variant/50 flex items-center justify-center text-xs font-bold text-on-surface-variant">
+                {(item.reportedByName || "U").charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-on-surface">{item.reportedByName || "—"}</p>
+                <p className="text-xs text-on-surface-variant">{item.reportedByEmail || ""} · {item.reportedByRole}</p>
+              </div>
+              <p className="ml-auto text-xs text-on-surface-variant">{formatDate(item.reportedAt)}</p>
+            </div>
+          </div>
+
+          <div className="bg-surface-container-lowest rounded-xl p-4 border border-white/5">
+            <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-2">Mô tả</p>
+            <p className="text-sm text-on-surface leading-relaxed">{item.description || "—"}</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-surface-container-lowest rounded-xl p-4 border border-blue-500/20">
+              <p className="text-xs text-blue-400 uppercase tracking-wider mb-2">Dự đoán của người dùng</p>
+              <p className="text-sm font-semibold text-on-surface">
+                Hạng {item.userPrediction?.predictedPosition || "—"}
+              </p>
+              <p className="text-xs text-on-surface-variant mt-0.5">
+                Thời gian: {item.userPrediction?.predictedTime || "—"}
+              </p>
+            </div>
+            <div className="bg-surface-container-lowest rounded-xl p-4 border border-emerald-500/20">
+              <p className="text-xs text-emerald-400 uppercase tracking-wider mb-2">Kết quả chính thức</p>
+              <p className="text-sm font-semibold text-on-surface">
+                Hạng {item.officialResult?.officialPosition || "—"}
+              </p>
+              <p className="text-xs text-on-surface-variant mt-0.5">
+                Thời gian: {item.officialResult?.officialTime || "—"}
+              </p>
+            </div>
+          </div>
+
+          {item.status !== "Pending" && item.resolution && (
+            <div className="bg-emerald-500/10 rounded-xl p-4 border border-emerald-500/20">
+              <p className="text-xs text-emerald-400 uppercase tracking-wider mb-2">Kết quả xử lý</p>
+              <p className="text-sm text-emerald-300">{item.resolution}</p>
+              {item.adjustedPointsAwarded !== null && (
+                <p className="text-xs text-emerald-400 mt-1">
+                  Điểm đã điều chỉnh: {item.adjustedPointsAwarded > 0 ? "+" : ""}{item.adjustedPointsAwarded}
+                </p>
+              )}
+              <p className="text-xs text-emerald-500/60 mt-1">
+                Xử lý bởi {item.resolvedByAdminName} · {formatDate(item.resolvedAt)}
+              </p>
+            </div>
+          )}
+
+          {item.status === "Pending" && (
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-on-surface-variant uppercase tracking-wider mb-1 block">Hành động</label>
+                <div className="flex gap-2">
+                  {["Dismissed", "AdjustPoints"].map((a) => (
+                    <button
+                      key={a}
+                      onClick={() => setAction(a)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                        action === a
+                          ? a === "Dismissed"
+                            ? "bg-gray-500/20 text-gray-300 border-gray-500/40"
+                            : "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                          : "bg-surface-container-lowest text-on-surface-variant border-outline-variant/40 hover:border-outline-variant/60"
+                      }`}
+                    >
+                      {a === "Dismissed" ? "Bác bỏ" : "Điều chỉnh điểm"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {action === "AdjustPoints" && (
+                <div>
+                  <label className="text-xs text-on-surface-variant uppercase tracking-wider mb-1 block">Điểm điều chỉnh</label>
+                  <input
+                    type="number"
+                    value={adjustedPoints}
+                    onChange={(e) => setAdjustedPoints(parseInt(e.target.value) || 0)}
+                    placeholder="VD: 500"
+                    className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="text-xs text-on-surface-variant uppercase tracking-wider mb-1 block">Nội dung xử lý *</label>
+                <textarea
+                  value={resolution}
+                  onChange={(e) => setResolution(e.target.value)}
+                  placeholder="Mô tả cách xử lý sai lệch này..."
+                  rows={3}
+                  className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all resize-none"
+                />
+              </div>
+              {error && (
+                <p className="text-red-400 text-xs flex items-center gap-1">
+                  <XCircle className="w-3 h-3" /> {error}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {item.status === "Pending" && (
+          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10 shrink-0">
+            <button onClick={onClose} className="gs-btn gs-btn-ghost gs-btn-sm">Hủy</button>
+            <button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="gs-btn gs-btn-primary gs-btn-sm flex items-center gap-1.5"
+            >
+              {submitting ? (
+                <div className="w-3.5 h-3.5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+              ) : (
+                <CheckCircle className="w-3.5 h-3.5" />
+              )}
+              Xác nhận xử lý
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const PAGE_SIZE = 15;
+
+function getPageNumbers(current, total) {
+  const pages = [];
+  for (let i = 1; i <= total; i++) {
+    if (i === 1 || i === total || Math.abs(i - current) <= 2) {
+      pages.push(i);
+    } else if (pages[pages.length - 1] !== "gap") {
+      pages.push("gap");
+    }
+  }
+  return pages;
 }
 
 export default function AdminDiscrepanciesPage() {
-  const [list, setList] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [search, setSearch] = useState("")
-  const [sort, setSort] = useState("createdAt")
-  const [sortDir, setSortDir] = useState("desc")
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
-  const [total, setTotal] = useState(0)
-  const [totalPages, setTotalPages] = useState(1)
-  const [tab, setTab] = useState("All")
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+  const [activeTab, setActiveTab] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selected, setSelected] = useState(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [resolvedCount, setResolvedCount] = useState(0);
+  const [activeConflicts, setActiveConflicts] = useState([]);
+  const [conflictDismissed, setConflictDismissed] = useState({});
 
-  const [viewItem, setViewItem] = useState(null)
-  const [resolvingId, setResolvingId] = useState(null)
-  const [resolveData, setResolveData] = useState({ resolution: "", notes: "" })
-  const [deletingId, setDeletingId] = useState(null)
-  const [actionLoading, setActionLoading] = useState(null)
+  const showSuccess = (msg) => {
+    setSuccessMsg(msg);
+    setTimeout(() => setSuccessMsg(""), 3000);
+  };
 
-  const load = useCallback(async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const res = await getAllDiscrepancies({ page, pageSize, search, sort, sortDirection: sortDir })
-      let data = res.data || res || []
-      if (tab !== "All") data = data.filter(d => d.status === tab)
-      setList(data)
-      setTotal(res.total || data.length)
-      setTotalPages(res.totalPages || 1)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load discrepancies.")
-    } finally {
-      setLoading(false)
+  useEffect(() => {
+    let mounted = true;
+
+    async function pollConflicts() {
+      try {
+        const res = await api.get("/api/races");
+        const races = Array.isArray(res.data) ? res.data : [];
+        const inProgressRaces = races.filter(r =>
+          r.status === "InProgress" || r.status === "Paused"
+        );
+
+        const conflicts = [];
+        for (const race of inProgressRaces) {
+          try {
+            const execRes = await getRaceExecutionStatus(race.raceId);
+            const exec = execRes?.data ?? execRes;
+            const conflictedLegs = exec?.legs?.filter(l => l.status === "Conflicted") ?? [];
+            for (const leg of conflictedLegs) {
+              if (!conflictDismissed[race.raceId]) {
+                conflicts.push({
+                  raceId: race.raceId,
+                  raceName: race.name,
+                  legIndex: leg.legIndex ?? 0,
+                  legNumber: (leg.legIndex ?? 0) + 1,
+                });
+              }
+            }
+          } catch { /* skip failed race checks */ }
+        }
+
+        if (mounted) setActiveConflicts(conflicts);
+      } catch { /* silent */ }
     }
-  }, [page, pageSize, search, sort, sortDir, tab])
 
-  useEffect(() => { load() }, [load])
+    pollConflicts();
+    const interval = setInterval(pollConflicts, 15000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, [conflictDismissed]);
 
-  const handleSort = (col) => {
-    if (sort === col) setSortDir(d => d === "asc" ? "desc" : "asc")
-    else { setSort(col); setSortDir("asc") }
-  }
+  const handleDismissConflict = (raceId) => {
+    setConflictDismissed(prev => ({ ...prev, [raceId]: true }));
+    setActiveConflicts(prev => prev.filter(c => c.raceId !== raceId));
+  };
 
-  const handleResolve = async () => {
-    if (!resolvingId) return
-    setActionLoading(resolvingId)
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError("");
     try {
-      await resolveDiscrepancy(resolvingId, resolveData)
-      setResolvingId(null)
-      setResolveData({ resolution: "", notes: "" })
-      await load()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to resolve.")
+      const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
+      if (activeTab !== "All") params.set("status", activeTab);
+      const res = await api.get(`/api/admin/discrepancies?${params}`);
+      const data = res.data;
+      setItems(Array.isArray(data.items) ? data.items : Array.isArray(data) ? data : []);
+      setTotal(data.total || 0);
+      setPendingCount(data.pendingCount || 0);
+      setResolvedCount(data.resolvedCount || 0);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Không tải được danh sách sai lệch.");
     } finally {
-      setActionLoading(null)
+      setLoading(false);
     }
-  }
+  }, [page, activeTab]);
 
-  const handleDelete = async (id) => {
-    setActionLoading(id)
-    try {
-      await deleteDiscrepancy(id)
-      setDeletingId(null)
-      await load()
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to delete.")
-    } finally {
-      setActionLoading(null)
-    }
-  }
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
-  const SortIcon = ({ col }) => (
-    sort !== col
-      ? <ChevronUp size={12} className="opacity-20" />
-      : sortDir === "asc"
-        ? <ChevronUp size={12} className="text-primary" />
-        : <ChevronDown size={12} className="text-primary" />
-  )
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab, searchQuery]);
 
-  const stats = {
-    total: list.length,
-    pending: list.filter(d => d.status === "PENDING").length,
-    resolved: list.filter(d => d.status === "RESOLVED").length,
-    dismissed: list.filter(d => d.status === "DISMISSED").length,
-  }
+  const handleResolve = async (discrepancyId, payload) => {
+    await api.post(`/api/admin/discrepancies/${discrepancyId}/resolve`, payload);
+    await fetchData();
+    showSuccess("Sai lệch đã được xử lý.");
+  };
+
+  const handleExport = () => {
+    const headers = ["ID", "Cuộc đua", "Người báo cáo", "Loại", "Trạng thái", "Ngày báo cáo", "Nội dung xử lý"];
+    const rows = filtered.map((d) => [
+      d.discrepancyId,
+      d.raceName || "",
+      d.reportedByName || "",
+      d.type || "",
+      d.status || "",
+      formatDate(d.reportedAt),
+      d.resolution || "",
+    ]);
+    const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `discrepancies_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const filtered = items.filter((d) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      (d.raceName || "").toLowerCase().includes(q) ||
+      (d.reportedByName || "").toLowerCase().includes(q) ||
+      (d.description || "").toLowerCase().includes(q)
+    );
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div className="max-w-[1280px] mx-auto px-6 sm:px-8 py-8">
-      {/* HEADER */}
       <div className="mb-8 animate-fade-in-up" style={{ opacity: 0, animationFillMode: "forwards" }}>
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-xl bg-secondary/10 border border-secondary/20 flex items-center justify-center">
-            <AlertTriangle className="w-5 h-5 text-secondary" />
-          </div>
-          <div>
-            <h1 className="font-serif text-2xl font-bold text-on-surface">Discrepancy Resolution</h1>
-            <p className="text-on-surface-variant text-sm">Review and resolve disputes, score conflicts, and race result complaints.</p>
-          </div>
-        </div>
-        <div className="h-[2px] w-20 rounded-full bg-gradient-to-r from-primary to-secondary mt-4" />
-      </div>
-
-      {/* STATS */}
-      <div className="grid grid-cols-3 sm:grid-cols-4 gap-4 mb-8">
-        {[
-          { label: "Total", value: stats.total, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" },
-          { label: "Pending", value: stats.pending, color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20" },
-          { label: "Resolved", value: stats.resolved, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
-          { label: "Dismissed", value: stats.dismissed, color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/20" },
-        ].map((s, i) => (
-          <div key={s.label} className={`gs-card p-5 flex items-center gap-4 animate-fade-in-up delay-row-${i + 1}`} style={{ opacity: 0, animationFillMode: "forwards" }}>
-            <div className={`w-10 h-10 rounded-lg ${s.bg} border ${s.border} flex items-center justify-center shrink-0 ${s.color}`}>
-              <AlertTriangle size={16} />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+              <Flag className="w-5 h-5 text-amber-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-on-surface font-mono">{s.value}</p>
-              <p className="text-xs text-on-surface-variant font-medium uppercase tracking-wider">{s.label}</p>
+              <h1 className="font-serif text-2xl font-bold text-on-surface">Xử lý Sai lệch</h1>
+              <p className="text-on-surface-variant text-sm">
+                Giám sát và xử lý các sai lệch kết quả dự đoán của người dùng.
+              </p>
             </div>
           </div>
-        ))}
+          <button onClick={fetchData} className="gs-btn gs-btn-ghost gs-btn-sm flex items-center gap-1.5">
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            Làm mới
+          </button>
+        </div>
+        <div className="h-[2px] w-20 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 mt-4" />
       </div>
 
-      {/* ERROR */}
+      {activeConflicts.map((conflict) => (
+        <div
+          key={`${conflict.raceId}-${conflict.legIndex}`}
+          className="mt-4 p-4 rounded-xl bg-orange-500/15 border border-orange-500/30 flex items-start gap-3 animate-fade-in-up"
+        >
+          <ShieldAlert size={20} className="text-orange-400 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-bold text-orange-400">
+              Trọng tài chênh lệch kết quả
+            </p>
+            <p className="text-xs text-on-surface-variant mt-0.5">
+              Cuộc đua <span className="font-semibold text-orange-300">{conflict.raceName}</span> — Leg {conflict.legNumber} đang có conflict cần admin giải quyết.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <a
+              href={`/admin/race-execution/${conflict.raceId}`}
+              className="px-3 py-1.5 rounded-lg bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/40 text-xs font-semibold text-orange-300 transition-all"
+            >
+              Xử lý ngay
+            </a>
+            <button
+              onClick={() => handleDismissConflict(conflict.raceId)}
+              className="w-7 h-7 rounded-lg bg-surface-container-high hover:bg-surface-container-highest flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-all"
+              title="Bỏ qua"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      ))}
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
+        <div className="gs-card p-4 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center shrink-0">
+            <AlertTriangle className="w-4 h-4 text-yellow-400" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-on-surface font-mono">{pendingCount}</p>
+            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Chờ xử lý</p>
+          </div>
+        </div>
+        <div className="gs-card p-4 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+            <CheckCircle className="w-4 h-4 text-emerald-400" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-on-surface font-mono">{resolvedCount}</p>
+            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Đã xử lý</p>
+          </div>
+        </div>
+        <div className="gs-card p-4 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-surface-container-high border border-outline-variant/20 flex items-center justify-center shrink-0">
+            <AlertTriangle className="w-4 h-4 text-on-surface-variant" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-on-surface font-mono">{total}</p>
+            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Tổng cộng</p>
+          </div>
+        </div>
+      </div>
+
       {error && (
-        <div className="mb-5 p-4 rounded-xl bg-error/10 border border-error/25 text-error text-sm flex items-center gap-3">
-          <X className="w-4 h-4 shrink-0" />
-          <div className="flex-1">{error}</div>
-          <button onClick={() => setError(null)}><X size={14} /></button>
+        <div className="mb-4 auth-alert auth-alert--error flex items-start gap-3">
+          <XCircle className="w-5 h-5 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <span>{error}</span>
+            <button onClick={() => setError("")} className="ml-3 text-xs underline hover:no-underline">Đóng</button>
+          </div>
+        </div>
+      )}
+      {successMsg && (
+        <div className="mb-4 auth-alert auth-alert--success flex items-start gap-3">
+          <CheckCircle className="w-5 h-5 shrink-0 mt-0.5" />
+          <span>{successMsg}</span>
         </div>
       )}
 
-      {/* TOOLBAR */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-5">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-col sm:flex-row gap-3 mb-5">
+        <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/50" />
           <input
-            type="text" placeholder="Search by title, reporter..."
-            value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
+            type="text"
+            placeholder="Tìm theo cuộc đua, người báo cáo, nội dung..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-surface-container-lowest border border-outline-variant/40 text-sm rounded-xl pl-11 pr-4 py-3 text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40"
           />
         </div>
-        <div className="flex gap-1 bg-surface-container-low rounded-xl p-1">
-          {["All", "PENDING", "RESOLVED", "DISMISSED"].map(t => (
-            <button key={t} onClick={() => { setTab(t); setPage(1) }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${tab === t ? "bg-secondary text-on-secondary" : "text-on-surface-variant hover:bg-surface-container-high"}`}>
-              {t}
+        <button onClick={handleExport} disabled={filtered.length === 0} className="gs-btn gs-btn-ghost gs-btn-sm shrink-0 flex items-center gap-2">
+          <Download className="w-4 h-4" />
+          Xuất CSV
+        </button>
+      </div>
+
+      <div className="flex gap-1.5 mb-5 overflow-x-auto pb-1">
+        {TABS.map(({ key, label }) => {
+          const cnt = key === "All" ? total : key === "Pending" ? pendingCount : key === "Resolved" ? resolvedCount : filtered.length;
+          return (
+            <button
+              key={key}
+              onClick={() => setActiveTab(key)}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all shrink-0 flex items-center gap-1.5
+                ${activeTab === key ? "bg-secondary text-black" : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest"}`}
+            >
+              {label}
+              <span className={`text-[11px] font-mono rounded-full px-1.5 py-0.5 ${activeTab === key ? "bg-black/20 text-black" : "bg-surface-container-lowest text-on-surface-variant"}`}>
+                {cnt}
+              </span>
             </button>
-          ))}
-        </div>
+          );
+        })}
       </div>
 
-      {/* TABLE */}
-      <div className="admin-table-wrap">
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th><button onClick={() => handleSort("title")} className="flex items-center gap-1">Title <SortIcon col="title" /></button></th>
-              <th>Type</th>
-              <th>Priority</th>
-              <th>Reporter</th>
-              <th><button onClick={() => handleSort("createdAt")} className="flex items-center gap-1">Reported <SortIcon col="createdAt" /></button></th>
-              <th><button onClick={() => handleSort("status")} className="flex items-center gap-1">Status <SortIcon col="status" /></button></th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={7} className="text-center py-16">
-                <div className="flex flex-col items-center gap-3">
-                  <div className="w-10 h-10 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                  <span className="text-on-surface-variant text-sm">Loading...</span>
-                </div>
-              </td></tr>
-            ) : list.length === 0 ? (
-              <tr><td colSpan={7}>
-                <div className="gs-card p-16 text-center">
-                  <div className="w-16 h-16 rounded-full bg-surface-container-high mx-auto mb-4 flex items-center justify-center">
-                    <CheckCircle size={28} className="text-on-surface-variant/40" />
-                  </div>
-                  <h3 className="font-serif text-xl font-bold text-on-surface mb-2">No discrepancies found</h3>
-                  <p className="text-on-surface-variant text-sm">{search ? "Try a different keyword." : "No disputes have been filed."}</p>
-                </div>
-              </td></tr>
-            ) : (
-              list.map((d, i) => (
-                <tr key={d.discrepancyId || i} className={`animate-fade-in-up delay-row-${(i % 4) + 1}`} style={{ opacity: 0, animationFillMode: "forwards" }}>
-                  <td>
-                    <p className="font-semibold text-on-surface">{d.title}</p>
-                    {d.description && <p className="text-xs text-on-surface-variant mt-0.5 line-clamp-1">{d.description}</p>}
-                  </td>
-                  <td className="text-xs text-on-surface-variant">{TYPE_LABELS[d.type] || d.type || "—"}</td>
-                  <td><span className={getPriorityBadge(d.priority)}>{d.priority || "—"}</span></td>
-                  <td className="text-on-surface-variant text-xs">{d.reporterName || d.reporterId || "—"}</td>
-                  <td className="text-on-surface-variant font-mono text-xs">{formatDate(d.createdAt)}</td>
-                  <td><span className={getStatusBadge(d.status)}>{d.status}</span></td>
-                  <td>
-                    <div className="flex gap-1.5">
-                      <button onClick={() => setViewItem(d)} title="View" className="gs-btn gs-btn-ghost gs-btn-sm"><Eye size={13} /></button>
-                      {d.status === "PENDING" && (
-                        <>
-                          <button onClick={() => { setResolvingId(d.discrepancyId); setResolveData({ resolution: "RESOLVED", notes: "" }) }} title="Resolve" className="gs-btn gs-btn-success gs-btn-sm"><CheckCircle size={13} /></button>
-                          <button onClick={() => { setResolvingId(d.discrepancyId); setResolveData({ resolution: "DISMISSED", notes: "" }) }} title="Dismiss" className="gs-btn gs-btn-danger gs-btn-sm"><XCircle size={13} /></button>
-                        </>
-                      )}
-                      {d.status === "RESOLVED" && (
-                        <button onClick={() => setDeletingId(d.discrepancyId)} title="Delete" className="gs-btn gs-btn-ghost gs-btn-sm text-error hover:bg-error/10"><Trash2 size={13} /></button>
-                      )}
-                    </div>
-                  </td>
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-10 h-10 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+            <span className="text-on-surface-variant text-sm">Đang tải...</span>
+          </div>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="gs-card p-16 text-center">
+          <div className="w-16 h-16 rounded-full bg-surface-container-high mx-auto mb-4 flex items-center justify-center">
+            <CheckCircle className="w-8 h-8 text-primary/60" />
+          </div>
+          <h3 className="font-serif text-xl font-bold text-on-surface mb-2">
+            {searchQuery ? "Không tìm thấy kết quả" : "Không có sai lệch nào"}
+          </h3>
+          <p className="text-on-surface-variant text-sm">
+            {searchQuery ? `Không có kết quả cho "${searchQuery}"` : "Chưa có báo cáo sai lệch nào."}
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th style={{ width: "8%" }}>ID</th>
+                  <th style={{ width: "22%" }}>Cuộc đua</th>
+                  <th style={{ width: "18%" }}>Người báo cáo</th>
+                  <th style={{ width: "12%" }}>Loại</th>
+                  <th style={{ width: "15%" }}>Ngày báo cáo</th>
+                  <th style={{ width: "10%" }}>Trạng thái</th>
+                  <th style={{ width: "15%" }}>Thao tác</th>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* PAGINATION */}
-      {!loading && list.length > 0 && (
-        <div className="flex items-center justify-between mt-4 px-2">
-          <div className="flex items-center gap-2 text-sm text-on-surface-variant">
-            <span>Rows per page:</span>
-            <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1) }}
-              className="bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-2 py-1 text-xs text-on-surface focus:outline-none">
-              {[5, 10, 20, 50].map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-on-surface-variant font-mono">
-              {total === 0 ? 0 : (page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
-            </span>
-            <button onClick={() => setPage(p => p - 1)} disabled={page <= 1} className="gs-btn gs-btn-ghost gs-btn-sm"><ChevronLeft size={14} /></button>
-            <button onClick={() => setPage(p => p + 1)} disabled={page >= totalPages} className="gs-btn gs-btn-ghost gs-btn-sm"><ChevronRight size={14} /></button>
-          </div>
-        </div>
-      )}
-
-      {/* VIEW MODAL */}
-      {viewItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}>
-          <div className="bg-surface-container-low rounded-2xl border border-outline-variant/40 w-full max-w-lg animate-fade-in-up" style={{ animationFillMode: "forwards" }}>
-            <div className="flex items-center justify-between p-5 border-b border-outline-variant/30">
-              <h2 className="font-serif text-lg font-bold text-on-surface">Discrepancy Details</h2>
-              <button onClick={() => setViewItem(null)} className="gs-btn gs-btn-ghost gs-btn-sm"><X size={16} /></button>
-            </div>
-            <div className="p-5 space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold text-on-surface">{viewItem.title}</h3>
-                <div className="flex gap-2">
-                  <span className={getPriorityBadge(viewItem.priority)}>{viewItem.priority}</span>
-                  <span className={getStatusBadge(viewItem.status)}>{viewItem.status}</span>
-                </div>
-              </div>
-              {viewItem.description && (
-                <div className="bg-surface-container-low rounded-xl p-4">
-                  <p className="text-xs text-on-surface-variant mb-1.5 flex items-center gap-1"><MessageSquare size={11} /> Description</p>
-                  <p className="text-sm text-on-surface">{viewItem.description}</p>
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { label: "Type", value: TYPE_LABELS[viewItem.type] || viewItem.type },
-                  { label: "Reporter", value: viewItem.reporterName || viewItem.reporterId || "—" },
-                  { label: "Subject", value: viewItem.subjectName || viewItem.subjectId || "—" },
-                  { label: "Reported At", value: formatDate(viewItem.createdAt) },
-                ].map(f => (
-                  <div key={f.label} className="bg-surface-container-low rounded-xl p-3">
-                    <p className="text-xs text-on-surface-variant mb-1">{f.label}</p>
-                    <p className="text-sm font-semibold text-on-surface">{f.value}</p>
-                  </div>
+              </thead>
+              <tbody>
+                {paginated.map((d) => (
+                  <tr key={d.discrepancyId}>
+                    <td className="text-on-surface-variant font-mono text-xs">#{d.discrepancyId}</td>
+                    <td>
+                      <p className="text-sm font-medium text-on-surface truncate">{d.raceName || "—"}</p>
+                      <p className="text-xs text-on-surface-variant">{formatDate(d.raceDate)}</p>
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-surface-container-highest border border-outline-variant/50 flex items-center justify-center text-xs font-bold text-on-surface-variant shrink-0">
+                          {(d.reportedByName || "U").charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm text-on-surface truncate">{d.reportedByName || "—"}</p>
+                          <p className="text-xs text-on-surface-variant truncate">{d.reportedByRole || ""}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${TYPE_COLORS[d.type] || TYPE_COLORS.Other}`}>
+                        {TYPE_LABELS[d.type] || d.type || "—"}
+                      </span>
+                    </td>
+                    <td className="text-on-surface-variant font-mono text-xs">{formatDate(d.reportedAt)}</td>
+                    <td>
+                      <span className={`gs-badge ${STATUS_BADGE[d.status] || "gs-badge-neutral"}`}>
+                        {STATUS_LABELS[d.status] || d.status}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setSelected(d)}
+                          className="w-7 h-7 rounded-lg bg-surface-container-high hover:bg-surface-container-highest flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-all"
+                          title="Xem chi tiết"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                        {d.status === "Pending" && (
+                          <button
+                            type="button"
+                            onClick={() => setSelected(d)}
+                            className="gs-btn gs-btn-primary gs-btn-sm flex items-center gap-1"
+                          >
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            Xử lý
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
                 ))}
-              </div>
-              {viewItem.resolution && (
-                <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4">
-                  <p className="text-xs text-emerald-400 mb-1.5 flex items-center gap-1"><CheckCircle size={11} /> Resolution</p>
-                  <p className="text-sm font-semibold text-emerald-300">{viewItem.resolution}</p>
-                  {viewItem.notes && <p className="text-xs text-emerald-300/70 mt-1">{viewItem.notes}</p>}
-                </div>
-              )}
-            </div>
-            <div className="flex gap-3 p-5 border-t border-outline-variant/30">
-              {viewItem.status === "PENDING" && (
-                <>
-                  <button onClick={() => { setResolvingId(viewItem.discrepancyId); setResolveData({ resolution: "RESOLVED", notes: "" }); setViewItem(null) }}
-                    className="gs-btn gs-btn-success flex-1 flex items-center justify-center gap-2"><CheckCircle size={14} /> Resolve</button>
-                  <button onClick={() => { setResolvingId(viewItem.discrepancyId); setResolveData({ resolution: "DISMISSED", notes: "" }); setViewItem(null) }}
-                    className="gs-btn gs-btn-danger flex-1 flex items-center justify-center gap-2"><XCircle size={14} /> Dismiss</button>
-                </>
-              )}
-              <button onClick={() => setViewItem(null)} className="gs-btn gs-btn-ghost flex-1">Close</button>
-            </div>
+              </tbody>
+            </table>
           </div>
-        </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4 px-2">
+              <p className="text-xs text-on-surface-variant">
+                Hiển thị {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} trong {filtered.length} mục
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="w-7 h-7 rounded-lg bg-surface-container-high hover:bg-surface-container-highest disabled:opacity-40 flex items-center justify-center transition-all"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5 text-on-surface" />
+                </button>
+                {getPageNumbers(page, totalPages).map((p, idx) =>
+                  p === "gap" ? (
+                    <span key={`gap-${idx}`} className="px-1 text-on-surface-variant text-xs">…</span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => setPage(p)}
+                      className={`w-7 h-7 rounded-lg text-xs font-medium transition-all flex items-center justify-center ${
+                        page === p ? "bg-secondary text-black" : "bg-surface-container-high hover:bg-surface-container-highest text-on-surface"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  )
+                )}
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="w-7 h-7 rounded-lg bg-surface-container-high hover:bg-surface-container-highest disabled:opacity-40 flex items-center justify-center transition-all"
+                >
+                  <ChevronRight className="w-3.5 h-3.5 text-on-surface" />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
-      {/* RESOLVE MODAL */}
-      {resolvingId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}>
-          <div className="bg-surface-container-low rounded-2xl border border-outline-variant/40 w-full max-w-sm animate-fade-in-up" style={{ animationFillMode: "forwards" }}>
-            <div className="p-6 text-center">
-              <div className={`w-14 h-14 rounded-full mx-auto mb-4 flex items-center justify-center ${resolveData.resolution === "RESOLVED" ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-red-500/10 border border-red-500/20"}`}>
-                {resolveData.resolution === "RESOLVED"
-                  ? <CheckCircle size={24} className="text-emerald-400" />
-                  : <XCircle size={24} className="text-red-400" />}
-              </div>
-              <h3 className="font-serif text-lg font-bold text-on-surface mb-2">
-                {resolveData.resolution === "RESOLVED" ? "Resolve Discrepancy" : "Dismiss Discrepancy"}
-              </h3>
-              <textarea value={resolveData.notes} onChange={e => setResolveData(p => ({ ...p, notes: e.target.value }))}
-                placeholder="Add notes or reason..." rows={3}
-                className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40 resize-none mt-3" />
-            </div>
-            <div className="flex gap-3 p-5 border-t border-outline-variant/30">
-              <button onClick={() => { setResolvingId(null); setResolveData({ resolution: "", notes: "" }) }} className="gs-btn gs-btn-ghost flex-1">Cancel</button>
-              <button onClick={handleResolve} disabled={actionLoading === resolvingId}
-                className={`gs-btn flex-1 flex items-center justify-center gap-2 disabled:opacity-50 ${resolveData.resolution === "RESOLVED" ? "gs-btn-success" : "gs-btn-danger"}`}>
-                {actionLoading === resolvingId ? <div className="w-4 h-4 border-2 border-on-primary/30 border-t-on-primary rounded-full animate-spin" /> : null}
-                Confirm
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* DELETE CONFIRM */}
-      {deletingId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}>
-          <div className="bg-surface-container-low rounded-2xl border border-outline-variant/40 w-full max-w-sm animate-fade-in-up" style={{ animationFillMode: "forwards" }}>
-            <div className="p-6 text-center">
-              <div className="w-14 h-14 rounded-full bg-error/10 border border-error/20 mx-auto mb-4 flex items-center justify-center"><Trash2 size={24} className="text-error" /></div>
-              <h3 className="font-serif text-lg font-bold text-on-surface mb-2">Delete Discrepancy</h3>
-              <p className="text-sm text-on-surface-variant">This will permanently delete this record.</p>
-            </div>
-            <div className="flex gap-3 p-5 border-t border-outline-variant/30">
-              <button onClick={() => setDeletingId(null)} className="gs-btn gs-btn-ghost flex-1">Cancel</button>
-              <button onClick={() => handleDelete(deletingId)} disabled={actionLoading === deletingId}
-                className="gs-btn gs-btn-danger flex-1 flex items-center justify-center gap-2 disabled:opacity-50">
-                {actionLoading === deletingId ? <div className="w-4 h-4 border-2 border-on-primary/30 border-t-on-primary rounded-full animate-spin" /> : null}
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
+      {selected && (
+        <DiscrepancyDetailModal
+          item={selected}
+          onClose={() => setSelected(null)}
+          onResolve={handleResolve}
+        />
       )}
     </div>
-  )
+  );
 }

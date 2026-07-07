@@ -9,6 +9,10 @@ import {
   Clock,
   Plus,
   ImageIcon,
+  CheckCircle2,
+  XCircle,
+  Bell,
+  Trophy,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -17,8 +21,6 @@ import {
   getMyEntries,
   getRaces,
 } from "../../api/horseOwner";
-
-// ─── helpers ──────────────────────────────────────────────────────────────────
 
 const STATUS_BADGE = {
   Approved: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40",
@@ -73,8 +75,6 @@ function fmtRaceDateTime(d) {
   return { date, time };
 }
 
-// ─── StatCard ─────────────────────────────────────────────────────────────────
-
 const STAT_META = {
   horses: {
     accentColor: "bg-primary",
@@ -124,8 +124,6 @@ function StatCard({ id, icon, label, value, sub, subColor }) {
   );
 }
 
-// ─── HorseRow ─────────────────────────────────────────────────────────────────
-
 function HorseRow({ horse, onClick }) {
   const [imgErr, setImgErr] = useState(false);
   const showImg = horse.imageUrl && !imgErr;
@@ -169,8 +167,6 @@ function HorseRow({ horse, onClick }) {
   );
 }
 
-// ─── InvitationRow ────────────────────────────────────────────────────────────
-
 function InvitationRow({ inv }) {
   const name = inv.jockeyName ?? `Jockey #${inv.jockeyId}`;
   const color = avatarColor(name);
@@ -198,8 +194,6 @@ function InvitationRow({ inv }) {
     </div>
   );
 }
-
-// ─── RaceCard ─────────────────────────────────────────────────────────────────
 
 function RaceCard({ race }) {
   const { date, time } = fmtRaceDateTime(
@@ -249,8 +243,6 @@ function RaceCard({ race }) {
   );
 }
 
-// ─── Dashboard ────────────────────────────────────────────────────────────────
-
 export default function HorseOwnerDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -294,6 +286,29 @@ export default function HorseOwnerDashboard() {
   );
   const firstName = user?.fullName?.split(" ")[0] ?? "there";
 
+  const rejectedHorses = horses.filter((h) => h.status === "Rejected");
+  const rejectedEntries = entries.filter((e) => e.status === "Rejected");
+  const finishedRaceIds = new Set(
+    races.filter((r) => r.status === "Finished").map((r) => r.raceId)
+  );
+  const finishedEntries = entries.filter(
+    (e) => e.status === "Approved" && finishedRaceIds.has(e.raceId)
+  );
+
+  const notifications = [];
+  if (!loading) {
+    if (pendingInvitations.length > 0)
+      notifications.push({ type: "warn", icon: Bell, msg: `Bạn có ${pendingInvitations.length} lời mời jockey chưa phản hồi.`, path: "/horse-owner/invitations" });
+    if (rejectedHorses.length > 0)
+      notifications.push({ type: "error", icon: XCircle, msg: `${rejectedHorses.length} ngựa bị từ chối đăng ký.`, path: "/horse-owner/horses" });
+    if (rejectedEntries.length > 0)
+      notifications.push({ type: "error", icon: XCircle, msg: `${rejectedEntries.length} entry bị từ chối tham gia race.`, path: "/horse-owner/entries" });
+    if (finishedEntries.length > 0)
+      notifications.push({ type: "success", icon: Trophy, msg: `${finishedEntries.length} cuộc đua đã kết thúc — xem kết quả của bạn.`, path: "/horse-owner/entries" });
+    if (pendingInvitations.length === 0 && rejectedHorses.length === 0 && rejectedEntries.length === 0)
+      notifications.push({ type: "info", icon: CheckCircle2, msg: "Mọi thứ đang ổn định. Không có hành động nào cần thực hiện.", path: null });
+  }
+
   if (loading) {
     return (
       <main className="gs-main">
@@ -335,154 +350,178 @@ export default function HorseOwnerDashboard() {
         </button>
       </div>
 
-      <div className="portal-content space-y-5">
-        {/* Stat Cards */}
-        <div className="gs-grid-4">
-          <StatCard
-            id="horses"
-            label="My Horses"
-            icon={<PawPrint size={18} />}
-            value={horses.length}
-            sub={`/ ${approvedCount} Approved`}
-          />
-          <StatCard
-            id="invitations"
-            label="Pending Invitations"
-            icon={<Mail size={18} />}
-            value={pendingInvitations.length}
-            sub={pendingInvitations.length > 0 ? "Requires action" : "All clear"}
-            subColor={
-              pendingInvitations.length > 0 ? "text-yellow-400" : "text-[var(--color-on-surface-variant)]"
+      {/* Notification Banners */}
+      {notifications.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {notifications.map((n, i) => {
+            const Icon = n.icon
+            const styles = {
+              warn:    "bg-yellow-500/10 border-yellow-500/30 text-yellow-300",
+              error:   "bg-red-500/10 border-red-500/30 text-red-300",
+              success: "bg-emerald-500/10 border-emerald-500/30 text-emerald-300",
+              info:    "bg-white/5 border-white/10 text-gray-400",
             }
-          />
-          <StatCard
-            id="entries"
-            label="Active Entries"
-            icon={<ClipboardList size={18} />}
-            value={activeEntries.length}
-          />
-          <StatCard
-            id="races"
-            label="Upcoming Races"
-            icon={<Calendar size={18} />}
-            value={races.length}
-            sub="This Week"
-          />
+            return (
+              <div key={i} className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm ${styles[n.type]}`}>
+                <Icon size={16} className="shrink-0" />
+                <span className="flex-1">{n.msg}</span>
+                {n.path && (
+                  <button onClick={() => navigate(n.path)} className="text-xs font-bold underline underline-offset-2 whitespace-nowrap">
+                    Xem ngay
+                  </button>
+                )}
+              </div>
+            )
+          })}
         </div>
+      )}
 
-        {/* Main Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-5">
-          {/* Left column */}
-          <div className="flex flex-col gap-5">
-            {/* My Horses */}
-            <div className="gs-dash-card">
-              <div className="gs-dash-card-header">
-                <h2 className="gs-dash-card-title">My Horses</h2>
-                <button
-                  onClick={() => navigate("/horse-owner/horses")}
-                  className="text-primary hover:text-[var(--color-on-primary-container)] text-xs font-semibold transition-colors"
-                >
-                  View All →
-                </button>
-              </div>
-              <div className="gs-dash-card-body py-1">
-                {horses.length === 0 ? (
-                  <div className="gs-empty-state">
-                    <div className="gs-empty-state-icon">
-                      <PawPrint size={24} className="text-[var(--color-on-surface-variant)]" />
-                    </div>
-                    <div className="gs-empty-state-title">No horses registered yet</div>
-                    <div className="gs-empty-state-desc">
-                      Get started by registering your first horse.
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    {horses.slice(0, 3).map((horse) => (
-                      <HorseRow
-                        key={horse.horseId}
-                        horse={horse}
-                        onClick={() =>
-                          navigate(`/horse-owner/horses/${horse.horseId}`)
-                        }
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
+      {/* Stat Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          id="horses"
+          label="My Horses"
+          icon={<PawPrint size={18} />}
+          value={horses.length}
+          sub={`/ ${approvedCount} Approved`}
+        />
+        <StatCard
+          id="invitations"
+          label="Pending Invitations"
+          icon={<Mail size={18} />}
+          value={pendingInvitations.length}
+          sub={pendingInvitations.length > 0 ? "Requires Action" : "All clear"}
+          subColor={
+            pendingInvitations.length > 0 ? "text-yellow-400" : "text-gray-500"
+          }
+        />
+        <StatCard
+          id="entries"
+          label="Active Entries"
+          icon={<ClipboardList size={18} />}
+          value={activeEntries.length}
+        />
+        <StatCard
+          id="races"
+          label="Upcoming Races"
+          icon={<Calendar size={18} />}
+          value={races.length}
+          sub="This Week"
+        />
+      </div>
 
-            {/* Pending Invitations */}
-            <div className="gs-dash-card">
-              <div className="gs-dash-card-header">
-                <h2 className="gs-dash-card-title">Pending Invitations</h2>
-                <button
-                  onClick={() => navigate("/horse-owner/invitations")}
-                  className="text-primary hover:text-[var(--color-on-primary-container)] text-xs font-semibold transition-colors"
-                >
-                  View All →
-                </button>
-              </div>
-              <div className="gs-dash-card-body">
-                {pendingInvitations.length === 0 ? (
-                  <div className="gs-empty-state">
-                    <div className="gs-empty-state-icon">
-                      <Mail size={24} className="text-[var(--color-on-surface-variant)]" />
-                    </div>
-                    <div className="gs-empty-state-title">No pending invitations</div>
-                    <div className="gs-empty-state-desc">
-                      All caught up — no action required.
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-[1fr_1fr_auto_auto] gap-4 px-0 pb-3 mb-1 text-[10px] font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)] opacity-60">
-                      <span>Jockey / Sender</span>
-                      <span>Race Event</span>
-                      <span>Date</span>
-                      <span>Action</span>
-                    </div>
-                    {pendingInvitations.slice(0, 3).map((inv) => (
-                      <InvitationRow key={inv.invitationId} inv={inv} />
-                    ))}
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Right column — Upcoming Races */}
-          <div className="gs-dash-card flex flex-col">
+      {/* Main Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-5">
+        {/* Left column */}
+        <div className="flex flex-col gap-5">
+          {/* My Horses */}
+          <div className="gs-dash-card">
             <div className="gs-dash-card-header">
-              <h2 className="gs-dash-card-title">Upcoming Races</h2>
+              <h2 className="gs-dash-card-title">My Horses</h2>
+              <button
+                onClick={() => navigate("/horse-owner/horses")}
+                className="text-primary hover:text-[var(--color-on-primary-container)] text-xs font-semibold transition-colors"
+              >
+                View All →
+              </button>
             </div>
-            <div className="gs-dash-card-body flex-1">
-              {races.length === 0 ? (
-                <div className="gs-empty-state flex-1">
+            <div className="gs-dash-card-body py-1">
+              {horses.length === 0 ? (
+                <div className="gs-empty-state">
                   <div className="gs-empty-state-icon">
-                    <Clock size={24} className="text-[var(--color-on-surface-variant)]" />
+                    <PawPrint size={24} className="text-[var(--color-on-surface-variant)]" />
                   </div>
-                  <div className="gs-empty-state-title">No upcoming races</div>
+                  <div className="gs-empty-state-title">No horses registered yet</div>
                   <div className="gs-empty-state-desc">
-                    Check back soon for the next race schedule.
+                    Get started by registering your first horse.
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col gap-3">
-                  {races.slice(0, 4).map((race) => (
-                    <RaceCard key={race.raceId} race={race} />
+                <div>
+                  {horses.slice(0, 3).map((horse) => (
+                    <HorseRow
+                      key={horse.horseId}
+                      horse={horse}
+                      onClick={() =>
+                        navigate(`/horse-owner/horses/${horse.horseId}`)
+                      }
+                    />
                   ))}
                 </div>
               )}
             </div>
-            <div className="gs-dash-card-footer">
+          </div>
+
+          {/* Pending Invitations */}
+          <div className="gs-dash-card">
+            <div className="gs-dash-card-header">
+              <h2 className="gs-dash-card-title">Pending Invitations</h2>
               <button
-                onClick={() => navigate("/horse-owner/entries")}
-                className="w-full text-center text-[var(--color-on-surface-variant)] hover:text-primary text-xs font-semibold transition-colors py-1"
+                onClick={() => navigate("/horse-owner/invitations")}
+                className="text-primary hover:text-[var(--color-on-primary-container)] text-xs font-semibold transition-colors"
               >
-                View Full Schedule →
+                View All →
               </button>
             </div>
+            <div className="gs-dash-card-body">
+              {pendingInvitations.length === 0 ? (
+                <div className="gs-empty-state">
+                  <div className="gs-empty-state-icon">
+                    <Mail size={24} className="text-[var(--color-on-surface-variant)]" />
+                  </div>
+                  <div className="gs-empty-state-title">No pending invitations</div>
+                  <div className="gs-empty-state-desc">
+                    All caught up — no action required.
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-[1fr_1fr_auto_auto] gap-4 px-0 pb-3 mb-1 text-[10px] font-bold uppercase tracking-widest text-[var(--color-on-surface-variant)] opacity-60">
+                    <span>Jockey / Sender</span>
+                    <span>Race Event</span>
+                    <span>Date</span>
+                    <span>Action</span>
+                  </div>
+                  {pendingInvitations.slice(0, 3).map((inv) => (
+                    <InvitationRow key={inv.invitationId} inv={inv} />
+                  ))}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right column — Upcoming Races */}
+        <div className="gs-dash-card flex flex-col">
+          <div className="gs-dash-card-header">
+            <h2 className="gs-dash-card-title">Upcoming Races</h2>
+          </div>
+          <div className="gs-dash-card-body flex-1">
+            {races.length === 0 ? (
+              <div className="gs-empty-state flex-1">
+                <div className="gs-empty-state-icon">
+                  <Clock size={24} className="text-[var(--color-on-surface-variant)]" />
+                </div>
+                <div className="gs-empty-state-title">No upcoming races</div>
+                <div className="gs-empty-state-desc">
+                  Check back soon for the next race schedule.
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {races.slice(0, 4).map((race) => (
+                  <RaceCard key={race.raceId} race={race} />
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="gs-dash-card-footer">
+            <button
+              onClick={() => navigate("/horse-owner/entries")}
+              className="w-full text-center text-[var(--color-on-surface-variant)] hover:text-primary text-xs font-semibold transition-colors py-1"
+            >
+              View Full Schedule →
+            </button>
           </div>
         </div>
       </div>

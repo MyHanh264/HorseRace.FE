@@ -22,6 +22,9 @@ import AdminRacesPage from "./pages/admin/AdminRacesPage";
 import AdminDiscrepanciesPage from "./pages/admin/AdminDiscrepanciesPage";
 import AdminViolationsPage from "./pages/admin/AdminViolationsPage";
 import AdminPointManagementPage from "./pages/admin/AdminPointManagementPage";
+import AdminRaceExecutionPage from "./pages/admin/AdminRaceExecutionPage";
+import AdminRaceEntriesPage from "./pages/admin/AdminRaceEntriesPage";
+import AdminConflictResolutionPage from "./pages/admin/AdminConflictResolutionPage";
 
 // Spectator
 import SpectatorLayout from "./components/layout/SpectatorLayout";
@@ -43,6 +46,8 @@ import JockeyLeaderboardPage from "./pages/jockey/JockeyLeaderboardPage";
 // Referee
 import RefereeLayout from "./components/layout/RefereeLayout";
 import RefereeAssignedRacesPage from "./pages/referee/RefereeAssignedRacesPage";
+import RefereeRaceDashboard from "./pages/referee/RefereeRaceDashboard";
+import LegSubmissionPage from "./pages/referee/LegSubmissionPage";
 import RefereeResultEntryPage from "./pages/referee/RefereeResultEntryPage";
 import RefereeViolationsPage from "./pages/referee/RefereeViolationsPage";
 import RefereeProfilePage from "./pages/referee/RefereeProfilePage";
@@ -55,6 +60,7 @@ import MyEntriesPage from "./pages/horse-owner/MyEntriesPage";
 import HorseDetailPage from "./pages/horse-owner/HorseDetailPage";
 import InvitationsPage from "./pages/horse-owner/InvitationsPage";
 import OwnerProfilePage from "./pages/horse-owner/OwnerProfilePage";
+import HorseOwnerTournamentsPage from "./pages/horse-owner/HorseOwnerTournamentsPage";
 
 function App() {
   return (
@@ -85,6 +91,15 @@ function App() {
           <Route path="discrepancies" element={<AdminDiscrepanciesPage />} />
           <Route path="violations" element={<AdminViolationsPage />} />
           <Route path="point-management" element={<AdminPointManagementPage />} />
+          <Route
+            path="races/:raceId/entries"
+            element={<AdminRaceEntriesPage />}
+          />
+          <Route path="race-execution" element={<AdminRaceExecutionPage />} />
+          <Route
+            path="races/:id/conflict"
+            element={<AdminConflictResolutionPage />}
+          />
         </Route>
 
         {/* Spectator */}
@@ -130,6 +145,8 @@ function App() {
           }
         >
           <Route index element={<RefereeAssignedRacesPage />} />
+          <Route path="races/:id" element={<RefereeRaceDashboard />} />
+          <Route path="races/:id/legs/:legId" element={<LegSubmissionPage />} />
           <Route path="result-entry" element={<RefereeResultEntryPage />} />
           <Route path="violations" element={<RefereeViolationsPage />} />
           <Route path="profile" element={<RefereeProfilePage />} />
@@ -147,6 +164,7 @@ function App() {
           <Route index element={<HorseOwnerDashboard />} />
           <Route path="horses" element={<MyHorsesPage />} />
           <Route path="horses/:horseId" element={<HorseDetailPage />} />
+          <Route path="tournaments" element={<HorseOwnerTournamentsPage />} />
           <Route path="entries" element={<MyEntriesPage />} />
           <Route path="invitations" element={<InvitationsPage />} />
           <Route path="profile" element={<OwnerProfilePage />} />
