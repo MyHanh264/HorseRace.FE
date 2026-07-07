@@ -1,6 +1,55 @@
 import api from '../services/api'
 
-// ─── Users ────────────────────────────────────────────────────────────────────
+// ─── Role Mapping (from Backend /api/roles) ───────────────────────────────────
+let roleCache = null
+let rolePromise = null
+
+// Fallback roleId when caller supplies an unknown roleCode.
+// Keep in sync with backend Role seed (SPECTATOR = 5).
+const FALLBACK_ROLE_ID = 5
+
+export async function getAllRoles() {
+  const res = await api.get('/api/roles')
+  return res.data
+}
+
+export async function getRoleMap() {
+  if (roleCache) return roleCache
+  if (rolePromise) return rolePromise
+
+  rolePromise = (async () => {
+    try {
+      const roles = await getAllRoles()
+      roleCache = roles
+      return roles
+    } catch {
+      roleCache = []
+      return []
+    } finally {
+      rolePromise = null
+    }
+  })()
+  return rolePromise
+}
+
+export function clearRoleCache() {
+  roleCache = null
+}
+
+export function getRoleIdByCode(code) {
+  if (!roleCache) return null
+  const role = roleCache.find((r) => r.code === code)
+  return role?.roleId ?? null
+}
+
+export function getRoleCodeById(id) {
+  if (!roleCache) return null
+  const role = roleCache.find((r) => r.roleId === id)
+  return role?.code ?? null
+}
+
+// ─── Users (Admin Management) ──────────────────────────────────────────────────
+// NOTE: Backend uses /api/users for CRUD (ADMIN), /api/admin/users/pending for pending list
 
 export async function getPendingUsers() {
   const res = await api.get('/api/admin/users/pending')
@@ -17,38 +66,153 @@ export async function rejectUser(userId, reason) {
   return res.data
 }
 
-export async function getUsers() {
-  const res = await api.get('/api/users')
-  return res.data
-}
-
-// ─── Tournaments ──────────────────────────────────────────────────────────────
-
-export async function getTournaments() {
-  const res = await api.get('/api/tournaments')
-  return res.data
-}
-
-export async function getTournamentDetail(id) {
-  const res = await api.get(`/api/tournaments/${id}`)
-  return res.data
-}
-
-export async function createTournament(payload) {
-  const res = await api.post('/api/tournaments', payload)
-  return res.data
-}
-
-// ─── Horses ───────────────────────────────────────────────────────────────────
-
-export async function getAllHorse({ page = 1, pageSize = 10, search = "", sort = "createdAt", sortDirection = "desc" } = {}) {
+// Get all users - Backend returns flat array: [{ userId, email, fullName, roleId, isActive }, ...]
+// GET /api/users
+export async function getAllUser({ page = 1, pageSize = 10, search = "", sort = "createdAt", sortDirection = "desc", role = "", status = "" } = {}) {
   const params = { page, pageSize, search, sort, sortDirection }
-  const res = await api.get('/api/admin/horses', { params })
+  if (role) params.role = role
+  if (status) params.status = status
+  const res = await api.get('/api/users', { params })
   return res.data
 }
 
-export async function getHorseById(id) {
-  const res = await api.get(`/api/admin/horses/${id}`)
+// Get users by status (filter client-side from getAllUser)
+export async function getUsersByStatus(status, { page = 1, pageSize = 10, search = "" } = {}) {
+  const params = { page, pageSize, search }
+  if (status) params.status = status
+  const res = await api.get('/api/users', { params })
+  return res.data
+}
+
+export async function getUserById(id) {
+  const res = await api.get(`/api/users/${id}`)
+  return res.data
+}
+
+// DELETE /api/users/{id} (ADMIN only)
+export async function deleteUser(id) {
+  const res = await api.delete(`/api/users/${id}`)
+  return res.data
+}
+
+// PUT /api/users/{id} (ADMIN can update any user)
+// Backend expects: UserId, Email, FullName, PhoneNumber, AvatarUrl, RoleId, IsActive, LockedUntil, LicenseNumber, Weight, Bio, IsProfileComplete
+export async function updateUser(id, data) {
+  const roleMap = await getRoleMap()
+  let roleId = data.roleId
+  if (typeof data.roleCode === 'string' && roleMap.length > 0) {
+    roleId = roleMap.find((r) => r.code === data.roleCode)?.roleId || data.roleId
+  }
+  if (!roleId) roleId = FALLBACK_ROLE_ID
+
+  const payload = {
+    UserId: id,
+    Email: data.email,
+    FullName: data.fullName,
+    PhoneNumber: data.phoneNumber || null,
+    AvatarUrl: data.avatarUrl || null,
+    RoleId: roleId,
+    IsActive: data.isActive !== undefined ? data.isActive : true,
+    LockedUntil: data.lockedUntil || null,
+    LicenseNumber: data.licenseNumber || null,
+    Weight: data.weight || null,
+    Bio: data.bio || null,
+    IsProfileComplete: data.isProfileComplete !== undefined ? data.isProfileComplete : true,
+  }
+  const res = await api.put(`/api/users/${id}`, payload)
+  return res.data
+}
+
+// POST /api/users (ADMIN only - create new user account)
+// Backend expects: Email, PasswordHash, FullName, PhoneNumber, AvatarUrl, RoleId, LicenseNumber, Weight, Bio
+export async function createUser(data) {
+  const roleMap = await getRoleMap()
+  let roleId = data.roleId
+  if (typeof data.roleCode === 'string' && roleMap.length > 0) {
+    roleId = roleMap.find((r) => r.code === data.roleCode)?.roleId || data.roleId
+  }
+  if (!roleId) roleId = FALLBACK_ROLE_ID
+
+  const payload = {
+    Email: data.email,
+    PasswordHash: data.password,
+    FullName: data.fullName,
+    PhoneNumber: data.phoneNumber || null,
+    AvatarUrl: data.avatarUrl || null,
+    RoleId: roleId,
+    LicenseNumber: data.licenseNumber || null,
+    Weight: data.weight || null,
+    Bio: data.bio || null,
+  }
+  const res = await api.post('/api/users', payload)
+  return res.data
+}
+
+export async function getAllInvalidUser({ page = 1, pageSize = 10, search = "", sort = "createdAt", sortDirection = "desc" } = {}) {
+  const params = { page, pageSize, search, sort, sortDirection }
+  const res = await api.get('/api/admin/users/invalid', { params })
+  return res.data
+}
+
+export async function getInvalidUserById(id) {
+  const res = await api.get(`/api/admin/users/invalid/${id}`)
+  return res.data
+}
+
+export async function approveInvalidUser(id) {
+  const res = await api.post(`/api/admin/users/invalid/${id}/approve`)
+  return res.data
+}
+
+export async function rejectInvalidUser(id, reason) {
+  const res = await api.post(`/api/admin/users/invalid/${id}/reject`, { reason: reason || null })
+  return res.data
+}
+
+// ─── User Lock/Unlock ────────────────────────────────────────────────────────
+export async function lockUser(userId, reason) {
+  const res = await api.post(`/api/admin/users/${userId}/lock`, { reason: reason || null })
+  return res.data
+}
+
+export async function unlockUser(userId) {
+  const res = await api.post(`/api/admin/users/${userId}/unlock`)
+  return res.data
+}
+
+export async function getUserHistory(userId, { page = 1, pageSize = 20 } = {}) {
+  const res = await api.get(`/api/admin/users/${userId}/history`, { params: { page, pageSize } })
+  return res.data
+}
+
+// ─── Horses (Admin) ───────────────────────────────────────────────────────────
+//
+// Scope: Admin-side CRUD (approve/reject/revoke workflow, pending list).
+// FE consumers (AdminHorsesPage) only need: getPendingHorses, approveHorse,
+// rejectHorse, revokeHorse. Generic read endpoints live in
+// `api/horseOwner.js` / `api/spectator.js` — do NOT add them back here.
+
+export async function getPendingHorses() {
+  const res = await api.get("/api/admin/horses/pending")
+  return res.data
+}
+
+// Duyệt ngựa
+export async function approveHorse(horseId) {
+  const res = await api.post(`/api/admin/horses/${horseId}/approve`)
+  return res.data
+}
+
+//Từ chối ngựa
+export async function rejectHorse(horseId, reason) {
+  // Backend yêu cầu reason (không được null)
+  const res = await api.post(`/api/admin/horses/${horseId}/reject`, { reason })
+  return res.data
+}
+
+// Thu hồi ngựa đã duyệt (chỉ work trên Approved → chuyển thành Rejected)
+export async function revokeHorse(horseId) {
+  const res = await api.post(`/api/admin/horses/${horseId}/revoke`)
   return res.data
 }
 
@@ -67,6 +231,11 @@ export async function getTournamentById(id) {
 
 export async function updateTournament(id, payload) {
   const res = await api.put(`/api/tournaments/${id}`, payload)
+  return res.data
+}
+
+export async function createTournament(payload) {
+  const res = await api.post(`/api/tournaments`, payload)
   return res.data
 }
 
@@ -102,7 +271,22 @@ export async function deleteRace(id) {
   return res.data
 }
 
-// ─── Race Execution ──────────────────────────────────────────────────────────
+export async function approveRace(id) {
+  const res = await api.post(`/api/admin/races/${id}/approve`)
+  return res.data
+}
+
+export async function rejectRace(id, reason) {
+  const res = await api.post(`/api/admin/races/${id}/reject`, { reason: reason || null })
+  return res.data
+}
+
+export async function finishRace(id) {
+  const res = await api.post(`/api/admin/races/${id}/finish`)
+  return res.data
+}
+
+// ─── Discrepancies ─────────────────────────────────────────────────────────────
 
 export async function getAllDiscrepancies({ page = 1, pageSize = 10, search = "", sort = "createdAt", sortDirection = "desc", status = "" } = {}) {
   const params = { page, pageSize, search, sort, sortDirection }
@@ -175,44 +359,14 @@ export async function getPointAdjustmentHistory({ page = 1, pageSize = 20, targe
   return res.data
 }
 
+// NOTE: `getAllHorses` / `getHorseDetail` were duplicates of public horse APIs
+// in `api/horseOwner.js` / `api/spectator.js` and had no consumer inside
+// `src/`. Removed — import from those modules instead.
+//
+// `getPendingHorses` / `approveHorse` / `rejectHorse` / `revokeHorse` are
+// already defined above in the Admin Horses section — do not redeclare.
 
-// Lấy TẤT CẢ ngựa (dùng cho bảng quản lý - lọc theo tab ở FE)
-// Lưu ý: Response chỉ trả { horseId, name, status, breed }, thiếu các field khác
-export async function getAllHorses() {
-  const res = await api.get("/api/admin/horses")
-  return res.data
-}
 
-// Lấy chi tiết 1 ngựa (dùng khi cần đầy đủ fields: color, birthYear, ownerName, etc.)
-export async function getHorseDetail(horseId) {
-  const res = await api.get(`/api/horses/${horseId}`)
-  return res.data
-}
-
-// Lấy danh sách ngựa đang chờ duyệt (legacy - dùng getAllHorses thay thế)
-export async function getPendingHorses() {
-  const res = await api.get("/api/admin/horses/pending")
-  return res.data
-}
-
-// Duyệt ngựa
-export async function approveHorse(horseId) {
-  const res = await api.post(`/api/admin/horses/${horseId}/approve`)
-  return res.data
-}
-
-//Từ chối ngựa
-export async function rejectHorse(horseId, reason) {
-  // Backend yêu cầu reason (không được null)
-  const res = await api.post(`/api/admin/horses/${horseId}/reject`, { reason })
-  return res.data
-}
-
-// Thu hồi ngựa đã duyệt (chỉ work trên Approved → chuyển thành Rejected)
-export async function revokeHorse(horseId) {
-  const res = await api.post(`/api/admin/horses/${horseId}/revoke`)
-  return res.data
-}
 
 // ─── Entries ──────────────────────────────────────────────────────────────────
 
@@ -316,3 +470,14 @@ export async function getRaceStandings(raceId) {
   const res = await api.get(`/api/races/${raceId}/standings`)
   return res.data
 }
+
+// NOTE: Backward-compat aliases intentionally removed.
+// - `getTournaments` / `getTournamentDetail` → consumers must import from
+//   `api/spectator`, `api/horseOwner`, `api/jockey` directly.
+// - `getAllRaces` / `getRaceById` never existed; their aliases were crashing
+//   the module at load time. Use `getRaces` / `getRaceDetail` below.
+
+// NOTE: `getUsers` removed — it was a duplicate of `getAllUser` that hardcoded
+// `pageSize: 1000`. Call sites that need a flat user list (e.g. AdminRacesPage
+// dropdown) should call `getAllUser({ page: 1, pageSize: 1000 })` explicitly
+// so the page size lives at the call site, not inside the API layer.

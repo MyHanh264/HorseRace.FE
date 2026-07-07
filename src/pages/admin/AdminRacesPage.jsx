@@ -6,8 +6,8 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
-  getTournaments, getRaces, getRaceDetail, createRace, updateRace, deleteRace,
-  getUsers, approveEntry, rejectEntry, openRegistration, closeRegistration, startRace,
+  getAllTournaments, getRaces, getRaceDetail, createRace, updateRace, deleteRace,
+  getAllUser, approveEntry, rejectEntry, openRegistration, closeRegistration, startRace,
   publishRace, unpublishRace,
 } from '../../api/admin'
 import api from '../../services/api'
@@ -348,15 +348,15 @@ export default function AdminRacesPage() {
   const loadAll = useCallback(async () => {
     try {
       const [tournamentsData, racesBasic, entriesData, usersData] = await Promise.all([
-        getTournaments(),
+        getAllTournaments(),
         getRaces(),
         api.get('/api/entries').then(r => r.data),
-        getUsers(),
+        getAllUser({ page: 1, pageSize: 1000 }),
       ])
 
       setTournaments(Array.isArray(tournamentsData) ? tournamentsData : [])
       setEntries(Array.isArray(entriesData) ? entriesData : [])
-      setUsers(Array.isArray(usersData) ? usersData : [])
+      setUsers(Array.isArray(usersData?.items ?? usersData) ? (usersData?.items ?? usersData) : [])
       setError('')
 
       const raceList = Array.isArray(racesBasic) ? racesBasic : []
@@ -377,15 +377,16 @@ export default function AdminRacesPage() {
 
   useEffect(() => {
     Promise.all([
-      getTournaments(),
+      getAllTournaments(),
       getRaces(),
       api.get('/api/entries').then(r => r.data),
-      getUsers(),
+      getAllUser({ page: 1, pageSize: 1000 }),
     ])
       .then(([tournamentsData, racesBasic, entriesData, usersData]) => {
+        const userList = usersData?.items ?? usersData
         setTournaments(Array.isArray(tournamentsData) ? tournamentsData : [])
         setEntries(Array.isArray(entriesData) ? entriesData : [])
-        setUsers(Array.isArray(usersData) ? usersData : [])
+        setUsers(Array.isArray(userList) ? userList : [])
         const raceList = Array.isArray(racesBasic) ? racesBasic : []
         setRaceRegMap(buildRegMap(raceList))
         if (raceList.length > 0) {

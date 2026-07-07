@@ -5,7 +5,7 @@ import {
   CheckCircle, XCircle, Users, UserCheck,
 } from 'lucide-react'
 import {
-  getRaceDetail, getRaces, getTournaments, getUsers,
+  getRaceDetail, getRaces, getAllTournaments, getAllUser,
   openRegistration, closeRegistration, startRace,
   approveEntry, rejectEntry,
 } from '../../api/admin'
@@ -76,8 +76,8 @@ export default function AdminRaceEntriesPage() {
       getRaceDetail(raceId),
       getRaces(),
       api.get('/api/entries').then(r => r.data),
-      getUsers(),
-      getTournaments(),
+      getAllUser({ page: 1, pageSize: 1000 }),
+      getAllTournaments(),
     ]).then(([detail, racesBasic, allEntries, users, tournaments]) => {
       if (cancelled) return
       setRace(detail)

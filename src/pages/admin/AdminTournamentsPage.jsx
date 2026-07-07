@@ -13,8 +13,8 @@ import {
   AlertCircle,
 } from "lucide-react";
 import {
-  getTournaments,
-  getTournamentDetail,
+  getAllTournaments,
+  getTournamentById,
   createTournament,
   updateTournament,
   deleteTournament,
@@ -318,7 +318,7 @@ export default function AdminTournamentsPage() {
 
   const load = useCallback(async () => {
     try {
-      const data = await getTournaments();
+      const data = await getAllTournaments();
       setTournaments(Array.isArray(data) ? data : []);
       setError("");
     } catch (err) {
@@ -329,7 +329,7 @@ export default function AdminTournamentsPage() {
   }, []);
 
   useEffect(() => {
-    getTournaments()
+    getAllTournaments()
       .then((data) => setTournaments(Array.isArray(data) ? data : []))
       .catch((err) =>
         setError(err?.message || "Không tải được danh sách giải đấu"),
@@ -362,7 +362,7 @@ export default function AdminTournamentsPage() {
   const openEdit = async (t) => {
     setFormError("");
     try {
-      const detail = await getTournamentDetail(t.tournamentId);
+      const detail = await getTournamentById(t.tournamentId);
       setEditingItem(detail);
     } catch {
       setEditingItem(t);
