@@ -16,15 +16,16 @@ import LandingDashboard from "./pages/customer/LandingDashboard";
 import AdminLayout from "./components/layout/AdminLayout";
 import AdminAnalyticsPage from "./pages/admin/AdminAnalyticsPage";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
+import AdminHorsesPage from "./pages/admin/AdminHorsesPage";
 import AdminTournamentsPage from "./pages/admin/AdminTournamentsPage";
 import AdminRacesPage from "./pages/admin/AdminRacesPage";
-import AdminHorsesPage from "./pages/admin/AdminHorsesPage";
 import AdminDiscrepanciesPage from "./pages/admin/AdminDiscrepanciesPage";
 import AdminViolationsPage from "./pages/admin/AdminViolationsPage";
 import AdminPointManagementPage from "./pages/admin/AdminPointManagementPage";
 import AdminRaceExecutionPage from "./pages/admin/AdminRaceExecutionPage";
 import AdminRaceEntriesPage from "./pages/admin/AdminRaceEntriesPage";
 import AdminConflictResolutionPage from "./pages/admin/AdminConflictResolutionPage";
+
 // Spectator
 import SpectatorLayout from "./components/layout/SpectatorLayout";
 import SpectatorDashboard from "./pages/spectator/SpectatorDashboard";
@@ -64,7 +65,7 @@ import HorseOwnerTournamentsPage from "./pages/horse-owner/HorseOwnerTournaments
 function App() {
   return (
     <BrowserRouter>
-      <AuthSessionSync /> {/* ← đứng một mình, không bọc Routes */}
+      <AuthSessionSync />
       <Routes>
         {/* Public */}
         <Route path="/" element={<LandingDashboard />} />
@@ -87,6 +88,9 @@ function App() {
           <Route path="horses" element={<AdminHorsesPage />} />
           <Route path="tournaments" element={<AdminTournamentsPage />} />
           <Route path="races" element={<AdminRacesPage />} />
+          <Route path="discrepancies" element={<AdminDiscrepanciesPage />} />
+          <Route path="violations" element={<AdminViolationsPage />} />
+          <Route path="point-management" element={<AdminPointManagementPage />} />
           <Route
             path="races/:raceId/entries"
             element={<AdminRaceEntriesPage />}
@@ -95,12 +99,6 @@ function App() {
           <Route
             path="races/:id/conflict"
             element={<AdminConflictResolutionPage />}
-          />
-          <Route path="discrepancies" element={<AdminDiscrepanciesPage />} />
-          <Route path="violations" element={<AdminViolationsPage />} />
-          <Route
-            path="point-management"
-            element={<AdminPointManagementPage />}
           />
         </Route>
 

@@ -20,8 +20,6 @@ import {
   deleteTournament,
 } from "../../api/admin";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
 const TABS = ["All", "Active", "Upcoming", "Completed"];
 
 const TAB_FILTER = {
@@ -58,8 +56,6 @@ const ALL_STATUSES = ["Draft", "Open", "Ongoing", "Finished", "Cancelled"];
 
 const PAGE_SIZE = 10;
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function fmtId(id, startDate) {
   const year = startDate ? startDate.slice(0, 4) : new Date().getFullYear();
   return `TRN-${year}-${String(id).padStart(3, "0")}`;
@@ -69,18 +65,8 @@ function fmtDate(d) {
   if (!d) return "—";
   const [y, m, day] = d.split("-");
   const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
   ];
   return `${months[+m - 1]} ${+day}, ${y}`;
 }
@@ -88,8 +74,6 @@ function fmtDate(d) {
 function toInputDate(d) {
   return d ? d.slice(0, 10) : "";
 }
-
-// ─── Modal ────────────────────────────────────────────────────────────────────
 
 function TournamentModal({ tournament, onClose, onSubmit, submitting, error }) {
   const isEdit = !!tournament;
@@ -128,7 +112,6 @@ function TournamentModal({ tournament, onClose, onSubmit, submitting, error }) {
       style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }}
     >
       <div className="gs-card w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        {/* Modal header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/40">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-secondary/10 border border-secondary/20 flex items-center justify-center">
@@ -146,7 +129,6 @@ function TournamentModal({ tournament, onClose, onSubmit, submitting, error }) {
           </button>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
           {error && (
             <div className="p-3 rounded-lg bg-error/10 border border-error/25 text-error text-sm flex items-center gap-2">
@@ -155,7 +137,6 @@ function TournamentModal({ tournament, onClose, onSubmit, submitting, error }) {
             </div>
           )}
 
-          {/* Name */}
           <div>
             <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
               Tournament Name <span className="text-error">*</span>
@@ -169,7 +150,6 @@ function TournamentModal({ tournament, onClose, onSubmit, submitting, error }) {
             />
           </div>
 
-          {/* Location */}
           <div>
             <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
               Location
@@ -182,7 +162,6 @@ function TournamentModal({ tournament, onClose, onSubmit, submitting, error }) {
             />
           </div>
 
-          {/* Dates */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
@@ -211,7 +190,6 @@ function TournamentModal({ tournament, onClose, onSubmit, submitting, error }) {
             </div>
           </div>
 
-          {/* Description */}
           <div>
             <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
               Description
@@ -225,7 +203,6 @@ function TournamentModal({ tournament, onClose, onSubmit, submitting, error }) {
             />
           </div>
 
-          {/* Logo URL */}
           <div>
             <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
               Logo URL
@@ -239,7 +216,6 @@ function TournamentModal({ tournament, onClose, onSubmit, submitting, error }) {
             />
           </div>
 
-          {/* Status (edit only) */}
           {isEdit && (
             <div>
               <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
@@ -251,15 +227,12 @@ function TournamentModal({ tournament, onClose, onSubmit, submitting, error }) {
                 className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all"
               >
                 {ALL_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
+                  <option key={s} value={s}>{s}</option>
                 ))}
               </select>
             </div>
           )}
 
-          {/* Cancel reason — only when status is Cancelled */}
           {isEdit && form.status === "Cancelled" && (
             <div>
               <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
@@ -274,7 +247,6 @@ function TournamentModal({ tournament, onClose, onSubmit, submitting, error }) {
             </div>
           )}
 
-          {/* Actions */}
           <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"
@@ -299,8 +271,6 @@ function TournamentModal({ tournament, onClose, onSubmit, submitting, error }) {
     </div>
   );
 }
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AdminTournamentsPage() {
   const [tournaments, setTournaments] = useState([]);
@@ -337,7 +307,6 @@ export default function AdminTournamentsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // ── Filter ──
   const filtered = tournaments.filter((t) => {
     const statusOk =
       !TAB_FILTER[activeTab] || TAB_FILTER[activeTab].includes(t.status);
@@ -352,7 +321,6 @@ export default function AdminTournamentsPage() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  // ── Handlers ──
   const openCreate = () => {
     setEditingItem(null);
     setFormError("");
@@ -405,7 +373,6 @@ export default function AdminTournamentsPage() {
 
   return (
     <div className="max-w-[1280px] mx-auto px-6 sm:px-8 py-8">
-      {/* ── Page Header ── */}
       <div className="flex items-start justify-between mb-8">
         <div
           className="animate-fade-in-up"
@@ -437,7 +404,6 @@ export default function AdminTournamentsPage() {
         </button>
       </div>
 
-      {/* ── Global Error ── */}
       {error && (
         <div className="mb-5 p-4 rounded-xl bg-error/10 border border-error/25 text-error text-sm flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0" />
@@ -451,9 +417,7 @@ export default function AdminTournamentsPage() {
         </div>
       )}
 
-      {/* ── Table Card ── */}
       <div className="gs-card overflow-hidden">
-        {/* Tabs + Search */}
         <div className="flex items-center justify-between px-5 border-b border-outline-variant/40">
           <div className="flex">
             {TABS.map((tab) => (
@@ -489,7 +453,6 @@ export default function AdminTournamentsPage() {
           </div>
         </div>
 
-        {/* Content */}
         {loading ? (
           <div className="flex items-center justify-center py-24">
             <div className="flex flex-col items-center gap-3">
@@ -537,7 +500,6 @@ export default function AdminTournamentsPage() {
                       className={`animate-fade-in-up delay-row-${(i % 4) + 1}`}
                       style={{ opacity: 0, animationFillMode: "forwards" }}
                     >
-                      {/* Name */}
                       <td>
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-lg bg-secondary/10 border border-secondary/20 flex items-center justify-center shrink-0">
@@ -562,7 +524,6 @@ export default function AdminTournamentsPage() {
                         </div>
                       </td>
 
-                      {/* Location */}
                       <td>
                         <div className="flex items-center gap-1.5 text-sm text-on-surface-variant">
                           {t.location ? (
@@ -576,7 +537,6 @@ export default function AdminTournamentsPage() {
                         </div>
                       </td>
 
-                      {/* Dates */}
                       <td>
                         <div className="flex items-center gap-1.5 text-sm text-on-surface-variant">
                           <Calendar className="w-3.5 h-3.5 shrink-0" />
@@ -586,7 +546,6 @@ export default function AdminTournamentsPage() {
                         </div>
                       </td>
 
-                      {/* Status */}
                       <td>
                         <span
                           className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${meta.cls}`}
@@ -595,7 +554,6 @@ export default function AdminTournamentsPage() {
                         </span>
                       </td>
 
-                      {/* Actions */}
                       <td>
                         {deletingId === t.tournamentId ? (
                           <div className="flex items-center gap-2 flex-wrap">
@@ -642,7 +600,6 @@ export default function AdminTournamentsPage() {
           </div>
         )}
 
-        {/* Pagination */}
         {!loading && filtered.length > PAGE_SIZE && (
           <div className="flex items-center justify-between px-5 py-3 border-t border-outline-variant/40">
             <span className="text-xs text-on-surface-variant">
@@ -665,7 +622,9 @@ export default function AdminTournamentsPage() {
                 <button
                   key={p}
                   onClick={() => setPage(p)}
-                  className={`gs-btn gs-btn-sm min-w-[32px] justify-center ${page === p ? "gs-btn-secondary" : "gs-btn-ghost"}`}
+                  className={`gs-btn gs-btn-sm min-w-[32px] justify-center ${
+                    page === p ? "gs-btn-secondary" : "gs-btn-ghost"
+                  }`}
                 >
                   {p}
                 </button>
@@ -682,7 +641,6 @@ export default function AdminTournamentsPage() {
         )}
       </div>
 
-      {/* ── Modal ── */}
       {showModal && (
         <TournamentModal
           tournament={editingItem}

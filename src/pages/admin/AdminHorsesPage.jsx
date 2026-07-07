@@ -163,7 +163,6 @@ export default function AdminHorsesPage() {
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [activeTab, setActiveTab] = useState("Pending");
 
-  // Debounce search — Bug #6 fix
   const debounceTimer = useRef(null);
   function handleSearchChange(value) {
     setSearchQuery(value);
@@ -193,22 +192,11 @@ export default function AdminHorsesPage() {
     setLoading(true);
     setError("");
     try {
-      // Backend note:
-      // - GET /api/horses: chỉ trả { horseId, name, status, breed } - thiếu ownerName, color, birthYear
-      // - GET /api/admin/horses/pending: trả đầy đủ fields (ownerName, createdAt, etc.)
-      //
-      // Strategy:
-      // 1. Lấy danh sách đầy đủ từ pending API (có ownerName, color, birthYear)
-      // 2. Lấy status từ /api/horses để merge
-      // 3. Horses trong pending = status "Pending"
-      // 4. Horses không trong pending = dùng status từ /api/horses
-
       const [pendingRes, allRes] = await Promise.allSettled([
         getPendingHorses(),
         api.get("/api/horses"),
       ]);
 
-      // Map status từ allHorses
       const statusMap = new Map();
       if (allRes.status === "fulfilled") {
         const allHorses = Array.isArray(allRes.value.data) ? allRes.value.data : [];
@@ -217,25 +205,22 @@ export default function AdminHorsesPage() {
         });
       }
 
-      // Build merged horses từ pending list (đầy đủ fields nhất)
       const merged = [];
       if (pendingRes.status === "fulfilled") {
         const data = pendingRes.value;
         (Array.isArray(data) ? data : []).forEach((h) => {
           merged.push({
             ...h,
-            status: "Pending", // Override với status Pending
+            status: "Pending",
           });
         });
       }
 
-      // Thêm horses từ allHorses mà KHÔNG có trong pending
       const pendingIds = new Set(merged.map((h) => h.horseId));
       if (allRes.status === "fulfilled") {
         const allHorses = Array.isArray(allRes.value.data) ? allRes.value.data : [];
         allHorses.forEach((h) => {
           if (!pendingIds.has(h.horseId)) {
-            // Lấy status từ map, giữ các fields từ pending nếu có
             const existing = merged.find((m) => m.horseId === h.horseId);
             merged.push({
               ...existing,
@@ -248,11 +233,7 @@ export default function AdminHorsesPage() {
 
       setHorses(merged);
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Không tải được danh sách ngựa",
-      );
+      setError(err instanceof Error ? err.message : "Không tải được danh sách ngựa");
     } finally {
       setLoading(false);
     }
@@ -284,7 +265,6 @@ export default function AdminHorsesPage() {
     setActionId(horseId);
     setError("");
     try {
-      // Khôi phục ngựa từ Rejected → Approved bằng cách gọi approveHorse
       await approveHorse(horseId);
       setRevokingId(null);
       await loadHorses();
@@ -300,7 +280,6 @@ export default function AdminHorsesPage() {
     setActionId(horseId);
     setError("");
     try {
-      // Backend yêu cầu reason (không được null)
       if (!rejectReason.trim()) {
         setError("Vui lòng nhập lý do từ chối.");
         setActionId(null);
@@ -322,8 +301,6 @@ export default function AdminHorsesPage() {
     setActionId(horseId);
     setError("");
     try {
-      // Backend: revoke chỉ work trên Approved → chuyển thành Rejected
-      // Backend trả về số entries đã bị cancel
       const result = await revokeHorse(horseId);
       setRevokingId(null);
       await loadHorses();
@@ -391,7 +368,7 @@ export default function AdminHorsesPage() {
 
   return (
     <div className="max-w-[1280px] mx-auto px-6 sm:px-8 py-8">
-      {/* ── Header ───────────────────────────────────────── */}
+      {/* Header */}
       <div className="mb-8 animate-fade-in-up" style={{ opacity: 0, animationFillMode: "forwards" }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -419,8 +396,7 @@ export default function AdminHorsesPage() {
         <div className="h-[2px] w-20 rounded-full bg-gradient-to-r from-primary to-secondary mt-4" />
       </div>
 
-      {/* ── Stats ────────────────────────────────────────── */}
-      {/* FLOW 1: không hiển thị stat Revoked */}
+      {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
         <StatCard
           icon={<Clock className="w-4 h-4 text-amber-400" />}
@@ -452,18 +428,13 @@ export default function AdminHorsesPage() {
         />
       </div>
 
-      {/* ── Alerts ───────────────────────────────────────── */}
+      {/* Alerts */}
       {error && (
         <div className="mb-4 auth-alert auth-alert--error flex items-start gap-3">
           <XCircle className="w-5 h-5 shrink-0 mt-0.5" />
           <div className="flex-1">
             <span>{error}</span>
-            <button
-              onClick={() => setError("")}
-              className="ml-3 text-xs underline hover:no-underline"
-            >
-              Đóng
-            </button>
+            <button onClick={() => setError("")} className="ml-3 text-xs underline hover:no-underline">Đóng</button>
           </div>
         </div>
       )}
@@ -471,16 +442,11 @@ export default function AdminHorsesPage() {
         <div className="mb-4 auth-alert auth-alert--success flex items-start gap-3">
           <CircleCheck className="w-5 h-5 shrink-0 mt-0.5" />
           <span>{successMsg}</span>
-          <button
-            onClick={() => setSuccessMsg("")}
-            className="ml-auto text-xs underline hover:no-underline shrink-0"
-          >
-            Đóng
-          </button>
+          <button onClick={() => setSuccessMsg("")} className="ml-auto text-xs underline hover:no-underline shrink-0">Đóng</button>
         </div>
       )}
 
-      {/* ── Toolbar ──────────────────────────────────────── */}
+      {/* Toolbar */}
       <div className="flex flex-col sm:flex-row gap-3 mb-5">
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/50" />
@@ -502,7 +468,7 @@ export default function AdminHorsesPage() {
         </button>
       </div>
 
-      {/* ── Tabs ─────────────────────────────────────────── */}
+      {/* Tabs */}
       <div className="flex gap-1.5 mb-5 overflow-x-auto pb-1 scrollbar-hide">
         {TABS.map(({ key, label }) => {
           const cnt = key === "All" ? horses.length : horses.filter((h) => h.status === key).length;
@@ -529,7 +495,7 @@ export default function AdminHorsesPage() {
         })}
       </div>
 
-      {/* ── Table ─────────────────────────────────────────── */}
+      {/* Table */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="flex flex-col items-center gap-3">
@@ -540,7 +506,6 @@ export default function AdminHorsesPage() {
       ) : filtered.length === 0 ? (
         <div className="gs-card p-16 text-center">
           <div className="w-16 h-16 rounded-full bg-surface-container-high mx-auto mb-4 flex items-center justify-center">
-            {/* Bug #2 fix — dùng icon trung lập thay vì CircleCheck */}
             <Inbox className="w-8 h-8 text-primary/60" />
           </div>
           <h3 className="font-serif text-xl font-bold text-on-surface mb-2">
@@ -577,7 +542,7 @@ export default function AdminHorsesPage() {
               <tbody>
                 {paginated.map((horse) => (
                   <tr key={horse.horseId}>
-                    {/* ── Horse Name ── */}
+                    {/* Horse Name */}
                     <td>
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-surface-container-high overflow-hidden shrink-0">
@@ -590,23 +555,23 @@ export default function AdminHorsesPage() {
                       </div>
                     </td>
 
-                    {/* ── Breed ── */}
+                    {/* Breed */}
                     <td className="text-sm text-on-surface">{horse.breed || "—"}</td>
 
-                    {/* ── Color ── */}
+                    {/* Color */}
                     <td className="text-xs text-on-surface-variant">{horse.color || "—"}</td>
 
-                    {/* ── Birth Year ── */}
+                    {/* Birth Year */}
                     <td className="text-on-surface font-mono text-xs">
                       {horse.birthYear || "—"}
                     </td>
 
-                    {/* ── Registration Date ── */}
+                    {/* Registration Date */}
                     <td className="text-on-surface-variant font-mono text-xs">
                       {formatDate(horse.registeredAt || horse.createdAt)}
                     </td>
 
-                    {/* ── Horse Owner ── */}
+                    {/* Horse Owner */}
                     <td>
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-full bg-surface-container-highest border border-outline-variant/50 flex items-center justify-center text-xs font-bold text-on-surface-variant shrink-0">
@@ -619,7 +584,7 @@ export default function AdminHorsesPage() {
                       </div>
                     </td>
 
-                    {/* ── Status / Reject Reason (per tab) ── */}
+                    {/* Status / Reject Reason */}
                     {activeTab === HORSE_STATUS.REJECTED ? (
                       <td>
                         {horse.rejectionReason ? (
@@ -639,10 +604,10 @@ export default function AdminHorsesPage() {
                       </td>
                     )}
 
-                    {/* ── Actions ── */}
+                    {/* Actions */}
                     <td>
                       <div className="flex items-center gap-1.5">
-                        {/* Xem chi tiết — luôn có */}
+                        {/* View details */}
                         <button
                           type="button"
                           onClick={() => setSelectedHorse(horse)}
@@ -652,7 +617,7 @@ export default function AdminHorsesPage() {
                           <Eye className="w-3.5 h-3.5" />
                         </button>
 
-                        {/* Pending → Duyệt / Từ chối */}
+                        {/* Pending → Approve / Reject */}
                         {horse.status === HORSE_STATUS.PENDING && rejectingId !== horse.horseId ? (
                           <>
                             <button
@@ -681,7 +646,7 @@ export default function AdminHorsesPage() {
                           </>
                         ) : null}
 
-                        {/* Pending → đang mở form từ chối (reason BẮT BUỘC) */}
+                        {/* Pending → reject form (reason required) */}
                         {horse.status === HORSE_STATUS.PENDING && rejectingId === horse.horseId ? (
                           <div className="flex flex-col gap-1.5 w-56">
                             <div className="relative">
@@ -727,7 +692,7 @@ export default function AdminHorsesPage() {
                           </div>
                         ) : null}
 
-                        {/* Approved → Thu hồi (chuyển về Rejected) */}
+                        {/* Approved → Revoke */}
                         {horse.status === HORSE_STATUS.APPROVED && revokingId !== horse.horseId ? (
                           <button
                             type="button"
@@ -741,7 +706,7 @@ export default function AdminHorsesPage() {
                           </button>
                         ) : null}
 
-                        {/* Approved → đang mở confirm Revoke */}
+                        {/* Approved → confirm Revoke */}
                         {horse.status === HORSE_STATUS.APPROVED && revokingId === horse.horseId ? (
                           <div className="flex flex-col gap-1.5 w-52">
                             <p className="text-[11px] text-on-surface-variant leading-snug">
@@ -774,7 +739,7 @@ export default function AdminHorsesPage() {
                           </div>
                         ) : null}
 
-                        {/* Rejected → Duyệt lại (khôi phục về Approved) */}
+                        {/* Rejected → Restore */}
                         {horse.status === HORSE_STATUS.REJECTED && revokingId !== horse.horseId ? (
                           <button
                             type="button"
@@ -792,7 +757,7 @@ export default function AdminHorsesPage() {
                           </button>
                         ) : null}
 
-                        {/* Rejected → đang mở confirm Duyệt lại */}
+                        {/* Rejected → confirm Restore */}
                         {horse.status === HORSE_STATUS.REJECTED && revokingId === horse.horseId ? (
                           <div className="flex flex-col gap-1.5 w-52">
                             <p className="text-[11px] text-on-surface-variant leading-snug">
@@ -832,7 +797,7 @@ export default function AdminHorsesPage() {
             </table>
           </div>
 
-          {/* ── Pagination ── */}
+          {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-4 px-2">
               <p className="text-xs text-on-surface-variant">
@@ -876,7 +841,7 @@ export default function AdminHorsesPage() {
         </>
       )}
 
-      {/* ── Horse Detail Modal ── */}
+      {/* Horse Detail Modal */}
       {selectedHorse && (
         <HorseDetailModal horse={selectedHorse} onClose={() => setSelectedHorse(null)} />
       )}

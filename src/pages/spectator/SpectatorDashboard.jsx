@@ -33,7 +33,6 @@ function RaceCard({ race, tournament, onBet, delay }) {
       className={`gs-card overflow-hidden flex flex-col animate-fade-in-up delay-row-${delay}`}
       style={{ opacity: 0, animationFillMode: 'forwards' }}
     >
-      {/* Banner placeholder */}
       <div className="relative h-36 flex items-center justify-center overflow-hidden"
            style={{ background: 'linear-gradient(135deg, #182028 0%, #0b141c 100%)' }}>
         <Flag className="w-12 h-12 text-primary/20" />
@@ -49,7 +48,6 @@ function RaceCard({ race, tournament, onBet, delay }) {
         </div>
       </div>
 
-      {/* Body */}
       <div className="p-4 flex flex-col flex-1 gap-3">
         <div>
           <h3 className="font-serif font-bold text-on-surface text-base leading-snug">{race.name}</h3>
@@ -119,9 +117,9 @@ export default function SpectatorDashboard() {
         ])
         if (!active) return
         setWallet(w)
-        setPredictions(Array.isArray(p) ? p : [])
-        setRaces(Array.isArray(r) ? r : [])
-        setTournaments(Array.isArray(t) ? t : [])
+        setPredictions(Array.isArray(p) ? p : (p?.data || []))
+        setRaces(Array.isArray(r) ? r : (r?.data || []))
+        setTournaments(Array.isArray(t) ? t : (t?.data || []))
       } catch (err) {
         if (active) setError(err?.message || 'Không tải được dữ liệu')
       } finally {

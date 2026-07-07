@@ -10,7 +10,6 @@ import {
   ChevronRight,
   Download,
   X,
-  SlidersHorizontal,
   Flag,
   ShieldAlert,
 } from "lucide-react";
@@ -94,7 +93,6 @@ function DiscrepancyDetailModal({ item, onClose, onResolve }) {
         className="bg-[#1a2035] rounded-2xl w-full max-w-2xl border border-white/10 shadow-2xl overflow-hidden animate-fade-in-up max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
@@ -110,9 +108,7 @@ function DiscrepancyDetailModal({ item, onClose, onResolve }) {
           </button>
         </div>
 
-        {/* Body */}
         <div className="overflow-y-auto p-6 space-y-5 flex-1">
-          {/* Status + Type */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${STATUS_BADGE[item.status] || "gs-badge-neutral"}`}>
               {STATUS_LABELS[item.status] || item.status}
@@ -122,14 +118,12 @@ function DiscrepancyDetailModal({ item, onClose, onResolve }) {
             </span>
           </div>
 
-          {/* Race info */}
           <div className="bg-surface-container-lowest rounded-xl p-4 border border-white/5">
             <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-1">Cuộc đua</p>
             <p className="text-sm font-semibold text-on-surface">{item.raceName || "—"}</p>
             <p className="text-xs text-on-surface-variant mt-0.5">{formatDate(item.raceDate)}</p>
           </div>
 
-          {/* Reporter */}
           <div className="bg-surface-container-lowest rounded-xl p-4 border border-white/5">
             <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-2">Người báo cáo</p>
             <div className="flex items-center gap-3">
@@ -144,13 +138,11 @@ function DiscrepancyDetailModal({ item, onClose, onResolve }) {
             </div>
           </div>
 
-          {/* Description */}
           <div className="bg-surface-container-lowest rounded-xl p-4 border border-white/5">
             <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-2">Mô tả</p>
             <p className="text-sm text-on-surface leading-relaxed">{item.description || "—"}</p>
           </div>
 
-          {/* Prediction vs Official */}
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-surface-container-lowest rounded-xl p-4 border border-blue-500/20">
               <p className="text-xs text-blue-400 uppercase tracking-wider mb-2">Dự đoán của người dùng</p>
@@ -172,7 +164,6 @@ function DiscrepancyDetailModal({ item, onClose, onResolve }) {
             </div>
           </div>
 
-          {/* Resolution */}
           {item.status !== "Pending" && item.resolution && (
             <div className="bg-emerald-500/10 rounded-xl p-4 border border-emerald-500/20">
               <p className="text-xs text-emerald-400 uppercase tracking-wider mb-2">Kết quả xử lý</p>
@@ -188,7 +179,6 @@ function DiscrepancyDetailModal({ item, onClose, onResolve }) {
             </div>
           )}
 
-          {/* Resolution form (Pending only) */}
           {item.status === "Pending" && (
             <div className="space-y-3">
               <div>
@@ -242,7 +232,6 @@ function DiscrepancyDetailModal({ item, onClose, onResolve }) {
           )}
         </div>
 
-        {/* Footer */}
         {item.status === "Pending" && (
           <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10 shrink-0">
             <button onClick={onClose} className="gs-btn gs-btn-ghost gs-btn-sm">Hủy</button>
@@ -291,25 +280,23 @@ export default function AdminDiscrepanciesPage() {
   const [total, setTotal] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
   const [resolvedCount, setResolvedCount] = useState(0);
-  // Conflict notifications for referee disputes
-  const [activeConflicts, setActiveConflicts] = useState([]); // [{raceId, raceName, legIndex, legNumber}]
-  const [conflictDismissed, setConflictDismissed] = useState({}); // {[raceId]: true}
+  const [activeConflicts, setActiveConflicts] = useState([]);
+  const [conflictDismissed, setConflictDismissed] = useState({});
 
   const showSuccess = (msg) => {
     setSuccessMsg(msg);
     setTimeout(() => setSuccessMsg(""), 3000);
   };
 
-  // ── Poll for active referee conflicts ──
   useEffect(() => {
     let mounted = true;
 
     async function pollConflicts() {
       try {
-        const res = await api.get('/api/races');
+        const res = await api.get("/api/races");
         const races = Array.isArray(res.data) ? res.data : [];
         const inProgressRaces = races.filter(r =>
-          r.status === 'InProgress' || r.status === 'Paused'
+          r.status === "InProgress" || r.status === "Paused"
         );
 
         const conflicts = [];
@@ -317,7 +304,7 @@ export default function AdminDiscrepanciesPage() {
           try {
             const execRes = await getRaceExecutionStatus(race.raceId);
             const exec = execRes?.data ?? execRes;
-            const conflictedLegs = exec?.legs?.filter(l => l.status === 'Conflicted') ?? [];
+            const conflictedLegs = exec?.legs?.filter(l => l.status === "Conflicted") ?? [];
             for (const leg of conflictedLegs) {
               if (!conflictDismissed[race.raceId]) {
                 conflicts.push({
@@ -414,7 +401,6 @@ export default function AdminDiscrepanciesPage() {
 
   return (
     <div className="max-w-[1280px] mx-auto px-6 sm:px-8 py-8">
-      {/* Header */}
       <div className="mb-8 animate-fade-in-up" style={{ opacity: 0, animationFillMode: "forwards" }}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -436,7 +422,6 @@ export default function AdminDiscrepanciesPage() {
         <div className="h-[2px] w-20 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 mt-4" />
       </div>
 
-      {/* Referee Conflict Alerts — hiện khi có conflict chưa được xử lý */}
       {activeConflicts.map((conflict) => (
         <div
           key={`${conflict.raceId}-${conflict.legIndex}`}
@@ -469,7 +454,6 @@ export default function AdminDiscrepanciesPage() {
         </div>
       ))}
 
-      {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
         <div className="gs-card p-4 flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center shrink-0">
@@ -491,7 +475,7 @@ export default function AdminDiscrepanciesPage() {
         </div>
         <div className="gs-card p-4 flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-surface-container-high border border-outline-variant/20 flex items-center justify-center shrink-0">
-            <SlidersHorizontal className="w-4 h-4 text-on-surface-variant" />
+            <AlertTriangle className="w-4 h-4 text-on-surface-variant" />
           </div>
           <div>
             <p className="text-xl font-bold text-on-surface font-mono">{total}</p>
@@ -500,7 +484,6 @@ export default function AdminDiscrepanciesPage() {
         </div>
       </div>
 
-      {/* Alerts */}
       {error && (
         <div className="mb-4 auth-alert auth-alert--error flex items-start gap-3">
           <XCircle className="w-5 h-5 shrink-0 mt-0.5" />
@@ -517,7 +500,6 @@ export default function AdminDiscrepanciesPage() {
         </div>
       )}
 
-      {/* Toolbar */}
       <div className="flex flex-col sm:flex-row gap-3 mb-5">
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/50" />
@@ -535,7 +517,6 @@ export default function AdminDiscrepanciesPage() {
         </button>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-1.5 mb-5 overflow-x-auto pb-1">
         {TABS.map(({ key, label }) => {
           const cnt = key === "All" ? total : key === "Pending" ? pendingCount : key === "Resolved" ? resolvedCount : filtered.length;
@@ -555,36 +536,7 @@ export default function AdminDiscrepanciesPage() {
         })}
       </div>
 
-      {/* Table */}
-      {activeTab === "Conflicts" ? (
-        <div className="space-y-3">
-          {activeConflicts.length === 0 ? (
-            <div className="gs-card p-12 text-center">
-              <ShieldAlert size={40} className="w-10 h-10 text-gray-500 mx-auto mb-4 opacity-60" />
-              <h3 className="font-serif text-lg font-bold text-on-surface mb-2">Không có xung đột nào</h3>
-              <p className="text-on-surface-variant text-sm">Tất cả các leg đều khớp giữa 2 referees.</p>
-            </div>
-          ) : activeConflicts.map((conflict) => (
-            <div key={`${conflict.raceId}-${conflict.legIndex}`} className="gs-card p-5 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center">
-                  <ShieldAlert size={24} className="text-orange-400" />
-                </div>
-                <div>
-                  <p className="font-semibold text-on-surface">{conflict.raceName}</p>
-                  <p className="text-sm text-on-surface-variant">Leg {conflict.legNumber} — 2 referees có kết quả khác nhau</p>
-                </div>
-              </div>
-              <a
-                href={`/admin/races/${conflict.raceId}/conflict`}
-                className="px-4 py-2 rounded-lg bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/40 text-sm font-semibold text-orange-300 transition-all"
-              >
-                Xem & Xử lý
-              </a>
-            </div>
-          ))}
-        </div>
-      ) : loading ? (
+      {loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="flex flex-col items-center gap-3">
             <div className="w-10 h-10 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />

@@ -2,6 +2,7 @@ import { NavLink, Outlet } from "react-router-dom";
 import { LayoutDashboard, Mail, Flag, BarChart2, User, LogOut } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
+// Chức năng: Định nghĩa các mục điều hướng cho thanh sidebar
 const navItems = [
   { to: "/jockey", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/jockey/invitations", label: "My Invitations", icon: Mail },
@@ -10,6 +11,7 @@ const navItems = [
   { to: "/jockey/profile", label: "Profile", icon: User },
 ];
 
+// Chức năng: Lấy chữ cái viết tắt từ tên người dùng
 function getInitials(name) {
   if (!name) return "J";
   return name
@@ -24,69 +26,52 @@ export default function JockeyLayout() {
   const { user, logout } = useAuth();
 
   return (
-    <div className="flex h-screen font-sans" style={{ background: "#0D1117", color: "#E6EDF3" }}>
-      {/* Sidebar */}
-      <aside className="w-[200px] h-screen fixed left-0 top-0 flex flex-col bg-[#111418] border-r border-white/10 flex-shrink-0">
-        {/* Logo */}
-        <div className="flex items-center gap-3 px-4 py-5 border-b border-white/10">
-          <div className="w-9 h-9 rounded-full bg-primary-container/50 border border-primary/20 flex items-center justify-center text-base flex-shrink-0">
-            🏇
-          </div>
-          <div className="min-w-0">
-            <p className="text-primary font-bold text-sm leading-tight">GrandStride</p>
-            <p className="text-gray-500 text-[10px]">Jockey Portal</p>
-          </div>
+    <div className="gs-sidebar">
+      {/* Brand header */}
+      <div className="gs-sidebar-brand">
+        <div className="gs-sidebar-brand-icon">🏇</div>
+        <div>
+          <div className="gs-sidebar-brand-name">GrandStride</div>
+          <div className="gs-sidebar-brand-role">Jockey Portal</div>
         </div>
+      </div>
 
-        {/* Nav */}
-        <nav className="flex-1 py-4 space-y-0.5 px-2 overflow-y-auto">
-          {navItems.map(({ to, label, icon: Icon, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors w-full
-                ${
-                  isActive
-                    ? "bg-primary-container/30 text-primary font-semibold"
-                    : "text-gray-400 hover:bg-white/5 hover:text-white"
-                }`
-              }
-            >
-              <Icon size={15} className="flex-shrink-0" />
-              <span className="truncate">{label}</span>
-            </NavLink>
-          ))}
-        </nav>
-
-        {/* Footer — user + logout */}
-        <div className="p-3 border-t border-white/10 space-y-2">
-          <div className="flex items-center gap-2.5 px-2 py-2">
-            <div className="w-7 h-7 rounded-full bg-primary-container/60 border border-primary/30 flex items-center justify-center text-[10px] font-bold text-on-primary-container flex-shrink-0">
-              {getInitials(user?.fullName)}
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-white truncate">
-                {user?.fullName || "Jockey"}
-              </p>
-              <p className="text-[10px] text-gray-500 truncate">{user?.email ?? ""}</p>
-            </div>
-          </div>
-          <button
-            onClick={logout}
-            className="flex items-center gap-2.5 px-3 py-2 w-full rounded-lg text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+      {/* Navigation */}
+      <nav className="gs-sidebar-nav">
+        <div className="gs-sidebar-section-label">Menu</div>
+        {navItems.map(({ to, label, icon: Icon, end }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            className={({ isActive }) =>
+              `gs-sidebar-link${isActive ? " active" : ""}`
+            }
           >
-            <LogOut size={14} />
-            Logout
-          </button>
-        </div>
-      </aside>
+            <span className="gs-sidebar-icon">
+              <Icon size={16} />
+            </span>
+            <span>{label}</span>
+          </NavLink>
+        ))}
+      </nav>
 
-      {/* Page content */}
-      <main className="flex-1 overflow-auto ml-[200px]">
-        <Outlet />
-      </main>
+      {/* Footer — user + logout */}
+      <div className="gs-sidebar-footer">
+        <div className="gs-sidebar-user">
+          <div className="gs-sidebar-user-avatar">{getInitials(user?.fullName)}</div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div className="gs-sidebar-user-name">{user?.fullName || "Jockey"}</div>
+            <div className="gs-sidebar-user-email">{user?.email ?? ""}</div>
+          </div>
+        </div>
+        <button onClick={logout} className="gs-sidebar-logout">
+          <span className="gs-sidebar-logout-icon">
+            <LogOut size={15} />
+          </span>
+          <span>Logout</span>
+        </button>
+      </div>
     </div>
   );
 }
