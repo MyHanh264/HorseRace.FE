@@ -1,6 +1,51 @@
 import api from '../services/api'
 
-// ─── Users ────────────────────────────────────────────────────────────────────
+// ─── Role Mapping (from Backend /api/roles) ───────────────────────────────────
+let roleCache = null
+let rolePromise = null
+
+export async function getAllRoles() {
+  const res = await api.get('/api/roles')
+  return res.data
+}
+
+export async function getRoleMap() {
+  if (roleCache) return roleCache
+  if (rolePromise) return rolePromise
+
+  rolePromise = (async () => {
+    try {
+      const roles = await getAllRoles()
+      roleCache = roles
+      return roles
+    } catch {
+      roleCache = []
+      return []
+    } finally {
+      rolePromise = null
+    }
+  })()
+  return rolePromise
+}
+
+export function clearRoleCache() {
+  roleCache = null
+}
+
+export function getRoleIdByCode(code) {
+  if (!roleCache) return null
+  const role = roleCache.find((r) => r.code === code)
+  return role?.roleId ?? null
+}
+
+export function getRoleCodeById(id) {
+  if (!roleCache) return null
+  const role = roleCache.find((r) => r.roleId === id)
+  return role?.code ?? null
+}
+
+// ─── Users (Admin Management) ──────────────────────────────────────────────────
+// NOTE: Backend uses /api/users for CRUD (ADMIN), /api/admin/users/pending for pending list
 
 export async function getPendingUsers() {
   const res = await api.get('/api/admin/users/pending')
@@ -17,29 +62,80 @@ export async function rejectUser(userId, reason) {
   return res.data
 }
 
-export async function getAllUser({ page = 1, pageSize = 10, search = "", sort = "createdAt", sortDirection = "desc" } = {}) {
-  const params = { page, pageSize, search, sort, sortDirection }
-  const res = await api.get('/api/admin/users', { params })
+// Get all users - Backend returns flat array: [{ userId, email, fullName, roleId, isActive }, ...]
+// GET /api/users
+export async function getAllUser({ page = 1, pageSize = 10, search = "", sort = "createdAt", sortDirection = "desc", role = "", status = "" } = {}) {
+  const res = await api.get('/api/users')
+  return res.data
+}
+
+// Get users by status (filter client-side from getAllUser)
+export async function getUsersByStatus(status, { page = 1, pageSize = 10, search = "" } = {}) {
+  const res = await api.get('/api/users')
   return res.data
 }
 
 export async function getUserById(id) {
-  const res = await api.get(`/api/admin/users/${id}`)
+  const res = await api.get(`/api/users/${id}`)
   return res.data
 }
 
+// DELETE /api/users/{id} (ADMIN only)
 export async function deleteUser(id) {
-  const res = await api.delete(`/api/admin/users/${id}`)
+  const res = await api.delete(`/api/users/${id}`)
   return res.data
 }
 
+// PUT /api/users/{id} (ADMIN can update any user)
+// Backend expects: UserId, Email, FullName, PhoneNumber, AvatarUrl, RoleId, IsActive, LockedUntil, LicenseNumber, Weight, Bio, IsProfileComplete
 export async function updateUser(id, data) {
-  const res = await api.put(`/api/admin/users/${id}`, data)
+  const roleMap = await getRoleMap()
+  let roleId = data.roleId
+  if (typeof data.roleCode === 'string' && roleMap.length > 0) {
+    roleId = roleMap.find((r) => r.code === data.roleCode)?.roleId || data.roleId
+  }
+  if (!roleId) roleId = 5 // fallback SPECTATOR
+
+  const payload = {
+    UserId: id,
+    Email: data.email,
+    FullName: data.fullName,
+    PhoneNumber: data.phoneNumber || null,
+    AvatarUrl: data.avatarUrl || null,
+    RoleId: roleId,
+    IsActive: data.isActive !== undefined ? data.isActive : true,
+    LockedUntil: data.lockedUntil || null,
+    LicenseNumber: data.licenseNumber || null,
+    Weight: data.weight || null,
+    Bio: data.bio || null,
+    IsProfileComplete: data.isProfileComplete !== undefined ? data.isProfileComplete : true,
+  }
+  const res = await api.put(`/api/users/${id}`, payload)
   return res.data
 }
 
+// POST /api/users (ADMIN only - create new user account)
+// Backend expects: Email, PasswordHash, FullName, PhoneNumber, AvatarUrl, RoleId, LicenseNumber, Weight, Bio
 export async function createUser(data) {
-  const res = await api.post('/api/admin/users', data)
+  const roleMap = await getRoleMap()
+  let roleId = data.roleId
+  if (typeof data.roleCode === 'string' && roleMap.length > 0) {
+    roleId = roleMap.find((r) => r.code === data.roleCode)?.roleId || data.roleId
+  }
+  if (!roleId) roleId = 5 // fallback SPECTATOR
+
+  const payload = {
+    Email: data.email,
+    PasswordHash: data.password,
+    FullName: data.fullName,
+    PhoneNumber: data.phoneNumber || null,
+    AvatarUrl: data.avatarUrl || null,
+    RoleId: roleId,
+    LicenseNumber: data.licenseNumber || null,
+    Weight: data.weight || null,
+    Bio: data.bio || null,
+  }
+  const res = await api.post('/api/users', payload)
   return res.data
 }
 
@@ -61,6 +157,22 @@ export async function approveInvalidUser(id) {
 
 export async function rejectInvalidUser(id, reason) {
   const res = await api.post(`/api/admin/users/invalid/${id}/reject`, { reason: reason || null })
+  return res.data
+}
+
+// ─── User Lock/Unlock ────────────────────────────────────────────────────────
+export async function lockUser(userId, reason) {
+  const res = await api.post(`/api/admin/users/${userId}/lock`, { reason: reason || null })
+  return res.data
+}
+
+export async function unlockUser(userId) {
+  const res = await api.post(`/api/admin/users/${userId}/unlock`)
+  return res.data
+}
+
+export async function getUserHistory(userId, { page = 1, pageSize = 20 } = {}) {
+  const res = await api.get(`/api/admin/users/${userId}/history`, { params: { page, pageSize } })
   return res.data
 }
 
@@ -391,4 +503,17 @@ export async function resumeRace(raceId) {
 export async function getRaceStandings(raceId) {
   const res = await api.get(`/api/races/${raceId}/standings`)
   return res.data
+}
+
+// ─── Aliases for backward compatibility ──────────────────────────────────────
+
+export const getTournaments = getAllTournaments
+export const getTournamentDetail = getTournamentById
+export const getRaces = getAllRaces
+export const getRaceDetail = getRaceById
+
+// getUsers used by AdminRacesPage expects a simple array of users
+export async function getUsers() {
+  const res = await api.get('/api/users', { params: { page: 1, pageSize: 1000 } })
+  return res.data?.items ?? res.data ?? []
 }
