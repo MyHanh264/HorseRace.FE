@@ -9,6 +9,10 @@ import {
   Clock,
   Plus,
   ImageIcon,
+  CheckCircle2,
+  XCircle,
+  Bell,
+  Trophy,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -317,6 +321,29 @@ export default function HorseOwnerDashboard() {
   );
   const firstName = user?.fullName?.split(" ")[0] ?? "there";
 
+  const rejectedHorses = horses.filter((h) => h.status === "Rejected");
+  const rejectedEntries = entries.filter((e) => e.status === "Rejected");
+  const finishedRaceIds = new Set(
+    races.filter((r) => r.status === "Finished").map((r) => r.raceId)
+  );
+  const finishedEntries = entries.filter(
+    (e) => e.status === "Approved" && finishedRaceIds.has(e.raceId)
+  );
+
+  const notifications = [];
+  if (!loading) {
+    if (pendingInvitations.length > 0)
+      notifications.push({ type: "warn", icon: Bell, msg: `Bạn có ${pendingInvitations.length} lời mời jockey chưa phản hồi.`, path: "/horse-owner/invitations" });
+    if (rejectedHorses.length > 0)
+      notifications.push({ type: "error", icon: XCircle, msg: `${rejectedHorses.length} ngựa bị từ chối đăng ký.`, path: "/horse-owner/horses" });
+    if (rejectedEntries.length > 0)
+      notifications.push({ type: "error", icon: XCircle, msg: `${rejectedEntries.length} entry bị từ chối tham gia race.`, path: "/horse-owner/entries" });
+    if (finishedEntries.length > 0)
+      notifications.push({ type: "success", icon: Trophy, msg: `${finishedEntries.length} cuộc đua đã kết thúc — xem kết quả của bạn.`, path: "/horse-owner/entries" });
+    if (pendingInvitations.length === 0 && rejectedHorses.length === 0 && rejectedEntries.length === 0)
+      notifications.push({ type: "info", icon: CheckCircle2, msg: "Mọi thứ đang ổn định. Không có hành động nào cần thực hiện.", path: null });
+  }
+
   if (loading) {
     return (
       <div className="p-8 flex items-center justify-center min-h-[400px]">
@@ -353,6 +380,32 @@ export default function HorseOwnerDashboard() {
           Register New Horse
         </button>
       </div>
+
+      {/* ── Notification Banners ── */}
+      {notifications.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {notifications.map((n, i) => {
+            const Icon = n.icon
+            const styles = {
+              warn:    "bg-yellow-500/10 border-yellow-500/30 text-yellow-300",
+              error:   "bg-red-500/10 border-red-500/30 text-red-300",
+              success: "bg-emerald-500/10 border-emerald-500/30 text-emerald-300",
+              info:    "bg-white/5 border-white/10 text-gray-400",
+            }
+            return (
+              <div key={i} className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm ${styles[n.type]}`}>
+                <Icon size={16} className="shrink-0" />
+                <span className="flex-1">{n.msg}</span>
+                {n.path && (
+                  <button onClick={() => navigate(n.path)} className="text-xs font-bold underline underline-offset-2 whitespace-nowrap">
+                    Xem ngay
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* ── Stat Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

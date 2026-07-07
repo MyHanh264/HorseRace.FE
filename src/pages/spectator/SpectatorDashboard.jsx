@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Trophy, TrendingUp, Clock, ChevronRight, Wallet, Flag, AlertCircle } from 'lucide-react'
+import { Trophy, TrendingUp, Clock, ChevronRight, Wallet, Flag, AlertCircle, CheckCircle2, XCircle, Bell } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { getMyWallet, getMyPredictions, getAllRaces, getAllTournaments } from '../../api/spectator'
 
@@ -143,15 +143,26 @@ export default function SpectatorDashboard() {
     [races],
   )
 
-  const activeCount   = predictions.filter(p => p.status === 'Pending').length
-  const wonBets       = predictions.filter(p => p.status === 'Won').length
-  const pendingSettle = predictions.filter(p => p.status === 'Pending').length
+  const activeCount    = predictions.filter(p => p.status === 'Pending').length
+  const wonBets        = predictions.filter(p => p.status === 'Won').length
+  const lostBets       = predictions.filter(p => p.status === 'Lost').length
+  const pendingSettle  = predictions.filter(p => p.status === 'Pending').length
+  const totalWinnings  = predictions
+    .filter(p => p.status === 'Won')
+    .reduce((sum, p) => sum + (p.pointsWon ?? p.payout ?? p.pointsBet ?? 0), 0)
+
+  const notifications = []
+  if (!loading) {
+    if (wonBets > 0)  notifications.push({ type: 'success', icon: CheckCircle2, msg: `Chúc mừng! ${wonBets} dự đoán của bạn đã thắng.`, action: { label: 'Xem dự đoán', path: '/spectator/predictions' } })
+    if (lostBets > 0) notifications.push({ type: 'info',    icon: XCircle,      msg: `${lostBets} dự đoán không thắng.`,                 action: { label: 'Xem dự đoán', path: '/spectator/predictions' } })
+    if (activeCount > 0) notifications.push({ type: 'warn', icon: Bell,         msg: `${activeCount} dự đoán đang chờ kết quả từ admin.`, action: null })
+  }
 
   const STATS = [
-    { label: 'Active Predictions', value: activeCount,           Icon: Flag,        color: 'text-primary',   bg: 'bg-primary/10 border border-primary/20' },
-    { label: 'Won Bets',           value: wonBets,               Icon: Trophy,      color: 'text-secondary', bg: 'bg-secondary/10 border border-secondary/20' },
-    { label: 'Total Winnings',     value: '0 pts',               Icon: TrendingUp,  color: 'text-primary',   bg: 'bg-primary/10 border border-primary/20' },
-    { label: 'Pending Settlement', value: pendingSettle,         Icon: Clock,       color: 'text-error',     bg: 'bg-error/10 border border-error/20' },
+    { label: 'Active Predictions', value: activeCount,                             Icon: Flag,        color: 'text-primary',   bg: 'bg-primary/10 border border-primary/20' },
+    { label: 'Won Bets',           value: wonBets,                                 Icon: Trophy,      color: 'text-secondary', bg: 'bg-secondary/10 border border-secondary/20' },
+    { label: 'Total Winnings',     value: `${fmtBalance(totalWinnings)} pts`,      Icon: TrendingUp,  color: 'text-primary',   bg: 'bg-primary/10 border border-primary/20' },
+    { label: 'Pending Settlement', value: pendingSettle,                           Icon: Clock,       color: 'text-error',     bg: 'bg-error/10 border border-error/20' },
   ]
 
   return (
@@ -181,9 +192,8 @@ export default function SpectatorDashboard() {
               {loading ? '—' : fmtBalance(wallet?.balance ?? 0)}
               <span className="text-base font-normal text-on-surface-variant ml-1.5">pts</span>
             </p>
-            <p className="text-xs text-on-surface-variant mt-2 flex items-center gap-1">
-              <Clock size={12} />
-              Next top-up: Mon 00:00 (+100 pts)
+            <p className="text-xs text-on-surface-variant mt-2">
+              Tổng thắng: <span className="text-secondary font-bold">{fmtBalance(totalWinnings)} pts</span>
             </p>
           </div>
         </div>
@@ -193,6 +203,31 @@ export default function SpectatorDashboard() {
           <div className="mb-6 p-4 rounded-xl bg-error/10 border border-error/25 text-error text-sm flex items-center gap-2">
             <AlertCircle size={16} className="shrink-0" />
             {error}
+          </div>
+        )}
+
+        {/* Notification banners */}
+        {notifications.length > 0 && (
+          <div className="flex flex-col gap-2 mb-8">
+            {notifications.map((n, i) => {
+              const Icon = n.icon
+              const styles = {
+                success: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
+                info:    'bg-gray-500/10 border-gray-500/30 text-gray-300',
+                warn:    'bg-yellow-500/10 border-yellow-500/30 text-yellow-300',
+              }
+              return (
+                <div key={i} className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm ${styles[n.type]}`}>
+                  <Icon size={16} className="shrink-0" />
+                  <span className="flex-1">{n.msg}</span>
+                  {n.action && (
+                    <button onClick={() => navigate(n.action.path)} className="text-xs font-bold underline underline-offset-2 whitespace-nowrap">
+                      {n.action.label}
+                    </button>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
 
