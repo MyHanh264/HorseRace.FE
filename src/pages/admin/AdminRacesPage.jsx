@@ -1,9 +1,8 @@
-import { useEffect, useState, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Flag, Plus, ChevronDown, Edit2, Trash2, X, AlertCircle,
   Users, CheckCircle, XCircle, ArrowLeft, UserCheck, Eye,
-  LockOpen, Lock, Send, RotateCcw, MoreVertical, ChevronUp,
-  ChevronLeft, ChevronRight, Play, Square,
+  LockOpen, Lock, Send, RotateCcw, MoreVertical,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -13,30 +12,36 @@ import {
 } from '../../api/admin'
 import api from '../../services/api'
 
-function formatDate(value) {
-  return value
-    ? new Date(value).toLocaleDateString("en-US", {
-        year: "numeric", month: "short", day: "numeric",
-      })
-    : "—"
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const ROUND_TYPES = ['Qualifying', 'Semifinal', 'Final', 'Regular']
+
+const RACE_STATUS_META = {
+  Scheduled:     { label: 'Scheduled',       cls: 'bg-primary/15 text-primary border border-primary/25' },
+  InProgress:    { label: 'In Progress',      cls: 'bg-amber-500/15 text-amber-400 border border-amber-500/25' },
+  Paused:        { label: 'Paused',           cls: 'bg-secondary/15 text-secondary border border-secondary/25' },
+  PendingResult: { label: 'Pending Result',   cls: 'bg-blue-400/15 text-blue-400 border border-blue-400/25' },
+  Finished:      { label: 'Finished',         cls: 'bg-surface-container-high text-on-surface-variant border border-outline-variant/50' },
+  Cancelled:     { label: 'Cancelled',        cls: 'bg-error/15 text-error border border-error/25' },
 }
 
-function formatTime(value) {
-  return value
-    ? new Date(value).toLocaleTimeString("en-US", {
-        hour: "2-digit", minute: "2-digit",
-      })
-    : "—"
+const ENTRY_STATUS_META = {
+  Pending:   { label: 'Pending Review', cls: 'bg-amber-500/15 text-amber-400 border border-amber-500/25', dot: 'bg-amber-400' },
+  Approved:  { label: 'Approved',       cls: 'bg-primary/15 text-primary border border-primary/25',      dot: 'bg-primary' },
+  Rejected:  { label: 'Rejected',       cls: 'bg-error/15 text-error border border-error/25',            dot: 'bg-error' },
+  Withdrawn: { label: 'Withdrawn',      cls: 'bg-surface-container-high text-on-surface-variant border border-outline-variant/50', dot: 'bg-on-surface-variant' },
 }
 
-function getStatusBadgeClass(status) {
-  switch (status) {
-    case "FINISHED":  return "gs-badge gs-badge-success"
-    case "ONGOING":   return "gs-badge gs-badge-warning"
-    case "SCHEDULED": return "gs-badge gs-badge-neutral"
-    case "REJECTED":
-    case "CANCELLED": return "gs-badge gs-badge-error"
-    default:          return "gs-badge gs-badge-neutral"
+function fmtRaceId(id) {
+  return `#RC-${new Date().getFullYear()}-${String(id).padStart(2, '0')}`
+}
+
+function fmtDateTime(dt) {
+  if (!dt) return '—'
+  const d = new Date(dt)
+  return {
+    date: d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+    time: d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
   }
 }
 
@@ -45,38 +50,6 @@ function toDatetimeLocal(dt) {
   const d = new Date(dt)
   const pad = n => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const ROUND_TYPES = ['Regular', 'Qualifying', 'Semi-Final', 'Final', 'Championship']
-
-const RACE_STATUS_META = {
-  Scheduled:    { label: 'Scheduled',    cls: 'bg-surface-container-high text-on-surface-variant border border-outline-variant/50' },
-  InProgress:   { label: 'In Progress',  cls: 'bg-yellow-400/15 text-yellow-400 border border-yellow-400/25' },
-  Paused:       { label: 'Paused',        cls: 'bg-amber-500/15 text-amber-400 border border-amber-500/25' },
-  PendingResult:{ label: 'Pending Result',cls: 'bg-blue-400/15 text-blue-400 border border-blue-400/25' },
-  Finished:     { label: 'Finished',      cls: 'bg-green-400/15 text-green-400 border border-green-400/25' },
-  Cancelled:    { label: 'Cancelled',     cls: 'bg-red-400/15 text-red-400 border border-red-400/25' },
-}
-
-const ENTRY_STATUS_META = {
-  Pending:  { label: 'Pending',  cls: 'bg-yellow-400/15 text-yellow-400 border border-yellow-400/25', dot: 'bg-yellow-400' },
-  Approved: { label: 'Approved', cls: 'bg-green-400/15 text-green-400 border border-green-400/25', dot: 'bg-green-400' },
-  Rejected: { label: 'Rejected', cls: 'bg-red-400/15 text-red-400 border border-red-400/25', dot: 'bg-red-400' },
-}
-
-function fmtDateTime(dt) {
-  if (!dt) return { date: '—', time: '—' }
-  const d = new Date(dt)
-  return {
-    date: d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-    time: d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-  }
-}
-
-function fmtRaceId(id) {
-  return `#${String(id).padStart(4, '0')}`
 }
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
@@ -331,18 +304,23 @@ export default function AdminRacesPage() {
   const [entries, setEntries]         = useState([])   // all entries
   const [users, setUsers]             = useState([])   // for referee name lookup
 
-  // ── UI State ──
-  const [loading, setLoading]         = useState(true)
-  const [error, setError]             = useState('')
-  const [view, setView]               = useState('races') // 'races' | 'entries'
-  const [activeRace, setActiveRace]   = useState(null)
+  const [loading, setLoading]   = useState(true)
+  const [error, setError]       = useState('')
+
+  // ── Filters ──
   const [selectedTournamentId, setSelectedTournamentId] = useState('')
 
+  // ── View: 'races' | 'entries' ──
+  const [view, setView]         = useState('races')
+  const [activeRace, setActiveRace] = useState(null)
+
   // ── Modal ──
-  const [showModal, setShowModal]     = useState(false)
+  const [showModal, setShowModal]   = useState(false)
   const [editingRace, setEditingRace] = useState(null)
-  const [formError, setFormError]     = useState('')
-  const [submitting, setSubmitting]   = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [formError, setFormError]   = useState('')
+  const [deletingId, setDeletingId] = useState(null)
+  const [openMenuId, setOpenMenuId] = useState(null)
 
   // ── Entry approve/reject ──
   const [entryAction, setEntryAction]   = useState(null) // { id, type }
@@ -352,8 +330,6 @@ export default function AdminRacesPage() {
 
   // ── Registration open/close ──
   const [regLoading, setRegLoading] = useState(null) // raceId đang xử lý
-  const [openMenuId, setOpenMenuId] = useState(null)
-  const [deletingId, setDeletingId] = useState(null)
   // raceId → { registrationOpenAt, registrationCloseAt } từ list endpoint (detail endpoint thiếu 2 field này)
   const [raceRegMap, setRaceRegMap] = useState({})
 
@@ -399,7 +375,28 @@ export default function AdminRacesPage() {
     }
   }, [])
 
-  useEffect(() => { loadAll() }, [loadAll])
+  useEffect(() => {
+    Promise.all([
+      getTournaments(),
+      getRaces(),
+      api.get('/api/entries').then(r => r.data),
+      getUsers(),
+    ])
+      .then(([tournamentsData, racesBasic, entriesData, usersData]) => {
+        setTournaments(Array.isArray(tournamentsData) ? tournamentsData : [])
+        setEntries(Array.isArray(entriesData) ? entriesData : [])
+        setUsers(Array.isArray(usersData) ? usersData : [])
+        const raceList = Array.isArray(racesBasic) ? racesBasic : []
+        setRaceRegMap(buildRegMap(raceList))
+        if (raceList.length > 0) {
+          return Promise.all(raceList.map(r => getRaceDetail(r.raceId)))
+            .then(details => setRaceDetails(details.filter(Boolean)))
+        }
+        setRaceDetails([])
+      })
+      .catch(err => setError(err?.message || 'Không tải được dữ liệu'))
+      .finally(() => setLoading(false))
+  }, [])
 
   useEffect(() => {
     if (!openMenuId) return
@@ -445,7 +442,6 @@ export default function AdminRacesPage() {
   // ── Handlers ─────────────────────────────────────────────────────────────
   const openCreate = () => { setEditingRace(null); setFormError(''); setShowModal(true) }
   const openEdit   = (r)  => { setEditingRace(r);   setFormError(''); setShowModal(true) }
-  const openEntriesView = (race) => { setActiveRace(race); setView('entries') }
 
   const handleDelete = async (id) => {
     setError('')
@@ -454,7 +450,8 @@ export default function AdminRacesPage() {
       setDeletingId(null)
       await loadAll()
     } catch (err) {
-      setError(err?.response?.data?.detail ?? err?.message ?? 'Xóa race thất bại')
+      setError(err?.message || 'Xóa race thất bại')
+      setDeletingId(null)
     }
   }
 
@@ -463,17 +460,23 @@ export default function AdminRacesPage() {
     setFormError('')
     try {
       if (editingRace) {
-        await updateRace(editingRace.raceId, formData)
+        await updateRace(editingRace.raceId, { raceId: editingRace.raceId, ...formData })
       } else {
         await createRace(formData)
       }
       setShowModal(false)
       await loadAll()
     } catch (err) {
-      setFormError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Lưu thất bại')
+      setFormError(err?.message || 'Lưu race thất bại')
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const openEntriesView = (race) => {
+    setActiveRace(race)
+    setView('entries')
+    setEntryError('')
   }
 
   const handleOpenRegistration = async (raceId) => {
@@ -570,6 +573,7 @@ export default function AdminRacesPage() {
       setEntryAction(null)
     }
   }
+
 
   // ── Render: Races View ─────────────────────────────────────────────────────
   if (view === 'races') {
@@ -832,20 +836,19 @@ export default function AdminRacesPage() {
           )}
         </div>
 
-        {/* Race Modal */}
-        {showModal && (
-          <RaceModal
-            race={editingRace}
-            tournaments={tournaments}
-            users={users}
-            allRaces={raceDetails}
-            selectedTournamentId={selectedTournamentId}
-            onClose={() => setShowModal(false)}
-            onSubmit={handleRaceSubmit}
-            submitting={submitting}
-            error={formError}
-          />
-        )}
+      {showModal && (
+        <RaceModal
+          race={editingRace}
+          tournaments={tournaments}
+          users={users}
+          allRaces={raceDetails}
+          selectedTournamentId={selectedTournamentId}
+          onClose={() => setShowModal(false)}
+          onSubmit={handleRaceSubmit}
+          submitting={submitting}
+          error={formError}
+        />
+      )}
       </div>
     )
   }

@@ -11,7 +11,7 @@ export default function Footer({ onNavigate }) {
             GrandStride
           </button>
           <p className="font-sans text-xs text-on-surface-variant/60 text-center md:text-left leading-relaxed">
-            © {new Date().getFullYear()} GrandStride. All rights reserved.
+            © {new Date().getFullYear()} GrandStride. Bảo lưu mọi quyền.
           </p>
         </div>
 
@@ -21,41 +21,41 @@ export default function Footer({ onNavigate }) {
             href="#"
             onClick={(e) => {
               e.preventDefault()
-              alert('Terms of Service: Simulated system demonstration')
+              alert('Điều khoản dịch vụ: Bản sao giả lập hệ thống')
             }}
             className="text-xs text-on-surface-variant hover:text-secondary transition-colors duration-200 no-underline"
           >
-            Terms of Service
+            Điều Khoản Dịch Vụ
           </a>
           <a
             href="#"
             onClick={(e) => {
               e.preventDefault()
-              alert('Privacy Policy: Simulated policy document')
+              alert('Chính sách bảo mật: Bản sao chính sách mô phỏng')
             }}
             className="text-xs text-on-surface-variant hover:text-secondary transition-colors duration-200 no-underline"
           >
-            Privacy Policy
+            Chính Sách Bảo Mật
           </a>
           <a
             href="#"
             onClick={(e) => {
               e.preventDefault()
-              alert('Technical support: support@grandstride.com')
+              alert('Hỗ trợ kỹ thuật: support@grandstride.com')
             }}
             className="text-xs text-on-surface-variant hover:text-secondary transition-colors duration-200 no-underline"
           >
-            Contact Support
+            Liên Hệ Hỗ Trợ
           </a>
           <a
             href="#"
             onClick={(e) => {
               e.preventDefault()
-              alert('Official Horse Racing Rules: Full weight & jockey conduct regulations apply.')
+              alert('Quy định đua ngựa chính thức: Áp dụng đầy đủ quy tắc tính trọng tải & thể thức nài ngựa.')
             }}
             className="text-xs text-on-surface-variant hover:text-secondary transition-colors duration-200 no-underline"
           >
-            Racing Rules
+            Luật Đua Ngựa
           </a>
         </nav>
       </div>

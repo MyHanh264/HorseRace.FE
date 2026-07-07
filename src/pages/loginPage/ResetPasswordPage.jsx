@@ -4,11 +4,11 @@ import { resetPassword } from '../../api/auth'
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, Loader2, CheckCircle } from 'lucide-react'
 
 function validateForm({ email, otpCode, newPassword, confirmPassword }) {
-  if (!email?.includes('@')) return 'Please enter a valid email address.'
-  if (!otpCode || otpCode.length !== 6) return 'OTP code must be exactly 6 digits.'
-  if (!/^\d{6}$/.test(otpCode)) return 'OTP code must contain only numbers.'
-  if (!newPassword || newPassword.length < 8) return 'New password must be at least 8 characters.'
-  if (newPassword !== confirmPassword) return 'Passwords do not match.'
+  if (!email?.includes('@')) return 'Email không hợp lệ.'
+  if (!otpCode || otpCode.length !== 6) return 'Mã OTP phải đúng 6 chữ số.'
+  if (!/^\d{6}$/.test(otpCode)) return 'Mã OTP chỉ gồm số.'
+  if (!newPassword || newPassword.length < 8) return 'Mật khẩu mới phải có ít nhất 8 ký tự.'
+  if (newPassword !== confirmPassword) return 'Mật khẩu xác nhận không khớp.'
   return null
 }
 
@@ -68,10 +68,10 @@ export default function ResetPasswordPage() {
             GrandStride
           </button>
           <p className="font-serif text-2xl text-on-surface font-semibold tracking-wide mt-1">
-            Reset Password
+            Đặt Lại Mật Khẩu
           </p>
           <p className="text-xs text-on-surface-variant mt-2 font-medium uppercase tracking-widest">
-            OTP Verification &amp; Recovery
+            Xác Minh OTP & Khôi Phục
           </p>
         </div>
 
@@ -82,14 +82,14 @@ export default function ResetPasswordPage() {
               <div className="w-16 h-16 rounded-full bg-primary/15 border-2 border-primary/30 flex items-center justify-center mb-2">
                 <CheckCircle className="w-8 h-8 text-primary" />
               </div>
-              <h3 className="font-serif text-xl font-bold text-on-surface">Password changed successfully!</h3>
-              <p className="text-sm text-on-surface-variant">You can now sign in with your new password.</p>
+              <h3 className="font-serif text-xl font-bold text-on-surface">Đổi mật khẩu thành công!</h3>
+              <p className="text-sm text-on-surface-variant">Bạn có thể đăng nhập bằng mật khẩu mới ngay bây giờ.</p>
               <button
                 type="button"
                 className="auth-btn auth-btn--primary w-full flex items-center justify-center gap-2"
                 onClick={() => navigate('/login', { state: { email: email.trim() } })}
               >
-                Sign In Now
+                Đăng nhập ngay
               </button>
             </div>
           ) : (
@@ -100,7 +100,7 @@ export default function ResetPasswordPage() {
 
               {/* Email */}
               <div className="auth-form-field">
-                <span htmlFor="email">Email Address</span>
+                <span htmlFor="email">Địa chỉ Email</span>
                 <div className="relative input-focus-gold border border-outline-variant/30 rounded-xl bg-surface-container-lowest flex items-center px-4">
                   <Mail className="w-5 h-5 text-on-surface-variant/60 mr-3 shrink-0" />
                   <input
@@ -118,7 +118,7 @@ export default function ResetPasswordPage() {
 
               {/* OTP */}
               <div className="auth-form-field">
-                <span htmlFor="otpCode">Verification Code (6 digits)</span>
+                <span htmlFor="otpCode">Mã xác minh OTP (6 chữ số)</span>
                 <div className="relative input-focus-gold border border-outline-variant/30 rounded-xl bg-surface-container-lowest flex items-center px-4">
                   <Lock className="w-5 h-5 text-on-surface-variant/60 mr-3 shrink-0" />
                   <input
@@ -139,7 +139,7 @@ export default function ResetPasswordPage() {
 
               {/* New Password */}
               <div className="auth-form-field">
-                <span htmlFor="newPassword">New Password (min. 8 characters)</span>
+                <span htmlFor="newPassword">Mật khẩu mới (tối thiểu 8 ký tự)</span>
                 <div className="relative input-focus-gold border border-outline-variant/30 rounded-xl bg-surface-container-lowest flex items-center px-4">
                   <Lock className="w-5 h-5 text-on-surface-variant/60 mr-3 shrink-0" />
                   <input
@@ -149,7 +149,7 @@ export default function ResetPasswordPage() {
                     autoComplete="new-password"
                     value={newPassword}
                     onChange={(e) => { setError(''); setNewPassword(e.target.value) }}
-                    placeholder="Enter new password"
+                    placeholder="Nhập mật khẩu mới"
                     required
                     minLength={8}
                     className="bg-transparent border-none text-on-surface focus:outline-none w-full py-3.5 text-sm placeholder:text-on-surface-variant/30"
@@ -158,7 +158,7 @@ export default function ResetPasswordPage() {
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="focus:outline-none text-on-surface-variant/60 hover:text-secondary p-1 bg-transparent border-none cursor-pointer transition-colors shrink-0 ml-2"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
                   >
                     {showPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
                   </button>
@@ -167,7 +167,7 @@ export default function ResetPasswordPage() {
 
               {/* Confirm Password */}
               <div className="auth-form-field">
-                <span htmlFor="confirmPassword">Confirm New Password</span>
+                <span htmlFor="confirmPassword">Xác nhận mật khẩu mới</span>
                 <div className="relative input-focus-gold border border-outline-variant/30 rounded-xl bg-surface-container-lowest flex items-center px-4">
                   <Lock className="w-5 h-5 text-on-surface-variant/60 mr-3 shrink-0" />
                   <input
@@ -177,7 +177,7 @@ export default function ResetPasswordPage() {
                     autoComplete="new-password"
                     value={confirmPassword}
                     onChange={(e) => { setError(''); setConfirmPassword(e.target.value) }}
-                    placeholder="Re-enter new password"
+                    placeholder="Nhập lại mật khẩu mới"
                     required
                     className="bg-transparent border-none text-on-surface focus:outline-none w-full py-3.5 text-sm placeholder:text-on-surface-variant/30"
                   />
@@ -192,10 +192,10 @@ export default function ResetPasswordPage() {
                 {submitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Resetting...
+                    Đang Đặt Lại...
                   </>
                 ) : (
-                  <>Reset Password</>
+                  <>Đặt lại mật khẩu</>
                 )}
               </button>
             </form>
@@ -203,13 +203,13 @@ export default function ResetPasswordPage() {
 
           <div className="text-center pt-2 border-t border-outline-variant/10">
             <p className="text-xs text-on-surface-variant">
-              Didn't receive the code?{' '}
+              Không nhận được mã?{' '}
               <Link
                 to="/forgot-password"
                 state={{ email: email.trim() }}
                 className="text-secondary font-bold hover:underline transition-colors"
               >
-                Resend OTP
+                Gửi lại mã OTP
               </Link>
             </p>
           </div>
@@ -220,7 +220,7 @@ export default function ResetPasswordPage() {
           className="mt-6 mx-auto flex items-center gap-2 text-on-surface-variant/60 hover:text-primary transition-colors duration-200 cursor-pointer bg-transparent border-none text-xs font-semibold uppercase tracking-wider"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Sign In
+          Quay lại đăng nhập
         </button>
       </main>
     </div>
