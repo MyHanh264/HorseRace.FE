@@ -12,9 +12,11 @@ import {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const STATUS_META = {
-  Scheduled:  { label: 'Scheduled',  cls: 'bg-primary/15 text-primary border border-primary/25' },
-  InProgress: { label: 'Live',       cls: 'bg-amber-500/15 text-amber-400 border border-amber-500/25' },
-  Finished:   { label: 'Finished',   cls: 'bg-surface-container-high text-on-surface-variant border border-outline-variant/50' },
+  Scheduled:     { label: 'Scheduled',      cls: 'bg-primary/15 text-primary border border-primary/25' },
+  InProgress:    { label: 'Live',           cls: 'bg-amber-500/15 text-amber-400 border border-amber-500/25' },
+  Paused:        { label: 'Paused',         cls: 'bg-orange-500/15 text-orange-400 border border-orange-500/25' },
+  PendingResult: { label: 'Pending Result', cls: 'bg-violet-500/15 text-violet-400 border border-violet-500/25' },
+  Finished:      { label: 'Finished',       cls: 'bg-surface-container-high text-on-surface-variant border border-outline-variant/50' },
 }
 
 const TABS = ['All Scheduled', 'Live', 'Recently Finished']
@@ -68,7 +70,7 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
   const [betSuccess, setBetSuccess]           = useState(false)
 
   const balance      = Number(wallet?.balance ?? 0)
-  const alreadyBet   = myPredictions.some(p => p.raceId === race.raceId)
+  const alreadyBet   = myPredictions.some(p => p.raceId === race.raceId && p.status !== 'Cancelled')
   const canBet       = race.status === 'Scheduled' && !alreadyBet
   const amount       = Number(betAmount) || 0
   const selectedEntry = entries.find(e => e.entryId === Number(selectedEntryId))
@@ -78,8 +80,8 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
   const validate = () => {
     if (!selectedEntryId) return 'Hãy chọn ngựa đua.'
     if (amount < 10) return 'Đặt cược tối thiểu là 10 điểm.'
-    if (amount > balance * 0.5) return `Tối đa 50% số dư (${fmtBalance(balance * 0.5)} pts).`
-    if (amount > balance) return 'Số dư không đủ.'
+    if (amount > balance * 0.5) return `Tối đa 50% số dư (${fmtBalance(Math.floor(balance * 0.5))} pts).`
+    if (amount > balance) return `Số dư không đủ (hiện có ${fmtBalance(balance)} pts).`
     return null
   }
 
@@ -98,7 +100,12 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
       setSelectedEntryId('')
       onBetPlaced?.()
     } catch (err) {
-      setBetError(err?.response?.data?.message || err?.message || 'Đặt cược thất bại')
+      const msg = err?.response?.data?.message
+        ?? err?.response?.data?.detail
+        ?? (typeof err?.response?.data === 'string' ? err.response.data : null)
+        ?? err?.message
+        ?? 'Đặt cược thất bại'
+      setBetError(`[${err?.response?.status ?? '?'}] ${msg}`)
     } finally {
       setSubmitting(false)
     }
@@ -196,7 +203,7 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
                 <input
                   type="number"
                   min={10}
-                  max={balance * 0.5}
+                  max={Math.floor(balance * 0.5)}
                   value={betAmount}
                   onChange={e => { setBetAmount(e.target.value); setBetError('') }}
                   disabled={!canBet}
@@ -303,7 +310,7 @@ export default function RacesBettingPage() {
   const filteredRaces = useMemo(() => {
     let list = allRaces
     if (activeTab === 'All Scheduled') list = list.filter(r => r.status === 'Scheduled')
-    else if (activeTab === 'Live')     list = list.filter(r => r.status === 'InProgress')
+    else if (activeTab === 'Live')     list = list.filter(r => ['InProgress', 'Paused', 'PendingResult'].includes(r.status))
     else                               list = list.filter(r => r.status === 'Finished')
 
     if (search) {

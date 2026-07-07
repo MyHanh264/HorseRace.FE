@@ -1,5 +1,10 @@
 import api from "../services/api";
 
+export async function getRaceResults() {
+  const res = await api.get("/api/race-results");
+  return Array.isArray(res.data) ? res.data : [];
+}
+
 export async function getMyHorses() {
   const res = await api.get("/api/horses");
   return res.data;
