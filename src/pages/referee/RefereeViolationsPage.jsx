@@ -13,25 +13,29 @@ import {
 const PAGE_SIZE = 10
 
 const VIOLATION_TYPES = [
-  'CarelessRiding', 'ExcessiveWhip', 'WeightInfraction',
-  'FalseStart', 'Obstruction', 'Other',
+  'KhoiDongSom',     // FalseStart
+  'CuoiNguaNguyHiem',// DangerousRiding
+  'ViPhamRoi',       // WhipViolation
+  'CanDuongDoiThu',  // Obstruction
+  'ViPhamDoping',    // DopingViolation
+  'ViPhamTrangBi',   // EquipmentViolation
+  'Khac',            // Other
 ]
 
 const VIOLATION_TYPE_LABELS = {
-  CarelessRiding:    'Careless Riding',
-  ExcessiveWhip:     'Excessive Whip',
-  WeightInfraction:  'Weight Infraction',
-  FalseStart:        'False Start',
-  Obstruction:       'Obstruction',
-  Other:             'Other',
+  KhoiDongSom:       'Khởi động sớm',
+  CuoiNguaNguyHiem:  'Cưỡi ngựa nguy hiểm',
+  ViPhamRoi:         'Vi phạm roi',
+  CanDuongDoiThu:    'Cản đường đối thủ',
+  ViPhamDoping:      'Vi phạm doping',
+  ViPhamTrangBi:     'Vi phạm trang bị',
+  Khac:              'Khác',
 }
 
 const STATUS_META = {
-  Pending:             { label: 'Pending',              cls: 'bg-yellow-400/10 text-yellow-400 border border-yellow-400/25' },
-  PendingAdminReview:  { label: 'Pending Admin Review', cls: 'bg-yellow-400/10 text-yellow-400 border border-yellow-400/25' },
-  UnderReview:         { label: 'Under Review',         cls: 'bg-yellow-400/10 text-yellow-400 border border-yellow-400/25' },
-  Approved:            { label: 'Approved',             cls: 'bg-primary/10 text-primary border border-primary/20' },
-  Rejected:            { label: 'Rejected',             cls: 'bg-error/10 text-error border border-error/20' },
+  Pending:             { label: 'Chờ xử lý',              cls: 'bg-yellow-400/10 text-yellow-400 border border-yellow-400/25' },
+  Approved:            { label: 'Đã duyệt',               cls: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' },
+  Rejected:            { label: 'Đã từ chối',             cls: 'bg-zinc-500/10 text-zinc-400 border border-zinc-500/30' },
 }
 
 function getStatusMeta(s) {
@@ -39,15 +43,13 @@ function getStatusMeta(s) {
 }
 
 function fmtIncidentId(v) {
-  const d  = v.createdAt ? new Date(v.createdAt) : new Date()
-  const yy = String(d.getFullYear()).slice(-2)
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  return `#V-${yy}${mm}-${String(v.violationId).padStart(2, '0')}`
+  // BE GetViolationList không trả createdAt — fallback theo violationId.
+  return `#V-${String(v.violationId).padStart(3, '0')}`
 }
 
 function fmtDate(dt) {
   if (!dt) return '—'
-  return new Date(dt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+  return new Date(dt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 function getInitials(name) {
@@ -81,7 +83,13 @@ function ReportViolationModal({ assignedRaces, raceEntries, horseMap, onClose, o
       })
       onReported()
     } catch (e) {
-      setErr(e?.response?.data?.message || e?.message || 'Submit thất bại')
+      // BE thường trả ProblemDetails (title/detail) khi bind fail, hoặc plain message.
+      const detail = e?.response?.data?.detail || e?.response?.data?.title
+      const title  = e?.response?.data?.title
+      const firstError = e?.response?.data?.errors
+        ? Object.values(e.response.data.errors).flat()[0]
+        : null
+      setErr(detail || firstError || title || e?.message || 'Gửi biên bản thất bại.')
     } finally {
       setSaving(false)
     }
@@ -94,7 +102,7 @@ function ReportViolationModal({ assignedRaces, raceEntries, horseMap, onClose, o
         <div className="flex items-center justify-between px-5 py-4 border-b border-outline-variant/40">
           <div className="flex items-center gap-2.5">
             <AlertTriangle size={17} className="text-yellow-400" />
-            <h2 className="font-bold text-on-surface text-sm">Report Violation</h2>
+            <h2 className="font-bold text-on-surface text-sm">Lập biên bản vi phạm</h2>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant transition-colors">
             <X size={16} />
@@ -111,7 +119,7 @@ function ReportViolationModal({ assignedRaces, raceEntries, horseMap, onClose, o
               onChange={e => { setRaceId(e.target.value); setEntryId('') }}
               className="w-full bg-surface-container-lowest border border-outline-variant/50 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-yellow-400/60 transition-all"
             >
-              <option value="">Select race…</option>
+              <option value="">-- Chọn cuộc đua --</option>
               {assignedRaces.map(r => (
                 <option key={r.raceId} value={r.raceId}>{r.name}</option>
               ))}
@@ -127,7 +135,7 @@ function ReportViolationModal({ assignedRaces, raceEntries, horseMap, onClose, o
               disabled={!raceId}
               className="w-full bg-surface-container-lowest border border-outline-variant/50 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-yellow-400/60 transition-all disabled:opacity-50"
             >
-              <option value="">Select entry…</option>
+              <option value="">-- Chọn entry --</option>
               {availableEntries.map(e => (
                 <option key={e.entryId} value={e.entryId}>
                   {horseMap[e.horseId]?.name ?? `Entry #${e.entryId}`}
@@ -145,7 +153,7 @@ function ReportViolationModal({ assignedRaces, raceEntries, horseMap, onClose, o
               onChange={e => setType(e.target.value)}
               className="w-full bg-surface-container-lowest border border-outline-variant/50 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-yellow-400/60 transition-all"
             >
-              <option value="">Select type…</option>
+              <option value="">-- Chọn loại vi phạm --</option>
               {VIOLATION_TYPES.map(t => (
                 <option key={t} value={t}>{VIOLATION_TYPE_LABELS[t]}</option>
               ))}
@@ -159,7 +167,7 @@ function ReportViolationModal({ assignedRaces, raceEntries, horseMap, onClose, o
               value={desc}
               onChange={e => setDesc(e.target.value)}
               rows={4}
-              placeholder="Describe the incident in detail…"
+              placeholder="Mô tả chi tiết sự việc..."
               className="w-full bg-surface-container-lowest border border-outline-variant/50 rounded-xl px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-yellow-400/60 resize-none transition-all"
             />
           </div>
@@ -169,13 +177,13 @@ function ReportViolationModal({ assignedRaces, raceEntries, horseMap, onClose, o
 
         {/* Footer */}
         <div className="px-5 pb-5 flex justify-end gap-3">
-          <button onClick={onClose} className="gs-btn gs-btn-ghost">Cancel</button>
+          <button onClick={onClose} className="gs-btn gs-btn-ghost">Huỷ</button>
           <button
             onClick={handleSubmit}
             disabled={!canSubmit || saving}
             className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold bg-yellow-400 text-black hover:bg-yellow-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
-            {saving ? 'Submitting…' : 'Report Violation'}
+            {saving ? 'Đang gửi...' : 'Gửi biên bản'}
           </button>
         </div>
       </div>
@@ -242,11 +250,11 @@ export default function RefereeViolationsPage() {
   useEffect(() => { load() }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Stats ──
-  const activeCount  = useMemo(() => violations.filter(v => ['Pending', 'UnderReview'].includes(v.status)).length, [violations])
-  const pendingAdmin = useMemo(() => violations.filter(v => v.status === 'PendingAdminReview').length, [violations])
-  const resolved     = useMemo(() => violations.filter(v => ['Approved', 'Rejected'].includes(v.status)).length, [violations])
+  const activeCount  = useMemo(() => violations.filter(v => v.status === 'Pending').length, [violations])
+  const approvedCount= useMemo(() => violations.filter(v => v.status === 'Approved').length, [violations])
+  const rejectedCount= useMemo(() => violations.filter(v => v.status === 'Rejected').length, [violations])
 
-  const STATUS_FILTERS = ['All', 'Pending', 'PendingAdminReview', 'Approved', 'Rejected']
+  const STATUS_FILTERS = ['All', 'Pending', 'Approved', 'Rejected']
 
   const filtered = useMemo(() =>
     statusFilter === 'All' ? violations : violations.filter(v => v.status === statusFilter),
@@ -256,9 +264,9 @@ export default function RefereeViolationsPage() {
   const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const STATS = [
-    { label: 'Active Investigations', value: activeCount,  Icon: Shield,       sub: '+3 this week',        cls: 'text-yellow-400', bg: 'bg-yellow-400/10 border border-yellow-400/25' },
-    { label: 'Pending Admin Review',  value: pendingAdmin, Icon: AlertTriangle, sub: 'Requires board approval', cls: 'text-secondary', bg: 'bg-secondary/10 border border-secondary/20' },
-    { label: 'Resolved Cases',        value: resolved,     Icon: CheckCircle2,  sub: 'Season to date',      cls: 'text-primary',   bg: 'bg-primary/10 border border-primary/20' },
+    { label: 'Chờ xử lý',     value: activeCount,   Icon: Shield,       sub: 'Referee đã báo cáo, chờ Admin',  cls: 'text-yellow-400', bg: 'bg-yellow-400/10 border border-yellow-400/25' },
+    { label: 'Đã duyệt',       value: approvedCount, Icon: AlertTriangle, sub: 'Đã áp dụng penalty vào race',     cls: 'text-emerald-400', bg: 'bg-emerald-500/10 border border-emerald-500/30' },
+    { label: 'Đã từ chối',     value: rejectedCount, Icon: CheckCircle2,  sub: 'Mùa giải hiện tại',               cls: 'text-zinc-400',  bg: 'bg-zinc-500/10 border border-zinc-500/30' },
   ]
 
   return (
@@ -273,8 +281,8 @@ export default function RefereeViolationsPage() {
                 <AlertTriangle size={20} className="text-yellow-400" />
               </div>
               <div>
-                <h1 className="font-serif text-2xl font-bold text-on-surface">Race Violations</h1>
-                <p className="text-on-surface-variant text-sm">Track, report, and manage official race incidents and infractions.</p>
+                <h1 className="font-serif text-2xl font-bold text-on-surface">Vi phạm kỷ luật</h1>
+                <p className="text-on-surface-variant text-sm">Theo dõi, lập và quản lý biên bản vi phạm trong các cuộc đua.</p>
               </div>
             </div>
             <div className="h-[2px] w-20 rounded-full bg-gradient-to-r from-yellow-400 to-secondary mt-3" />
@@ -284,7 +292,7 @@ export default function RefereeViolationsPage() {
             onClick={() => setReportModal(true)}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold bg-yellow-400 text-black hover:bg-yellow-300 transition-all"
           >
-            <Plus size={16} /> Report Violation
+            <Plus size={16} /> Lập biên bản vi phạm
           </button>
         </div>
 
@@ -319,7 +327,7 @@ export default function RefereeViolationsPage() {
         {/* Table */}
         <div className="gs-card overflow-hidden">
           <div className="px-5 py-4 border-b border-outline-variant/40 flex items-center justify-between flex-wrap gap-3">
-            <h2 className="font-serif font-bold text-on-surface">Recent Submissions</h2>
+            <h2 className="font-serif font-bold text-on-surface">Biên bản gần đây</h2>
             <div className="flex items-center gap-2">
               <SlidersHorizontal size={14} className="text-on-surface-variant" />
               <select
@@ -329,7 +337,7 @@ export default function RefereeViolationsPage() {
               >
                 {STATUS_FILTERS.map(f => (
                   <option key={f} value={f}>
-                    {f === 'All' ? 'All Status' : getStatusMeta(f).label}
+                    {f === 'All' ? 'Tất cả trạng thái' : getStatusMeta(f).label}
                   </option>
                 ))}
               </select>
@@ -343,8 +351,8 @@ export default function RefereeViolationsPage() {
           ) : paginated.length === 0 ? (
             <div className="py-20 text-center">
               <AlertTriangle size={36} className="text-on-surface-variant/30 mx-auto mb-3" />
-              <p className="text-on-surface font-semibold">No violations recorded</p>
-              <p className="text-on-surface-variant text-sm mt-1">Use "Report Violation" to submit an incident.</p>
+              <p className="text-on-surface font-semibold">Chưa có biên bản vi phạm</p>
+              <p className="text-on-surface-variant text-sm mt-1">Nhấn "Lập biên bản vi phạm" để báo cáo sự việc.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -416,7 +424,7 @@ export default function RefereeViolationsPage() {
           {!loading && filtered.length > 0 && (
             <div className="flex items-center justify-between px-5 py-3 border-t border-outline-variant/40">
               <span className="text-xs text-on-surface-variant">
-                Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length} entries
+                Hiển thị {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} / {filtered.length} mục
               </span>
               <div className="flex items-center gap-1">
                 <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="gs-btn gs-btn-ghost gs-btn-sm px-2">

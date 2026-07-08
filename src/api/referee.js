@@ -94,7 +94,38 @@ export async function getViolations() {
   return Array.isArray(res.data) ? res.data : []
 }
 
-export async function reportViolation(payload) {
+// POST /api/violations — Referee lập biên bản.
+// Payload shape BẮT BUỘC khớp với CreateViolationCommand record ở BE:
+//   raceId, legNumber, entryId, reportedByRefereeId, violationType,
+//   description, penalty, status, reviewedByAdminId, adminNote.
+// Lưu ý: controller sẽ override `reportedByRefereeId` (từ JWT) và `status`
+// (luôn "Pending"), nhưng BE record CẦN nhận đủ field không-null để bind.
+// `penalty` mặc định "Warning" nếu không truyền (admin sẽ chọn lại khi duyệt).
+// `legNumber` <= 0 → BE tự chọn leg hiện hành.
+export async function reportViolation({
+  raceId,
+  legNumber = 0,
+  entryId,
+  reportedByRefereeId = 0,
+  violationType,
+  description = null,
+  penalty = 'Warning',
+  status = 'Pending',
+  reviewedByAdminId = null,
+  adminNote = null,
+} = {}) {
+  const payload = {
+    RaceId:               Number(raceId),
+    LegNumber:            Number(legNumber) || 0,
+    EntryId:              Number(entryId),
+    ReportedByRefereeId:  Number(reportedByRefereeId) || 0,
+    ViolationType:        String(violationType ?? '').trim(),
+    Description:          description ? String(description).trim() : null,
+    Penalty:              String(penalty ?? 'Warning').trim(),
+    Status:               String(status ?? 'Pending').trim(),
+    ReviewedByAdminId:    reviewedByAdminId ?? null,
+    AdminNote:            adminNote ?? null,
+  }
   const res = await api.post('/api/violations', payload)
   return res.data
 }

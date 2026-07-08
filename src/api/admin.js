@@ -317,10 +317,25 @@ export async function deleteDiscrepancy(id) {
 
 // ─── Violations ────────────────────────────────────────────────────────────────
 
-export async function getAllViolations({ page = 1, pageSize = 10, search = "", sort = "createdAt", sortDirection = "desc" } = {}) {
-  const params = { page, pageSize, search, sort, sortDirection }
-  const res = await api.get('/api/admin/violations', { params })
-  return res.data
+// GET /api/admin/violations?status=&page=&pageSize=
+// status filter (FE → BE mapping trong GetAdminViolations handler):
+//   "Pending"   → domain "Pending"
+//   "Resolved"  → domain "Approved"   (UI: tab "Đã duyệt")
+//   "Dismissed" → domain "Rejected"  (UI: tab "Đã từ chối")
+// Truyền "" (rỗng) hoặc undefined → BE trả tất cả.
+export async function getAllViolations({
+  page = 1,
+  pageSize = 15,
+  status = "",
+  search = "",
+  sort = "createdAt",
+  sortDirection = "desc",
+} = {}) {
+  const params = { page, pageSize, sort, sortDirection };
+  if (status) params.status = status;
+  if (search) params.search = search;
+  const res = await api.get("/api/admin/violations", { params });
+  return res.data;
 }
 
 export async function getViolationById(id) {
@@ -341,6 +356,37 @@ export async function updateViolation(id, data) {
 export async function deleteViolation(id) {
   const res = await api.delete(`/api/admin/violations/${id}`)
   return res.data
+}
+
+// Flow 6 — Admin duyệt biên bản vi phạm & áp dụng penalty vào standings.
+// Penalty: "Warning" | "Demote" | "DQ" — BẮT BUỘC chọn trước khi submit.
+//   - Warning: chỉ ghi nhận, không đổi standings.
+//   - Demote: FinishPosition += 1 ở LegOfficialResult, recompute LegPoints.
+//   - DQ: 0 điểm toàn bộ leg của entry (Race DQ → xếp cuối, 0 Prize khi Publish).
+// AdminNote: optional, không validate ở BE.
+export async function approveViolation(violationId, { penalty, adminNote } = {}) {
+  if (!violationId) throw new Error("violationId is required");
+  if (!penalty || !["Warning", "Demote", "DQ"].includes(penalty)) {
+    throw new Error("penalty must be one of: Warning, Demote, DQ");
+  }
+  const res = await api.post(`/api/admin/violations/${violationId}/approve`, {
+    Penalty: penalty,
+    AdminNote: adminNote || null,
+  });
+  return res.data;
+}
+
+// Flow 6 — Admin từ chối biên bản vi phạm (lý do BẮT BUỘC).
+// Ghi vào AdminNote của Violation; không thay đổi standings.
+export async function rejectViolation(violationId, reason) {
+  if (!violationId) throw new Error("violationId is required");
+  if (!reason || !String(reason).trim()) {
+    throw new Error("reason is required");
+  }
+  const res = await api.post(`/api/admin/violations/${violationId}/reject`, {
+    Reason: String(reason).trim(),
+  });
+  return res.data;
 }
 
 // ─── Point Management ────────────────────────────────────────────────────────
