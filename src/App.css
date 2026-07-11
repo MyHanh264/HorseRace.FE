@@ -18,7 +18,8 @@
   margin-top: 16px;
   border: 1px solid var(--color-outline-variant);
   border-radius: 12px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   background: var(--color-surface-container-low);
 }
 

@@ -37,14 +37,14 @@ function daysLeft(s) {
 // ─── constants ────────────────────────────────────────────────────────────────
 
 const T_STATUS = {
-  Draft:     { label: "SẮP DIỄN RA",  cls: "text-blue-400    border-blue-400/50    bg-blue-400/10"    },
-  Open:      { label: "ĐANG MỞ ĐK",   cls: "text-yellow-400  border-yellow-400/50  bg-yellow-400/10"  },
-  Ongoing:   { label: "ĐANG DIỄN RA", cls: "text-emerald-400 border-emerald-400/50 bg-emerald-400/10" },
-  Finished:  { label: "ĐÃ KẾT THÚC", cls: "text-gray-400    border-gray-500/50    bg-gray-500/10"    },
-  Cancelled: { label: "ĐÃ HỦY",       cls: "text-red-400     border-red-500/50     bg-red-500/10"     },
+  Draft:     { label: "UPCOMING",     cls: "text-blue-400    border-blue-400/50    bg-blue-400/10"    },
+  Open:      { label: "REGISTRATION OPEN", cls: "text-yellow-400  border-yellow-400/50  bg-yellow-400/10"  },
+  Ongoing:   { label: "IN PROGRESS",  cls: "text-emerald-400 border-emerald-400/50 bg-emerald-400/10" },
+  Finished:  { label: "FINISHED",     cls: "text-gray-400    border-gray-500/50    bg-gray-500/10"    },
+  Cancelled: { label: "CANCELLED",    cls: "text-red-400     border-red-500/50     bg-red-500/10"     },
 };
 
-// Nếu BE chưa tự update status, derive từ ngày để tránh hiển thị sai
+// If BE hasn't auto-updated the status yet, derive it from the dates to avoid displaying the wrong state
 function derivedStatus(tournament) {
   if (tournament.status === "Cancelled") return "Cancelled";
   if (tournament.status === "Finished")  return "Finished";
@@ -55,10 +55,28 @@ function derivedStatus(tournament) {
   return tournament.status || "Draft";
 }
 
+// Display priority: registration open/in progress first, finished last.
+const STATUS_PRIORITY = { Open: 0, Ongoing: 0, Draft: 1, Finished: 2, Cancelled: 2 };
+
+const FILTER_TABS = [
+  { key: "All", label: "All" },
+  { key: "Active", label: "Registration Open / In Progress" },
+  { key: "Draft", label: "Upcoming" },
+  { key: "Done", label: "Finished" },
+];
+
+function matchesFilterTab(status, tab) {
+  if (tab === "All") return true;
+  if (tab === "Active") return status === "Open" || status === "Ongoing";
+  if (tab === "Draft") return status === "Draft";
+  if (tab === "Done") return status === "Finished" || status === "Cancelled";
+  return true;
+}
+
 const ENTRY_STATUS = {
-  Pending:  { label: "Chờ duyệt",    cls: "text-yellow-400 bg-yellow-500/10 border border-yellow-500/20" },
-  Approved: { label: "Đã chấp nhận", cls: "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20" },
-  Rejected: { label: "Đã từ chối",   cls: "text-red-400    bg-red-500/10    border border-red-500/20"    },
+  Pending:  { label: "Pending Review", cls: "text-yellow-400 bg-yellow-500/10 border border-yellow-500/20" },
+  Approved: { label: "Accepted",       cls: "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20" },
+  Rejected: { label: "Rejected",       cls: "text-red-400    bg-red-500/10    border border-red-500/20"    },
 };
 
 // Race card image gradients
@@ -115,7 +133,7 @@ function TournamentListCard({ tournament, racesCount, onSelect }) {
         </div>
         <div className="flex items-center gap-1.5 mt-3 text-gray-500 text-xs">
           <Flag size={11} />
-          <span>{racesCount} cuộc đua</span>
+          <span>{racesCount} races</span>
         </div>
       </div>
     </button>
@@ -192,7 +210,7 @@ function RaceCard({ race, myEntry, myInvitation, index, onRegister, onConfirm })
             </span>
             <span className="text-[11px] px-2.5 py-0.5 rounded bg-white/6 border border-white/10 text-gray-300 flex items-center gap-1">
               <Users size={10} />
-              {race.maxHorses} chỗ
+              {race.maxHorses} slots
             </span>
           </div>
         </div>
@@ -200,8 +218,8 @@ function RaceCard({ race, myEntry, myInvitation, index, onRegister, onConfirm })
         {/* Progress bar */}
         <div className="mt-4">
           <div className="flex justify-between text-[11px] text-gray-500 mb-1.5">
-            <span>Tiến trình đăng ký</span>
-            <span>{filled}/{max} chỗ</span>
+            <span>Registration progress</span>
+            <span>{filled}/{max} slots</span>
           </div>
           <div className="h-1.5 rounded-full bg-white/6 overflow-hidden">
             <div
@@ -214,14 +232,14 @@ function RaceCard({ race, myEntry, myInvitation, index, onRegister, onConfirm })
 
       {/* Action */}
       <div className="flex flex-col items-center justify-center gap-2 px-5 w-[164px] flex-shrink-0 border-l border-white/5">
-        {/* Hiện badge entry nếu có */}
+        {/* Show entry badge if one exists */}
         {myEntry && (
           <span className={`text-[11px] px-3 py-1.5 rounded-lg font-semibold text-center ${ENTRY_STATUS[myEntry.status]?.cls ?? "text-gray-400 bg-gray-500/10 border border-gray-500/20"}`}>
             {ENTRY_STATUS[myEntry.status]?.label ?? myEntry.status}
           </span>
         )}
 
-        {/* Hiện nút Confirm nếu có invitation Accepted chưa nộp entry */}
+        {/* Show Confirm button if there's an Accepted invitation without a submitted entry */}
         {myInvitation && (myInvitation.status === "Accepted" || myInvitation.status === "Confirmed") && !myEntry && (
           <button
             onClick={() => onConfirm(myInvitation)}
@@ -231,13 +249,13 @@ function RaceCard({ race, myEntry, myInvitation, index, onRegister, onConfirm })
           </button>
         )}
 
-        {/* Nút đăng ký — luôn hiện nếu race còn mở, dù đã có entry khác */}
+        {/* Register button — always shown if the race is still open, even with another entry already */}
         {canRegister ? (
           <button
             onClick={() => onRegister(race)}
             className="w-full py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-black font-bold text-sm transition-colors"
           >
-            {myEntry ? "Đăng ký thêm" : "Đăng Ký Ngựa"}
+            {myEntry ? "Register Another" : "Register Horse"}
           </button>
         ) : (
           !myEntry && <span className="text-gray-600 text-xs text-center">{race.status}</span>
@@ -249,10 +267,10 @@ function RaceCard({ race, myEntry, myInvitation, index, onRegister, onConfirm })
 
 // ─── Detail view tabs ─────────────────────────────────────────────────────────
 
-const TABS = ["CÁC CUỘC ĐUA", "ĐĂNG KÝ CỦA TÔI"];
+const TABS = ["RACES", "MY ENTRIES"];
 
 function TournamentDetail({ tournament, races, entryByRace, activeInvByRace, onBack, onRegister, onConfirm }) {
-  const [activeTab, setActiveTab] = useState("CÁC CUỘC ĐUA");
+  const [activeTab, setActiveTab] = useState("RACES");
   const [search, setSearch] = useState("");
 
   const myRaces = races.filter((r) => entryByRace[r.raceId]);
@@ -266,7 +284,7 @@ function TournamentDetail({ tournament, races, entryByRace, activeInvByRace, onB
   }, null);
   const days = daysLeft(regDeadline);
 
-  const displayed = (activeTab === "ĐĂNG KÝ CỦA TÔI" ? myRaces : races).filter(
+  const displayed = (activeTab === "MY ENTRIES" ? myRaces : races).filter(
     (r) => r.name?.toLowerCase().includes(search.toLowerCase()),
   );
 
@@ -282,7 +300,7 @@ function TournamentDetail({ tournament, races, entryByRace, activeInvByRace, onB
           className="flex items-center gap-1.5 text-gray-300 hover:text-white text-sm transition-colors flex-shrink-0"
         >
           <ChevronLeft size={16} />
-          <span className="font-medium">Giải Đấu</span>
+          <span className="font-medium">Tournaments</span>
         </button>
 
         {/* Search */}
@@ -291,7 +309,7 @@ function TournamentDetail({ tournament, races, entryByRace, activeInvByRace, onB
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tìm kiếm giải đấu..."
+            placeholder="Search tournaments..."
             className="w-full bg-[#0f151e] border border-white/10 text-white placeholder-gray-600 rounded-full pl-9 pr-4 py-2 text-sm focus:outline-none focus:border-white/20"
           />
         </div>
@@ -374,25 +392,25 @@ function TournamentDetail({ tournament, races, entryByRace, activeInvByRace, onB
       {/* ── Stats row ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-4 gap-3 px-6 py-4 bg-[#080c12] flex-shrink-0">
         <StatCard
-          label="Số Cuộc Đua"
+          label="Races"
           value={tournament.raceCount}
-          sub="Cuộc đua"
+          sub="Races"
           borderCls="border-emerald-500/35"
         />
         <StatCard
-          label="Quy Mô"
+          label="Field Size"
           value={races[0]?.maxHorses ?? "—"}
-          sub="Ngựa / cuộc"
+          sub="Horses / race"
           borderCls="border-emerald-500/35"
         />
         <StatCard
-          label="Hạn Đăng Ký"
+          label="Registration Deadline"
           value={regDeadline ? fmtDate(regDeadline) : "—"}
           sub={
             days !== null
               ? days > 0
-                ? `Còn ${days} ngày`
-                : "Đã hết hạn"
+                ? `${days} days left`
+                : "Expired"
               : undefined
           }
           valueCls={regDeadline ? "text-red-400" : "text-gray-600"}
@@ -400,9 +418,9 @@ function TournamentDetail({ tournament, races, entryByRace, activeInvByRace, onB
           borderCls="border-emerald-500/35"
         />
         <StatCard
-          label="Tổng Thưởng"
+          label="Total Prize"
           value="—"
-          sub="điểm"
+          sub="points"
           valueCls="text-yellow-400"
           borderCls="border-yellow-400/35"
         />
@@ -421,7 +439,7 @@ function TournamentDetail({ tournament, races, entryByRace, activeInvByRace, onB
               }`}
           >
             {tab}
-            {tab === "ĐĂNG KÝ CỦA TÔI" && myRaces.length > 0 && (
+            {tab === "MY ENTRIES" && myRaces.length > 0 && (
               <span className="bg-yellow-400/20 text-yellow-400 text-[10px] px-1.5 py-0.5 rounded-full font-bold leading-none">
                 {myRaces.length}
               </span>
@@ -436,9 +454,9 @@ function TournamentDetail({ tournament, races, entryByRace, activeInvByRace, onB
           <div className="text-center py-16 text-gray-700">
             <Flag size={36} className="mx-auto mb-3 opacity-40" />
             <p className="text-sm">
-              {activeTab === "ĐĂNG KÝ CỦA TÔI"
-                ? "Bạn chưa đăng ký cuộc đua nào."
-                : "Chưa có cuộc đua nào trong giải này."}
+              {activeTab === "MY ENTRIES"
+                ? "You haven't registered for any races yet."
+                : "No races in this tournament yet."}
             </p>
           </div>
         ) : (
@@ -471,6 +489,7 @@ export default function HorseOwnerTournamentsPage() {
   const [selected, setSelected]         = useState(null);
   const [registerRace, setRegisterRace] = useState(null);
   const [confirmInv, setConfirmInv]     = useState(null);
+  const [filterTab, setFilterTab]       = useState("All");
 
   const refreshData = () =>
     Promise.all([getMyEntries(), getInvitations()])
@@ -501,13 +520,34 @@ export default function HorseOwnerTournamentsPage() {
     return map;
   }, [races]);
 
+  // Sort: registration-open/in-progress and upcoming groups first (soonest
+  // first — easier to register in time), finished group last (most recent first).
+  const sortedTournaments = useMemo(() => {
+    return [...tournaments].sort((a, b) => {
+      const sa = derivedStatus(a);
+      const sb = derivedStatus(b);
+      const pa = STATUS_PRIORITY[sa] ?? 1;
+      const pb = STATUS_PRIORITY[sb] ?? 1;
+      if (pa !== pb) return pa - pb;
+      const isUpcomingGroup = pa <= 1;
+      return isUpcomingGroup
+        ? new Date(a.startDate) - new Date(b.startDate)
+        : new Date(b.startDate) - new Date(a.startDate);
+    });
+  }, [tournaments]);
+
+  const filteredTournaments = useMemo(
+    () => sortedTournaments.filter((t) => matchesFilterTab(derivedStatus(t), filterTab)),
+    [sortedTournaments, filterTab],
+  );
+
   const entryByRace = useMemo(() => {
     const map = {};
     myEntries.forEach((e) => { map[e.raceId] = e; });
     return map;
   }, [myEntries]);
 
-  // Map raceId → invitation đang active (Pending hoặc Accepted)
+  // Map raceId → active invitation (Pending or Accepted)
   const activeInvByRace = useMemo(() => {
     const map = {};
     myInvitations
@@ -532,7 +572,7 @@ export default function HorseOwnerTournamentsPage() {
     return (
       <div className="flex flex-col items-center justify-center py-36 gap-4">
         <Trophy size={48} className="text-gray-700" />
-        <p className="text-gray-500 text-sm">Chưa có giải đấu nào được tổ chức.</p>
+        <p className="text-gray-500 text-sm">No tournaments have been organized yet.</p>
       </div>
     );
   }
@@ -578,22 +618,54 @@ export default function HorseOwnerTournamentsPage() {
   return (
     <div className="p-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">Giải Đấu</h1>
+        <h1 className="text-2xl font-bold text-white">Tournaments</h1>
         <p className="text-gray-500 text-sm mt-0.5">
-          Chọn giải đấu và đăng ký ngựa của bạn
+          Select a tournament and register your horse
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        {tournaments.map((t) => (
-          <TournamentListCard
-            key={t.tournamentId}
-            tournament={t}
-            racesCount={racesByTournament[t.tournamentId]?.length ?? 0}
-            onSelect={setSelected}
-          />
-        ))}
+      {/* Filter tabs */}
+      <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
+        {FILTER_TABS.map(({ key, label }) => {
+          const count = tournaments.filter((t) => matchesFilterTab(derivedStatus(t), key)).length;
+          return (
+            <button
+              key={key}
+              onClick={() => setFilterTab(key)}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-2 shrink-0
+                ${filterTab === key
+                  ? "bg-yellow-500 text-black"
+                  : "bg-white/10 text-gray-400 hover:bg-white/20"
+                }`}
+            >
+              {label}
+              <span className={`text-[11px] font-mono rounded-full px-1.5 py-0.5 ${
+                filterTab === key ? "bg-black/20 text-black" : "bg-white/10"
+              }`}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
+
+      {filteredTournaments.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-24 gap-3">
+          <Trophy size={40} className="text-gray-700" />
+          <p className="text-gray-500 text-sm">No tournaments in this group.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-4">
+          {filteredTournaments.map((t) => (
+            <TournamentListCard
+              key={t.tournamentId}
+              tournament={t}
+              racesCount={racesByTournament[t.tournamentId]?.length ?? 0}
+              onSelect={setSelected}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

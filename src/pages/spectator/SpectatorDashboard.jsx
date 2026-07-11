@@ -123,7 +123,7 @@ export default function SpectatorDashboard() {
         setRaces(Array.isArray(r) ? r : [])
         setTournaments(Array.isArray(t) ? t : [])
       } catch (err) {
-        if (active) setError(err?.message || 'Không tải được dữ liệu')
+        if (active) setError(err?.message || 'Failed to load data')
       } finally {
         if (active) setLoading(false)
       }
@@ -153,9 +153,9 @@ export default function SpectatorDashboard() {
 
   const notifications = []
   if (!loading) {
-    if (wonBets > 0)  notifications.push({ type: 'success', icon: CheckCircle2, msg: `Chúc mừng! ${wonBets} dự đoán của bạn đã thắng.`, action: { label: 'Xem dự đoán', path: '/spectator/predictions' } })
-    if (lostBets > 0) notifications.push({ type: 'info',    icon: XCircle,      msg: `${lostBets} dự đoán không thắng.`,                 action: { label: 'Xem dự đoán', path: '/spectator/predictions' } })
-    if (activeCount > 0) notifications.push({ type: 'warn', icon: Bell,         msg: `${activeCount} dự đoán đang chờ kết quả từ admin.`, action: null })
+    if (wonBets > 0)  notifications.push({ type: 'success', icon: CheckCircle2, msg: `Congratulations! ${wonBets} of your predictions won.`, action: { label: 'View Predictions', path: '/spectator/predictions' } })
+    if (lostBets > 0) notifications.push({ type: 'info',    icon: XCircle,      msg: `${lostBets} predictions did not win.`,                 action: { label: 'View Predictions', path: '/spectator/predictions' } })
+    if (activeCount > 0) notifications.push({ type: 'warn', icon: Bell,         msg: `${activeCount} predictions awaiting results from admin.`, action: null })
   }
 
   const STATS = [
@@ -193,7 +193,7 @@ export default function SpectatorDashboard() {
               <span className="text-base font-normal text-on-surface-variant ml-1.5">pts</span>
             </p>
             <p className="text-xs text-on-surface-variant mt-2">
-              Tổng thắng: <span className="text-secondary font-bold">{fmtBalance(totalWinnings)} pts</span>
+              Total Winnings: <span className="text-secondary font-bold">{fmtBalance(totalWinnings)} pts</span>
             </p>
           </div>
         </div>
@@ -269,7 +269,7 @@ export default function SpectatorDashboard() {
             </div>
           ) : scheduledRaces.length === 0 ? (
             <div className="gs-card p-12 text-center text-on-surface-variant text-sm">
-              Không có cuộc đua nào đang mở đặt cược.
+              No races are currently open for betting.
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">

@@ -2,11 +2,11 @@ import api from '../services/api'
 
 // ─── Races ──────────────────────────────────────────────────────────────────
 
-// ⚠️ getRacePauseInfo KHÔNG được dùng cho referee flow.
-// Endpoint /api/races/{id}/pause lộ vị trí của referee kia → vi phạm Blind Double-Entry.
-// Chỉ Admin mới được xem side-by-side comparison.
-// Nếu component referee lỡ import, cần check role === 'ADMIN' trước khi gọi.
-// (Frontend mitigation — backend nên siết authorization về ADMIN-only.)
+// ⚠️ getRacePauseInfo must NOT be used in the referee flow.
+// The /api/races/{id}/pause endpoint exposes the other referee's position → violates Blind Double-Entry.
+// Only Admin is allowed to view the side-by-side comparison.
+// If a referee component accidentally imports this, check role === 'ADMIN' before calling.
+// (Frontend mitigation — backend should tighten authorization to ADMIN-only.)
 
 export async function getAllRaces() {
   const res = await api.get('/api/races')
@@ -27,7 +27,7 @@ export async function startRace(raceId, payload = {}) {
 
 /**
  * GET /api/races/{raceId}/legs/{legIndex}/referee-view
- * Lấy dữ liệu LEG hiện tại cho referee đang đăng nhập.
+ * Get the current LEG data for the logged-in referee.
  * Response: { raceId, legIndex, legNumber, entries, mySubmittedData,
  *             opponentSubmitted, bothSubmitted, legStatus }
  */
@@ -38,7 +38,7 @@ export async function getRefereeLegView(raceId, legIndex) {
 
 /**
  * PUT /api/races/{raceId}/legs/{legIndex}/draft
- * Lưu nháp kết quả leg (chưa submit).
+ * Save a draft leg result (not yet submitted).
  * payload: { entries: [{ entryId, position }] }
  * position: 1,2,3,... | -1 (DNF) | -2 (DQ)
  */
@@ -49,9 +49,9 @@ export async function saveLegDraft(raceId, legIndex, entries) {
 
 /**
  * POST /api/races/{raceId}/legs/{legIndex}/submit
- * Submit kết quả leg cuối cùng.
+ * Submit the final leg result.
  * payload: { entries: [{ entryId, position }] }
- * Trả về: { status: 'Matched'|'Conflicted', legIndex, legNumber, results, ... }
+ * Returns: { status: 'Matched'|'Conflicted', legIndex, legNumber, results, ... }
  */
 export async function submitLegResult(raceId, legIndex, entries) {
   const res = await api.post(`/api/races/${raceId}/legs/${legIndex}/submit`, { entries })
@@ -60,7 +60,7 @@ export async function submitLegResult(raceId, legIndex, entries) {
 
 /**
  * GET /api/races/{raceId}/execution
- * Lấy trạng thái execution đầy đủ (mọi user đều xem được).
+ * Get full execution status (visible to all users).
  */
 export async function getRaceExecutionStatus(raceId) {
   const res = await api.get(`/api/races/${raceId}/execution`)
@@ -69,17 +69,17 @@ export async function getRaceExecutionStatus(raceId) {
 
 /**
  * GET /api/races/{raceId}/standings
- * Lấy bảng điểm live của race.
+ * Get the race's live standings.
  */
 export async function getRaceStandings(raceId) {
   const res = await api.get(`/api/races/${raceId}/standings`)
   return res.data
 }
 
-// ─── Legacy alias (giữ tương thích ngược) ───────────────────────────────────
+// ─── Legacy alias (kept for backward compatibility) ─────────────────────────
 
 /**
- * @deprecated Dùng submitLegResult(raceId, legIndex, entries) thay thế.
+ * @deprecated Use submitLegResult(raceId, legIndex, entries) instead.
  * payload: { raceId, legNumber, results: [{ entryId, finishPosition }] }
  */
 export async function submitLegResult_legacy(payload) {
@@ -94,14 +94,14 @@ export async function getViolations() {
   return Array.isArray(res.data) ? res.data : []
 }
 
-// POST /api/violations — Referee lập biên bản.
-// Payload shape BẮT BUỘC khớp với CreateViolationCommand record ở BE:
+// POST /api/violations — Referee files a violation report.
+// Payload shape MUST match the CreateViolationCommand record on BE:
 //   raceId, legNumber, entryId, reportedByRefereeId, violationType,
 //   description, penalty, status, reviewedByAdminId, adminNote.
-// Lưu ý: controller sẽ override `reportedByRefereeId` (từ JWT) và `status`
-// (luôn "Pending"), nhưng BE record CẦN nhận đủ field không-null để bind.
-// `penalty` mặc định "Warning" nếu không truyền (admin sẽ chọn lại khi duyệt).
-// `legNumber` <= 0 → BE tự chọn leg hiện hành.
+// Note: the controller will override `reportedByRefereeId` (from JWT) and `status`
+// (always "Pending"), but the BE record NEEDS all non-null fields to bind.
+// `penalty` defaults to "Warning" if not passed (admin will re-select when approving).
+// `legNumber` <= 0 → BE auto-selects the current leg.
 export async function reportViolation({
   raceId,
   legNumber = 0,

@@ -333,15 +333,17 @@ export default function HorseOwnerDashboard() {
   const notifications = [];
   if (!loading) {
     if (pendingInvitations.length > 0)
-      notifications.push({ type: "warn", icon: Bell, msg: `Bạn có ${pendingInvitations.length} lời mời jockey chưa phản hồi.`, path: "/horse-owner/invitations" });
+      notifications.push({ type: "warn", icon: Bell, msg: `You have ${pendingInvitations.length} jockey invitation(s) awaiting your response.`, path: "/horse-owner/invitations" });
+    if (approvedCount > 0)
+      notifications.push({ type: "success", icon: CheckCircle2, msg: `${approvedCount} horse(s) have been approved and are ready to compete.`, path: "/horse-owner/horses" });
     if (rejectedHorses.length > 0)
-      notifications.push({ type: "error", icon: XCircle, msg: `${rejectedHorses.length} ngựa bị từ chối đăng ký.`, path: "/horse-owner/horses" });
+      notifications.push({ type: "error", icon: XCircle, msg: `${rejectedHorses.length} horse(s) had their registration rejected.`, path: "/horse-owner/horses" });
     if (rejectedEntries.length > 0)
-      notifications.push({ type: "error", icon: XCircle, msg: `${rejectedEntries.length} entry bị từ chối tham gia race.`, path: "/horse-owner/entries" });
+      notifications.push({ type: "error", icon: XCircle, msg: `${rejectedEntries.length} entry/entries were rejected from a race.`, path: "/horse-owner/entries" });
     if (finishedEntries.length > 0)
-      notifications.push({ type: "success", icon: Trophy, msg: `${finishedEntries.length} cuộc đua đã kết thúc — xem kết quả của bạn.`, path: "/horse-owner/entries" });
+      notifications.push({ type: "success", icon: Trophy, msg: `${finishedEntries.length} race(s) have finished — check your results.`, path: "/horse-owner/entries" });
     if (pendingInvitations.length === 0 && rejectedHorses.length === 0 && rejectedEntries.length === 0)
-      notifications.push({ type: "info", icon: CheckCircle2, msg: "Mọi thứ đang ổn định. Không có hành động nào cần thực hiện.", path: null });
+      notifications.push({ type: "info", icon: CheckCircle2, msg: "Everything looks good. No action needed right now.", path: null });
   }
 
   if (loading) {
@@ -398,7 +400,7 @@ export default function HorseOwnerDashboard() {
                 <span className="flex-1">{n.msg}</span>
                 {n.path && (
                   <button onClick={() => navigate(n.path)} className="text-xs font-bold underline underline-offset-2 whitespace-nowrap">
-                    Xem ngay
+                    View Now
                   </button>
                 )}
               </div>

@@ -197,20 +197,20 @@ export async function getPendingHorses() {
   return res.data
 }
 
-// Duyệt ngựa
+// Approve a horse
 export async function approveHorse(horseId) {
   const res = await api.post(`/api/admin/horses/${horseId}/approve`)
   return res.data
 }
 
-//Từ chối ngựa
+// Reject a horse
 export async function rejectHorse(horseId, reason) {
-  // Backend yêu cầu reason (không được null)
+  // Backend requires a reason (cannot be null)
   const res = await api.post(`/api/admin/horses/${horseId}/reject`, { reason })
   return res.data
 }
 
-// Thu hồi ngựa đã duyệt (chỉ work trên Approved → chuyển thành Rejected)
+// Revoke an already-approved horse (only works on Approved → becomes Rejected)
 export async function revokeHorse(horseId) {
   const res = await api.post(`/api/admin/horses/${horseId}/revoke`)
   return res.data
@@ -220,12 +220,12 @@ export async function revokeHorse(horseId) {
 
 export async function getAllTournaments({ page = 1, pageSize = 10, search = "", sort = "name", sortDirection = "asc" } = {}) {
   const params = { page, pageSize, search, sort, sortDirection }
-  const res = await api.get('/api/admin/tournaments', { params })
+  const res = await api.get('/api/tournaments', { params })
   return res.data
 }
 
 export async function getTournamentById(id) {
-  const res = await api.get(`/api/admin/tournaments/${id}`)
+  const res = await api.get(`/api/tournaments/${id}`)
   return res.data
 }
 
@@ -318,11 +318,11 @@ export async function deleteDiscrepancy(id) {
 // ─── Violations ────────────────────────────────────────────────────────────────
 
 // GET /api/admin/violations?status=&page=&pageSize=
-// status filter (FE → BE mapping trong GetAdminViolations handler):
+// status filter (FE → BE mapping in the GetAdminViolations handler):
 //   "Pending"   → domain "Pending"
-//   "Resolved"  → domain "Approved"   (UI: tab "Đã duyệt")
-//   "Dismissed" → domain "Rejected"  (UI: tab "Đã từ chối")
-// Truyền "" (rỗng) hoặc undefined → BE trả tất cả.
+//   "Resolved"  → domain "Approved"   (UI: "Approved" tab)
+//   "Dismissed" → domain "Rejected"  (UI: "Rejected" tab)
+// Pass "" (empty) or undefined → BE returns all.
 export async function getAllViolations({
   page = 1,
   pageSize = 15,
@@ -358,12 +358,12 @@ export async function deleteViolation(id) {
   return res.data
 }
 
-// Flow 6 — Admin duyệt biên bản vi phạm & áp dụng penalty vào standings.
-// Penalty: "Warning" | "Demote" | "DQ" — BẮT BUỘC chọn trước khi submit.
-//   - Warning: chỉ ghi nhận, không đổi standings.
-//   - Demote: FinishPosition += 1 ở LegOfficialResult, recompute LegPoints.
-//   - DQ: 0 điểm toàn bộ leg của entry (Race DQ → xếp cuối, 0 Prize khi Publish).
-// AdminNote: optional, không validate ở BE.
+// Flow 6 — Admin approves a violation report & applies a penalty to standings.
+// Penalty: "Warning" | "Demote" | "DQ" — REQUIRED to select before submitting.
+//   - Warning: recorded only, does not change standings.
+//   - Demote: FinishPosition += 1 in LegOfficialResult, recompute LegPoints.
+//   - DQ: 0 points for the entry's entire leg (Race DQ → last place, 0 Prize on Publish).
+// AdminNote: optional, not validated on BE.
 export async function approveViolation(violationId, { penalty, adminNote } = {}) {
   if (!violationId) throw new Error("violationId is required");
   if (!penalty || !["Warning", "Demote", "DQ"].includes(penalty)) {
@@ -376,8 +376,8 @@ export async function approveViolation(violationId, { penalty, adminNote } = {})
   return res.data;
 }
 
-// Flow 6 — Admin từ chối biên bản vi phạm (lý do BẮT BUỘC).
-// Ghi vào AdminNote của Violation; không thay đổi standings.
+// Flow 6 — Admin rejects a violation report (reason is REQUIRED).
+// Written to the Violation's AdminNote; does not change standings.
 export async function rejectViolation(violationId, reason) {
   if (!violationId) throw new Error("violationId is required");
   if (!reason || !String(reason).trim()) {
@@ -452,7 +452,7 @@ export async function closeRegistration(raceId) {
 
 /**
  * POST /api/races/{raceId}/start
- * Admin bắt đầu race → khóa bets.
+ * Admin starts the race → locks bets.
  */
 export async function startRace(raceId, payload = {}) {
   const res = await api.post(`/api/races/${raceId}/start`, payload)
@@ -471,7 +471,7 @@ export async function unpublishRace(raceId) {
 
 /**
  * GET /api/races/{raceId}/execution
- * Lấy trạng thái execution đầy đủ (leg status, referee submissions).
+ * Get full execution status (leg status, referee submissions).
  */
 export async function getRaceExecutionStatus(raceId) {
   const res = await api.get(`/api/races/${raceId}/execution`)
@@ -480,9 +480,9 @@ export async function getRaceExecutionStatus(raceId) {
 
 /**
  * GET /api/races/{raceId}/pause
- * Lấy thông tin conflict → side-by-side comparison.
- * ⚠️ ADMIN-only theo spec — Referee KHÔNG được gọi để giữ Blind Double-Entry.
- * Frontend không import hàm này từ các file referee.
+ * Get conflict info → side-by-side comparison.
+ * ⚠️ ADMIN-only per spec — Referee must NOT call this, to preserve Blind Double-Entry.
+ * Frontend must not import this function from referee files.
  */
 export async function getRacePauseInfo(raceId) {
   const res = await api.get(`/api/races/${raceId}/pause`)
@@ -491,7 +491,7 @@ export async function getRacePauseInfo(raceId) {
 
 /**
  * POST /api/races/{raceId}/legs/{legIndex}/override
- * Admin resolve discrepancy bằng cách override kết quả.
+ * Admin resolves a discrepancy by overriding the result.
  * payload: { decisions: [{ entryId, officialPosition }], overrideReason }
  */
 export async function resolveRaceConflict(raceId, legIndex, payload) {
@@ -501,7 +501,7 @@ export async function resolveRaceConflict(raceId, legIndex, payload) {
 
 /**
  * POST /api/races/{raceId}/resume
- * Admin resume race đang Paused.
+ * Admin resumes a Paused race.
  */
 export async function resumeRace(raceId) {
   const res = await api.post(`/api/races/${raceId}/resume`)
@@ -510,11 +510,23 @@ export async function resumeRace(raceId) {
 
 /**
  * GET /api/races/{raceId}/standings
- * Lấy bảng điểm live của race.
+ * Get the race's live standings.
  */
 export async function getRaceStandings(raceId) {
   const res = await api.get(`/api/races/${raceId}/standings`)
   return res.data
+}
+
+// ─── Review History (Audit Log) ────────────────────────────────────────────
+// GET /api/admin/review-history?entity=&entityId=
+// Records every time Admin Approves/Rejects a Horse|Entry|User (Reason, AdminName, CreatedAt).
+// entity: "Horse" | "Entry" | "User" (empty = all).
+export async function getReviewHistory({ entity = "", entityId = "" } = {}) {
+  const params = {}
+  if (entity) params.entity = entity
+  if (entityId) params.entityId = entityId
+  const res = await api.get('/api/admin/review-history', { params })
+  return Array.isArray(res.data) ? res.data : []
 }
 
 // NOTE: Backward-compat aliases intentionally removed.

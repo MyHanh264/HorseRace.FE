@@ -75,7 +75,7 @@ export default function PointWalletPage() {
       )
       setPredictions(Array.isArray(preds) ? preds : [])
     } catch (err) {
-      setError(err?.message || 'Không tải được dữ liệu')
+      setError(err?.message || 'Failed to load data')
     } finally {
       setLoading(false)
     }

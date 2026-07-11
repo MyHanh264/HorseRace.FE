@@ -3,8 +3,8 @@ import { Trophy, TrendingUp, Medal, Users, Flag } from "lucide-react";
 import { TOP_HORSES, TOP_JOCKEYS } from "../../constants";
 
 const TABS = [
-  { key: "jockeys", label: "Nài Ngựa", icon: Users },
-  { key: "horses", label: "Chiến Mã", icon: Flag },
+  { key: "jockeys", label: "Jockeys", icon: Users },
+  { key: "horses", label: "Horses", icon: Flag },
 ];
 
 function RankBadge({ rank }) {
@@ -44,8 +44,8 @@ export default function JockeyLeaderboardPage() {
           <Trophy className="w-5 h-5 text-secondary" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-white">Bảng Xếp Hạng</h1>
-          <p className="text-xs text-gray-400 mt-0.5">Kết quả tổng hợp từ 2024 – 2026</p>
+          <h1 className="text-2xl font-bold text-white">Leaderboard</h1>
+          <p className="text-xs text-gray-400 mt-0.5">Combined results from 2024 – 2026</p>
         </div>
         <span className="ml-auto flex items-center gap-1.5 text-[11px] font-bold text-red-400 uppercase tracking-wider">
           <span className="relative flex h-2 w-2">
@@ -80,9 +80,9 @@ export default function JockeyLeaderboardPage() {
         <div className="bg-[#161B22] border border-white/10 rounded-2xl overflow-hidden">
           <div className="px-5 py-4 border-b border-white/10 flex items-center gap-2">
             <Medal className="w-4 h-4 text-secondary" />
-            <span className="text-sm font-bold text-white">Top Nài Ngựa</span>
+            <span className="text-sm font-bold text-white">Top Jockeys</span>
             <span className="ml-auto text-[11px] text-gray-500 font-mono uppercase tracking-wider">
-              Tổng thắng
+              Total Wins
             </span>
           </div>
           <div className="divide-y divide-white/5">
@@ -105,7 +105,7 @@ export default function JockeyLeaderboardPage() {
                 <span className="text-sm font-semibold text-white flex-1">{jockey.name}</span>
                 <div className="flex items-center gap-1.5 text-primary text-xs font-bold">
                   <TrendingUp size={12} />
-                  {jockey.wins} thắng
+                  {jockey.wins} wins
                 </div>
               </div>
             ))}
@@ -118,9 +118,9 @@ export default function JockeyLeaderboardPage() {
         <div className="bg-[#161B22] border border-white/10 rounded-2xl overflow-hidden">
           <div className="px-5 py-4 border-b border-white/10 flex items-center gap-2">
             <Medal className="w-4 h-4 text-secondary" />
-            <span className="text-sm font-bold text-white">Top Chiến Mã</span>
+            <span className="text-sm font-bold text-white">Top Horses</span>
             <span className="ml-auto text-[11px] text-gray-500 font-mono uppercase tracking-wider">
-              Điểm tích lũy
+              Accumulated Points
             </span>
           </div>
           <div className="divide-y divide-white/5">
@@ -132,10 +132,10 @@ export default function JockeyLeaderboardPage() {
                 <RankBadge rank={horse.rank} />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-white truncate">{horse.name}</p>
-                  <p className="text-[11px] text-gray-500 truncate">Chuồng: {horse.stable}</p>
+                  <p className="text-[11px] text-gray-500 truncate">Stable: {horse.stable}</p>
                 </div>
                 <span className="text-on-surface font-mono text-xs font-bold bg-white/5 px-3 py-1 rounded-lg">
-                  {horse.pts.toLocaleString()} điểm
+                  {horse.pts.toLocaleString()} pts
                 </span>
               </div>
             ))}
@@ -144,7 +144,7 @@ export default function JockeyLeaderboardPage() {
       )}
 
       <p className="text-center text-[11px] text-gray-600 mt-6">
-        Dữ liệu cập nhật theo thời gian thực từ hệ thống GrandStride
+        Data updated in real time from the GrandStride system
       </p>
     </div>
   );

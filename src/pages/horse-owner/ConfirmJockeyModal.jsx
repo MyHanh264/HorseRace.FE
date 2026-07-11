@@ -116,7 +116,7 @@ export default function ConfirmJockeyModal({
         if (j.status  === "fulfilled") setJockey(j.value);
         if (ju.status === "fulfilled") setJockeyUser(ju.value?.data ?? ju.value);
       } catch (err) {
-        setLoadError("Không tải được thông tin chi tiết.");
+        setLoadError("Couldn't load details.");
         console.error("ConfirmJockeyModal load failed:", err);
       } finally {
         setLoading(false);
@@ -157,7 +157,7 @@ export default function ConfirmJockeyModal({
       onConfirmed?.();
     } catch (err) {
       const detail = err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message;
-      setSubmitError(`[${err?.response?.status ?? "?"}] ${detail ?? "Submit entry thất bại."}`);
+      setSubmitError(`[${err?.response?.status ?? "?"}] ${detail ?? "Failed to submit entry."}`);
     } finally {
       setSubmitting(false);
     }
@@ -211,7 +211,7 @@ export default function ConfirmJockeyModal({
             <>
               {loadError && (
                 <p className="text-yellow-400 text-xs bg-yellow-400/10 border border-yellow-400/20 rounded-lg px-3 py-2">
-                  {loadError} — Hiển thị thông tin cơ bản.
+                  {loadError} — Showing basic info.
                 </p>
               )}
 

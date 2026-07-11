@@ -55,7 +55,7 @@ export default function MyPredictionsPage() {
       setTournaments(Array.isArray(t) ? t : [])
       setWallet(w)
     } catch (err) {
-      setError(err?.message || 'Không tải được dữ liệu')
+      setError(err?.message || 'Failed to load data')
     } finally {
       setLoading(false)
     }
@@ -91,7 +91,7 @@ export default function MyPredictionsPage() {
       await cancelPrediction(predId)
       await load()
     } catch (err) {
-      setCancelError(err?.message || 'Huỷ dự đoán thất bại')
+      setCancelError(err?.message || 'Failed to cancel prediction')
     } finally {
       setCancelling(null)
     }

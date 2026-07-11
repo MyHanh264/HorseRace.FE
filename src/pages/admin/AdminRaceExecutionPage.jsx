@@ -19,7 +19,7 @@ function getLegPoints(pos) { return pos && pos >= 1 ? (LEG_POINTS[pos] ?? 0) : 0
 
 function fmtDateTime(dt) {
   if (!dt) return '—'
-  return new Date(dt).toLocaleString('vi-VN', {
+  return new Date(dt).toLocaleString('en-GB', {
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
@@ -88,12 +88,12 @@ function OverrideModal({ race, legIndex, pauseInfo, onClose, onResolved }) {
   }
 
   async function handleOverride() {
-    // Validate số lượng decisions phải khớp với approved entries của leg
+    // Validate that the number of decisions matches the leg's approved entries
     const expectedEntryIds = new Set(entries.map(e => e.entryId))
     const sentEntryIds = new Set(Object.keys(decisions).map(Number))
     if (expectedEntryIds.size !== sentEntryIds.size ||
         ![...expectedEntryIds].every(id => sentEntryIds.has(id))) {
-      setError('Số lượng decisions không khớp với approved entries.')
+      setError('The number of decisions does not match the approved entries.')
       return
     }
 
@@ -104,7 +104,7 @@ function OverrideModal({ race, legIndex, pauseInfo, onClose, onResolved }) {
     }
     const { valid } = getLegValidation()
     if (!valid) {
-      setError('Mỗi thứ hạng chỉ gán cho 1 Entry duy nhất.')
+      setError('Each position can only be assigned to a single Entry.')
       return
     }
 
@@ -115,12 +115,12 @@ function OverrideModal({ race, legIndex, pauseInfo, onClose, onResolved }) {
         decisions: Object.entries(decisions).map(([entryId, officialPosition]) => ({ entryId: Number(entryId), officialPosition })),
         overrideReason: overrideReason.trim(),
       }
-      // Backend tự động resume race sau khi override thành công (handler OverrideLegResult.cs).
-      // Gọi thêm resumeRace() sẽ gây 400 vì leg đã Conflicted được resolve → race chuyển InProgress/PendingResult.
+      // Backend automatically resumes the race after a successful override (handler OverrideLegResult.cs).
+      // Calling resumeRace() afterwards would cause a 400 because the Conflicted leg was already resolved → race moves to InProgress/PendingResult.
       await resolveRaceConflict(race.raceId, legIndex, payload)
       onResolved()
     } catch (err) {
-      setError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Override thất bại.')
+      setError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Override failed.')
     } finally {
       setSubmitting(false)
     }
@@ -135,14 +135,14 @@ function OverrideModal({ race, legIndex, pauseInfo, onClose, onResolved }) {
               <Shield size={16} className="text-orange-400" />
               <h2 className="text-lg font-bold text-white">Override Leg {legIndex + 1} Result</h2>
             </div>
-            <p className="text-xs text-gray-400">Kết quả giữa 2 referees không khớp. Admin xác nhận kết quả chính thức.</p>
+            <p className="text-xs text-gray-400">Results between the 2 referees do not match. Admin confirms the official result.</p>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-lg border border-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-all shrink-0">✕</button>
         </div>
 
         <div className="px-6 py-4 border-b border-white/5 bg-orange-500/5">
           <div className="flex items-center gap-2 text-orange-400 text-xs font-semibold mb-2">
-            <AlertTriangle size={13} /> Phát hiện chênh lệch — Race tạm dừng
+            <AlertTriangle size={13} /> Discrepancy detected — Race paused
           </div>
           <p className="text-xs text-gray-400">Paused at: {fmtDateTime(pauseInfo?.pausedAt)} · Leg {legIndex + 1}</p>
         </div>
@@ -175,10 +175,10 @@ function OverrideModal({ race, legIndex, pauseInfo, onClose, onResolved }) {
 
         <div className="px-6 pb-4">
           <label className="block text-xs text-gray-400 font-medium mb-1.5 uppercase tracking-wider">
-            Lý do Override <span className="text-red-400">*</span>
+            Override Reason <span className="text-red-400">*</span>
           </label>
           <textarea value={overrideReason} onChange={e => setOverrideReason(e.target.value)}
-            placeholder="Mô tả lý do chọn kết quả này (VD: Sau khi xem lại video finish line)"
+            placeholder="Describe the reason for choosing this result (e.g. After reviewing the finish line video)"
             rows={3} className="w-full bg-surface-container-lowest border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-yellow-400/50 transition-all resize-none" />
         </div>
 
@@ -187,10 +187,10 @@ function OverrideModal({ race, legIndex, pauseInfo, onClose, onResolved }) {
             ? <p className="text-xs text-red-400 flex items-center gap-1.5"><AlertCircle size={12} />{error}</p>
             : <div />}
           <div className="flex items-center gap-2">
-            <button onClick={onClose} className="px-4 py-2 rounded-lg border border-white/20 text-sm text-gray-300 hover:bg-white/10 transition-all">Hủy</button>
+            <button onClick={onClose} className="px-4 py-2 rounded-lg border border-white/20 text-sm text-gray-300 hover:bg-white/10 transition-all">Cancel</button>
             <button onClick={handleOverride} disabled={submitting}
               className="flex items-center gap-1.5 px-5 py-2 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-black text-sm font-bold transition-all disabled:opacity-50">
-              {submitting ? <><Loader2 size={14} className="animate-spin" /> Đang xử lý...</> : <><CheckCircle2 size={14} /> Confirm Override</>}
+              {submitting ? <><Loader2 size={14} className="animate-spin" /> Processing...</> : <><CheckCircle2 size={14} /> Confirm Override</>}
             </button>
           </div>
         </div>
@@ -253,7 +253,7 @@ function RaceListCard({ race, onViewEntries, onMonitor, onStartRace }) {
             <button
               onClick={() => race.registrationCloseAt && onStartRace(race)}
               disabled={!race.registrationCloseAt}
-              title={!race.registrationCloseAt ? 'Cần đóng đăng ký trước khi bắt đầu' : ''}
+              title={!race.registrationCloseAt ? 'Registration must be closed before starting' : ''}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
                 race.registrationCloseAt
                   ? 'bg-yellow-400 hover:bg-yellow-300 text-black'
@@ -299,7 +299,7 @@ function PageHeader({ view, loading, selectedRaceName, onBack, onRefreshList, on
           {view === 'list' ? 'Race Execution' : view === 'entries' ? 'Race Entries' : 'Race Monitor'}
         </h1>
         <p className="text-xs text-on-surface-variant truncate">
-          {view === 'list' ? 'Chọn race để xem entries hoặc giám sát' : selectedRaceName ?? ''}
+          {view === 'list' ? 'Select a race to view entries or monitor' : selectedRaceName ?? ''}
         </p>
       </div>
       {view === 'list' && (
@@ -362,7 +362,7 @@ export default function AdminRaceExecutionPage() {
   const [pauseInfo,  setPauseInfo]  = useState(null)
   const [showOverride, setShowOverride] = useState(false)
   const pollRef = useRef(null)
-  // Ref để track modal state - tránh polling update pauseInfo khi modal đang mở
+  // Ref to track modal state - avoids polling from updating pauseInfo while the modal is open
   const modalOpenRef = useRef(false)
 
   // ── Load races ─────────────────────────────────────────────────────────────
@@ -374,7 +374,7 @@ export default function AdminRaceExecutionPage() {
         ['Scheduled', 'InProgress', 'Paused', 'PendingResult'].includes(r.status),
       ))
     } catch (err) {
-      if (isMountedRef.current) setError(err?.message || 'Không tải được danh sách races.')
+      if (isMountedRef.current) setError(err?.message || 'Failed to load race list.')
     } finally {
       if (isMountedRef.current) setLoading(false)
     }
@@ -402,7 +402,7 @@ export default function AdminRaceExecutionPage() {
         registrationCloseAt: found.registrationCloseAt ?? null,
       } : {})
     } catch (err) {
-      if (isMountedRef.current) setEntryError(err?.message || 'Không tải được entries')
+      if (isMountedRef.current) setEntryError(err?.message || 'Failed to load entries')
     } finally {
       if (isMountedRef.current) setEntriesLoading(false)
     }
@@ -438,7 +438,7 @@ export default function AdminRaceExecutionPage() {
           ['Scheduled', 'InProgress', 'Paused', 'PendingResult'].includes(r.status),
         ))
       } catch (err) {
-        if (active) setError(err?.message || 'Không tải được danh sách races.')
+        if (active) setError(err?.message || 'Failed to load race list.')
       } finally {
         if (active) setLoading(false)
       }
@@ -461,8 +461,8 @@ export default function AdminRaceExecutionPage() {
         if (!active) return
         setExecution(exec)
         setStandings(standingsData)
-        // CHỈ update pauseInfo khi modal KHÔNG đang mở
-        // để tránh race condition gây reload modal khi admin đang xem conflict
+        // Only update pauseInfo when the modal is NOT open
+        // to avoid a race condition that reloads the modal while admin is viewing the conflict
         if (exec?.status === 'Paused' && !modalOpenRef.current) {
           const pause = await getRacePauseInfo(raceId).catch(() => null)
           if (active) setPauseInfo(pause)
@@ -505,7 +505,7 @@ export default function AdminRaceExecutionPage() {
       await closeRegistration(selectedRace.raceId)
       await loadEntries(selectedRace.raceId)
     } catch (err) {
-      setError(err?.response?.data?.detail ?? err?.message ?? 'Đóng đăng ký thất bại')
+      setError(err?.response?.data?.detail ?? err?.message ?? 'Failed to close registration')
     } finally {
       setRegLoading(false)
     }
@@ -518,7 +518,7 @@ export default function AdminRaceExecutionPage() {
       await loadRaces()
       openMonitor({ ...race, status: 'InProgress' })
     } catch (err) {
-      setError(err?.response?.data?.detail ?? err?.message ?? 'Bắt đầu race thất bại')
+      setError(err?.response?.data?.detail ?? err?.message ?? 'Failed to start race')
     } finally {
       setRegLoading(false)
     }
@@ -532,7 +532,7 @@ export default function AdminRaceExecutionPage() {
       await approveEntry(entryId)
       await loadEntries(selectedRace.raceId)
     } catch (err) {
-      setEntryError(err?.message || 'Phê duyệt entry thất bại')
+      setEntryError(err?.message || 'Failed to approve entry')
     } finally {
       setEntryAction(null)
     }
@@ -545,7 +545,7 @@ export default function AdminRaceExecutionPage() {
       setRejectingEntryId(null); setRejectReason('')
       await loadEntries(selectedRace.raceId)
     }
-    catch (err) { setEntryError(err?.message || 'Từ chối entry thất bại') }
+    catch (err) { setEntryError(err?.message || 'Failed to reject entry') }
     finally { setEntryAction(null) }
   }
 
@@ -589,8 +589,8 @@ export default function AdminRaceExecutionPage() {
         ) : allRaces.length === 0 ? (
           <div className="gs-card p-16 text-center">
             <Flag size={40} className="text-gray-600 mx-auto mb-4" />
-            <h3 className="text-lg font-bold text-on-surface mb-2">Không có cuộc đua nào cần xử lý</h3>
-            <p className="text-sm text-on-surface-variant">Các cuộc đua sẽ xuất hiện ở đây khi có trạng thái cần action.</p>
+            <h3 className="text-lg font-bold text-on-surface mb-2">No races need action</h3>
+            <p className="text-sm text-on-surface-variant">Races will appear here when they have a status requiring action.</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -672,11 +672,11 @@ export default function AdminRaceExecutionPage() {
                           loadExecution(selectedRace.raceId)
                           loadRaces()
                         } catch (err) {
-                          alert(err?.message || 'Resume thất bại.')
+                          alert(err?.message || 'Failed to resume.')
                         }
                       }}
                       disabled={hasAnyConflict}
-                      title={hasAnyConflict ? 'Vui lòng override conflict trước khi resume' : ''}
+                      title={hasAnyConflict ? 'Please override the conflict before resuming' : ''}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <ChevronRight size={12} /> Resume Race
@@ -915,7 +915,7 @@ export default function AdminRaceExecutionPage() {
                       setSelectedRace(prev => ({ ...prev, status: 'InProgress' }))
                       loadExecution(selectedRace.raceId)
                       loadRaces()
-                    } catch (err) { setError(err?.message || 'Resume thất bại.') }
+                    } catch (err) { setError(err?.message || 'Failed to resume.') }
                   }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold transition-all">
                     <ChevronRight size={12} /> Resume Race
                   </button>
@@ -971,8 +971,8 @@ export default function AdminRaceExecutionPage() {
               <div className="px-5 py-4 border-b border-orange-500/20 bg-orange-500/5 flex items-start gap-3">
                 <AlertTriangle size={18} className="text-orange-400 shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <p className="font-bold text-orange-400 text-sm">Chênh lệch phát hiện — Cuộc đua tạm dừng</p>
-                  <p className="text-xs text-gray-400 mt-0.5">Side-by-side comparison bên dưới. Admin xác nhận kết quả chính thức.</p>
+                  <p className="font-bold text-orange-400 text-sm">Discrepancy detected — Race paused</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Side-by-side comparison below. Admin confirms the official result.</p>
                 </div>
               </div>
               <div className="px-5 py-4">

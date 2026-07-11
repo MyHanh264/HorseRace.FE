@@ -14,8 +14,8 @@ import {
 } from '../../api/referee'
 import { validateLegPositions } from '../../utils/legValidation'
 
-// Lưu session-key cho mỗi (raceId, legIndex) đã submit để chống
-// duplicate khi user mở nhiều tab. Key reset khi tab đóng (sessionStorage).
+// Store a session key for each (raceId, legIndex) that has been submitted, to prevent
+// duplicates when the user opens multiple tabs. Key resets when the tab closes (sessionStorage).
 function getSubmitSessionKey(raceId, legIndex) {
   return `referee-submitted-${raceId}-${legIndex}`
 }
@@ -31,7 +31,7 @@ function getLegPoints(pos) {
 
 function fmtDateTime(dt) {
   if (!dt) return '—'
-  return new Date(dt).toLocaleString('vi-VN', {
+  return new Date(dt).toLocaleString('en-GB', {
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
@@ -355,8 +355,8 @@ export default function LegSubmissionPage() {
   const [submitResult, setSubmitResult] = useState(null)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
 
-  // Local lock flag — set ngay khi user click submit (trước khi API trả về).
-  // Cần thiết để chống double-click & multi-tab duplicate submission.
+  // Local lock flag — set immediately when the user clicks submit (before the API responds).
+  // Needed to prevent double-click & multi-tab duplicate submission.
   const [hasSubmitted, setHasSubmitted] = useState(() => {
     if (typeof window === 'undefined') return false
     return Boolean(sessionStorage.getItem(getSubmitSessionKey(raceId, legIndex)))
@@ -365,7 +365,7 @@ export default function LegSubmissionPage() {
   // Positions state: { [entryId]: position | -1 | -2 | null }
   const [positions, setPositions] = useState({})
 
-  // Dùng ref để tránh stale closure mà không gây re-render loop
+  // Use a ref to avoid stale closures without causing a re-render loop
   const positionsRef = useRef(positions)
   useEffect(() => { positionsRef.current = positions }, [positions])
 
@@ -384,8 +384,8 @@ export default function LegSubmissionPage() {
       setExecution(execData)
       setStandings(standingsData)
 
-      // Đồng bộ hasSubmitted từ sessionStorage + server (phòng trường hợp
-      // tab khác đã submit trước khi polling nhận được update).
+      // Sync hasSubmitted from sessionStorage + server (in case
+      // another tab already submitted before polling picks up the update).
       const sessionFlag = typeof window !== 'undefined'
         && Boolean(sessionStorage.getItem(getSubmitSessionKey(raceId, legIndex)))
       if ((sessionFlag || viewData?.mySubmitted) && isMountedRef.current) {
@@ -402,9 +402,9 @@ export default function LegSubmissionPage() {
           return newPos
         })
       } else {
-        // Chỉ reset về rỗng khi CHƯA có entry nào được gán position.
-        // Tránh stale-closure reset mất dữ liệu user đang nhập dở.
-        // Dùng ref thay vì state để tránh dependency loop.
+        // Only reset to empty when NO entry has been assigned a position yet.
+        // Avoids a stale-closure reset wiping out data the user is mid-typing.
+        // Use a ref instead of state to avoid a dependency loop.
         const hasAnyPosition = Object.values(positionsRef.current).some(
           (p) => p !== null && p !== undefined && p !== '',
         )
@@ -412,7 +412,7 @@ export default function LegSubmissionPage() {
           const emptyPos = {}
           viewData.entries.forEach((e) => { emptyPos[e.entryId] = null })
           setPositions(prev => {
-            // Chỉ set nếu state hiện tại cũng trống (tránh overwrite user input)
+            // Only set if the current state is also empty (avoid overwriting user input)
             const hasCurrentValue = Object.values(prev).some(v => v !== null && v !== undefined && v !== '')
             if (hasCurrentValue) return prev
             return emptyPos
@@ -426,7 +426,7 @@ export default function LegSubmissionPage() {
     } finally {
       if (isMountedRef.current) setLoading(false)
     }
-  // Xóa positions khỏi deps - dùng positionsRef thay thế để tránh re-render loop
+  // Removed positions from deps - use positionsRef instead to avoid a re-render loop
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [raceId, legIndex])
 
@@ -438,9 +438,9 @@ export default function LegSubmissionPage() {
   }, [loadLegData])
 
   // ── Polling for updates ──
-  // Chỉ poll để kiểm tra trạng thái - KHÔNG reload toàn bộ leg view liên tục
-  // để tránh race condition gây reload modal khi user đang nhập liệu.
-  // Dùng ref để track previous legView state thay vì state dependency để tránh infinite loop.
+  // Only poll to check status - do NOT continuously reload the entire leg view,
+  // to avoid a race condition that reloads the modal while the user is entering data.
+  // Use a ref to track the previous legView state instead of a state dependency, to avoid an infinite loop.
   useEffect(() => {
     const POLL_MS = 5000
     let previousOpponentSubmitted = null
@@ -450,7 +450,7 @@ export default function LegSubmissionPage() {
         const view = await getRefereeLegView(raceId, legIndex)
         if (!isMountedRef.current) return
 
-        // Chỉ cập nhật những field cần thiết, không reset toàn bộ legView
+        // Only update the fields that are needed, don't reset the entire legView
         const sessionFlag = Boolean(
           sessionStorage.getItem(getSubmitSessionKey(raceId, legIndex)),
         )
@@ -458,31 +458,31 @@ export default function LegSubmissionPage() {
           setHasSubmitted(true)
         }
 
-        // Khi admin override xong hoặc cả 2 referees đều đúng,
-        // leg chuyển sang Confirmed/Resolved.
+        // Once the admin override is done or both referees agree,
+        // the leg transitions to Confirmed/Resolved.
         const legStatus = view?.legStatus
         if (legStatus === 'Confirmed' || legStatus === 'Resolved') {
-          // Leg đã được confirm - kiểm tra xem có next leg không
-          // Fetch execution status để biết có leg tiếp theo không
+          // Leg has been confirmed - check whether there's a next leg
+          // Fetch execution status to know if there's a next leg
           getRaceExecutionStatus(raceId).then(execData => {
             if (!isMountedRef.current) return
             const nextLegIdx = execData?.currentLegIndex
             if (nextLegIdx !== undefined && nextLegIdx !== legIndex) {
-              // Có leg tiếp theo - chuyển đến leg đó
+              // There's a next leg - navigate to it
               navigate(`/referee/races/${raceId}/legs/${nextLegIdx}`)
             } else if (!view?.mySubmitted) {
-              // Không còn leg nào hoặc leg đã hoàn thành - về dashboard
+              // No more legs, or the leg is already complete - go back to dashboard
               navigate(`/referee/races/${raceId}`)
             }
           }).catch(() => {
-            // Nếu fetch thất bại, vẫn hiển thị kết quả
+            // If the fetch fails, still show the result
             if (isMountedRef.current) setLegView(view)
           })
           return
         }
 
-        // Chỉ cập nhật opponentSubmitted status nếu thay đổi
-        // Dùng biến local thay vì state để tránh trigger effect
+        // Only update the opponentSubmitted status if it changed
+        // Use a local variable instead of state to avoid triggering the effect
         if (previousOpponentSubmitted === null || view.opponentSubmitted !== previousOpponentSubmitted) {
           if (view.opponentSubmitted !== legView?.opponentSubmitted) {
             setLegView(prev => prev ? { ...prev, opponentSubmitted: view.opponentSubmitted } : view)
@@ -490,7 +490,7 @@ export default function LegSubmissionPage() {
           previousOpponentSubmitted = view.opponentSubmitted
         }
 
-        // Chỉ reload toàn bộ khi submitted data thay đổi
+        // Only reload everything when the submitted data changes
         if (view.mySubmitted && view.mySubmittedData) {
           setPositions((prev) => {
             const newPos = { ...prev }
@@ -505,11 +505,11 @@ export default function LegSubmissionPage() {
           })
         }
       } catch {
-        /* silent — polling failure không cần spam UI */
+        /* silent — a polling failure shouldn't spam the UI */
       }
     }, POLL_MS)
     return () => clearInterval(pollRef)
-  // Xóa legView khỏi deps - dùng biến local track thay vì state để tránh infinite loop
+  // Removed legView from deps - use a local tracking variable instead of state to avoid an infinite loop
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [raceId, legIndex, navigate])
 
@@ -521,8 +521,8 @@ export default function LegSubmissionPage() {
   }
 
   // ── Validation ──
-  // Dùng shared util để đảm bảo rule nhất quán giữa 2 referee pages,
-  // bao gồm check trùng DNF/DQ (Bug #7).
+  // Use the shared util to ensure consistent rules between the 2 referee pages,
+  // including the duplicate DNF/DQ check (Bug #7).
   function getValidation() {
     const entries = legView?.entries ?? []
     return validateLegPositions(entries, positions)
@@ -530,9 +530,9 @@ export default function LegSubmissionPage() {
 
   // ── Save Draft ──
   const handleSaveDraft = async () => {
-    // Không cho save draft khi race không còn InProgress (Bug #11)
+    // Don't allow saving a draft when the race is no longer InProgress (Bug #11)
     if (execution?.status && execution.status !== 'InProgress') {
-      setSubmitError('Không thể lưu nháp khi race không ở trạng thái InProgress.')
+      setSubmitError('Cannot save draft when the race is not in InProgress status.')
       return
     }
 
@@ -550,11 +550,11 @@ export default function LegSubmissionPage() {
   }
 
   // ── Submit ──
-  // Bug #1 + #2: set hasSubmitted + sessionStorage NGAY TRƯỚC khi gọi API,
-  // để chống double-click race condition và duplicate từ tab khác.
+  // Bug #1 + #2: set hasSubmitted + sessionStorage IMMEDIATELY BEFORE calling the API,
+  // to prevent the double-click race condition and duplicates from another tab.
   const handleSubmit = async () => {
     if (hasSubmitted || submitting) {
-      // Đã submit (ở tab này hoặc tab khác) — bỏ qua để chống duplicate.
+      // Already submitted (in this tab or another tab) — skip to prevent duplicates.
       return
     }
 
@@ -584,7 +584,7 @@ export default function LegSubmissionPage() {
       await loadLegData()
 
       // Auto-advance to next leg if both referees matched
-      // Ưu tiên dùng result.nextLegIndex, fallback sang execution.currentLegIndex
+      // Prefer result.nextLegIndex, fall back to execution.currentLegIndex
       if (result.status === 'Matched') {
         const nextLegIdx = result.nextLegIndex ?? execution?.currentLegIndex
         if (nextLegIdx !== undefined && nextLegIdx !== legIndex) {
@@ -598,7 +598,7 @@ export default function LegSubmissionPage() {
         ? 'You have already submitted results for this leg.'
         : err?.response?.data?.message || err?.message || 'Submission failed.'
       setSubmitError(msg)
-      // Submit fail → mở lại UI cho user retry (Bug #1)
+      // Submit failed → reopen the UI so the user can retry (Bug #1)
       setHasSubmitted(false)
       sessionStorage.removeItem(sessionKey)
     } finally {
@@ -608,8 +608,8 @@ export default function LegSubmissionPage() {
 
   // ── Derived ──
   const entries = legView?.entries ?? []
-  // hasSubmitted đảm bảo UI lock NGAY khi user click submit,
-  // không đợi server response (chống double-click).
+  // hasSubmitted ensures the UI locks IMMEDIATELY when the user clicks submit,
+  // without waiting for the server response (prevents double-click).
   const isLocked = legView?.mySubmitted
     || hasSubmitted
     || submitResult?.status === 'Matched'
@@ -654,7 +654,7 @@ export default function LegSubmissionPage() {
   }
 
   // ── Race Status Guards (Bug #6) ──
-  // Race không còn InProgress → không cho nhập/save/submit.
+  // Race is no longer InProgress → don't allow entering/saving/submitting.
   if (execution?.status === 'Paused') {
     return (
       <div className="min-h-screen p-8">
@@ -671,14 +671,14 @@ export default function LegSubmissionPage() {
             <AlertCircle className="w-12 h-12 text-orange-400 mx-auto mb-4" />
             <h2 className="text-xl font-bold text-orange-400 mb-2">Race Paused</h2>
             <p className="text-on-surface-variant mb-4">
-              Cuộc đua đang tạm dừng do có chênh lệch giữa 2 referees.
-              Vui lòng chờ Admin xử lý.
+              The race is paused due to a discrepancy between the two referees.
+              Please wait for admin resolution.
             </p>
             <button
               onClick={() => navigate(`/referee/races/${raceId}`)}
               className="gs-btn gs-btn-primary"
             >
-              Quay lại Dashboard
+              Back to Dashboard
             </button>
           </div>
         </div>
@@ -701,12 +701,12 @@ export default function LegSubmissionPage() {
           <div className="gs-card p-8 text-center">
             <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto mb-4" />
             <h2 className="text-xl font-bold text-emerald-400 mb-2">Race Finished</h2>
-            <p className="text-on-surface-variant mb-4">Cuộc đua đã kết thúc.</p>
+            <p className="text-on-surface-variant mb-4">The race has finished.</p>
             <button
               onClick={() => navigate(`/referee/races/${raceId}`)}
               className="gs-btn gs-btn-primary"
             >
-              Xem kết quả
+              View Results
             </button>
           </div>
         </div>
@@ -729,12 +729,12 @@ export default function LegSubmissionPage() {
           <div className="gs-card p-8 text-center">
             <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
             <h2 className="text-xl font-bold text-red-400 mb-2">Race Cancelled</h2>
-            <p className="text-on-surface-variant mb-4">Cuộc đua đã bị hủy.</p>
+            <p className="text-on-surface-variant mb-4">The race has been cancelled.</p>
             <button
               onClick={() => navigate(`/referee/races/${raceId}`)}
               className="gs-btn gs-btn-primary"
             >
-              Quay lại Dashboard
+              Back to Dashboard
             </button>
           </div>
         </div>

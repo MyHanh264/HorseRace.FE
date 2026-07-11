@@ -266,7 +266,7 @@ export default function RefereeAssignedRacesPage() {
       setUserMap(uMap)
       setTourneyMap(tMap)
     } catch (err) {
-      setError(err?.message || 'Không tải được danh sách cuộc đua')
+      setError(err?.message || 'Failed to load the race list')
     } finally {
       setLoading(false)
     }

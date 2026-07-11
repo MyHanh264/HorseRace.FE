@@ -18,17 +18,17 @@ import api from "../../services/api";
 import { getRaceExecutionStatus } from "../../api/admin";
 
 const TABS = [
-  { key: "All", label: "Tất cả" },
-  { key: "Pending", label: "Chờ xử lý" },
-  { key: "Resolved", label: "Đã xử lý" },
-  { key: "Dismissed", label: "Bác bỏ" },
+  { key: "All", label: "All" },
+  { key: "Pending", label: "Pending" },
+  { key: "Resolved", label: "Resolved" },
+  { key: "Dismissed", label: "Dismissed" },
 ];
 
 const TYPE_LABELS = {
-  PredictionMismatch: "Sai lệch dự đoán",
-  ResultMismatch: "Sai lệch kết quả",
-  PointCalculation: "Lỗi tính điểm",
-  Other: "Khác",
+  PredictionMismatch: "Prediction Mismatch",
+  ResultMismatch: "Result Mismatch",
+  PointCalculation: "Point Calculation Error",
+  Other: "Other",
 };
 
 const TYPE_COLORS = {
@@ -45,14 +45,14 @@ const STATUS_BADGE = {
 };
 
 const STATUS_LABELS = {
-  Pending: "Chờ xử lý",
-  Resolved: "Đã xử lý",
-  Dismissed: "Bác bỏ",
+  Pending: "Pending",
+  Resolved: "Resolved",
+  Dismissed: "Dismissed",
 };
 
 function formatDate(v) {
   if (!v) return "—";
-  return new Date(v).toLocaleString("vi-VN", {
+  return new Date(v).toLocaleString("en-GB", {
     day: "2-digit", month: "2-digit", year: "numeric",
     hour: "2-digit", minute: "2-digit",
   });
@@ -69,7 +69,7 @@ function DiscrepancyDetailModal({ item, onClose, onResolve }) {
 
   const handleSubmit = async () => {
     if (!resolution.trim()) {
-      setError("Vui lòng nhập nội dung xử lý.");
+      setError("Please enter the resolution details.");
       return;
     }
     setSubmitting(true);
@@ -82,7 +82,7 @@ function DiscrepancyDetailModal({ item, onClose, onResolve }) {
       });
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Xử lý thất bại.");
+      setError(err instanceof Error ? err.message : "Failed to process.");
     } finally {
       setSubmitting(false);
     }
@@ -101,7 +101,7 @@ function DiscrepancyDetailModal({ item, onClose, onResolve }) {
               <Flag className="w-4 h-4 text-amber-400" />
             </div>
             <div>
-              <h2 className="font-serif font-bold text-on-surface">Chi tiết sai lệch</h2>
+              <h2 className="font-serif font-bold text-on-surface">Discrepancy Details</h2>
               <p className="text-xs text-on-surface-variant">ID: #{item.discrepancyId}</p>
             </div>
           </div>
@@ -124,14 +124,14 @@ function DiscrepancyDetailModal({ item, onClose, onResolve }) {
 
           {/* Race info */}
           <div className="bg-surface-container-lowest rounded-xl p-4 border border-white/5">
-            <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-1">Cuộc đua</p>
+            <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-1">Race</p>
             <p className="text-sm font-semibold text-on-surface">{item.raceName || "—"}</p>
             <p className="text-xs text-on-surface-variant mt-0.5">{formatDate(item.raceDate)}</p>
           </div>
 
           {/* Reporter */}
           <div className="bg-surface-container-lowest rounded-xl p-4 border border-white/5">
-            <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-2">Người báo cáo</p>
+            <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-2">Reporter</p>
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-surface-container-highest border border-outline-variant/50 flex items-center justify-center text-xs font-bold text-on-surface-variant">
                 {(item.reportedByName || "U").charAt(0).toUpperCase()}
@@ -146,28 +146,28 @@ function DiscrepancyDetailModal({ item, onClose, onResolve }) {
 
           {/* Description */}
           <div className="bg-surface-container-lowest rounded-xl p-4 border border-white/5">
-            <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-2">Mô tả</p>
+            <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-2">Description</p>
             <p className="text-sm text-on-surface leading-relaxed">{item.description || "—"}</p>
           </div>
 
           {/* Prediction vs Official */}
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-surface-container-lowest rounded-xl p-4 border border-blue-500/20">
-              <p className="text-xs text-blue-400 uppercase tracking-wider mb-2">Dự đoán của người dùng</p>
+              <p className="text-xs text-blue-400 uppercase tracking-wider mb-2">User's Prediction</p>
               <p className="text-sm font-semibold text-on-surface">
-                Hạng {item.userPrediction?.predictedPosition || "—"}
+                Position {item.userPrediction?.predictedPosition || "—"}
               </p>
               <p className="text-xs text-on-surface-variant mt-0.5">
-                Thời gian: {item.userPrediction?.predictedTime || "—"}
+                Time: {item.userPrediction?.predictedTime || "—"}
               </p>
             </div>
             <div className="bg-surface-container-lowest rounded-xl p-4 border border-emerald-500/20">
-              <p className="text-xs text-emerald-400 uppercase tracking-wider mb-2">Kết quả chính thức</p>
+              <p className="text-xs text-emerald-400 uppercase tracking-wider mb-2">Official Result</p>
               <p className="text-sm font-semibold text-on-surface">
-                Hạng {item.officialResult?.officialPosition || "—"}
+                Position {item.officialResult?.officialPosition || "—"}
               </p>
               <p className="text-xs text-on-surface-variant mt-0.5">
-                Thời gian: {item.officialResult?.officialTime || "—"}
+                Time: {item.officialResult?.officialTime || "—"}
               </p>
             </div>
           </div>
@@ -175,15 +175,15 @@ function DiscrepancyDetailModal({ item, onClose, onResolve }) {
           {/* Resolution */}
           {item.status !== "Pending" && item.resolution && (
             <div className="bg-emerald-500/10 rounded-xl p-4 border border-emerald-500/20">
-              <p className="text-xs text-emerald-400 uppercase tracking-wider mb-2">Kết quả xử lý</p>
+              <p className="text-xs text-emerald-400 uppercase tracking-wider mb-2">Resolution</p>
               <p className="text-sm text-emerald-300">{item.resolution}</p>
               {item.adjustedPointsAwarded !== null && (
                 <p className="text-xs text-emerald-400 mt-1">
-                  Điểm đã điều chỉnh: {item.adjustedPointsAwarded > 0 ? "+" : ""}{item.adjustedPointsAwarded}
+                  Adjusted Points: {item.adjustedPointsAwarded > 0 ? "+" : ""}{item.adjustedPointsAwarded}
                 </p>
               )}
               <p className="text-xs text-emerald-500/60 mt-1">
-                Xử lý bởi {item.resolvedByAdminName} · {formatDate(item.resolvedAt)}
+                Processed by {item.resolvedByAdminName} · {formatDate(item.resolvedAt)}
               </p>
             </div>
           )}
@@ -192,7 +192,7 @@ function DiscrepancyDetailModal({ item, onClose, onResolve }) {
           {item.status === "Pending" && (
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-on-surface-variant uppercase tracking-wider mb-1 block">Hành động</label>
+                <label className="text-xs text-on-surface-variant uppercase tracking-wider mb-1 block">Action</label>
                 <div className="flex gap-2">
                   {["Dismissed", "AdjustPoints"].map((a) => (
                     <button
@@ -206,29 +206,29 @@ function DiscrepancyDetailModal({ item, onClose, onResolve }) {
                           : "bg-surface-container-lowest text-on-surface-variant border-outline-variant/40 hover:border-outline-variant/60"
                       }`}
                     >
-                      {a === "Dismissed" ? "Bác bỏ" : "Điều chỉnh điểm"}
+                      {a === "Dismissed" ? "Dismiss" : "Adjust Points"}
                     </button>
                   ))}
                 </div>
               </div>
               {action === "AdjustPoints" && (
                 <div>
-                  <label className="text-xs text-on-surface-variant uppercase tracking-wider mb-1 block">Điểm điều chỉnh</label>
+                  <label className="text-xs text-on-surface-variant uppercase tracking-wider mb-1 block">Adjusted Points</label>
                   <input
                     type="number"
                     value={adjustedPoints}
                     onChange={(e) => setAdjustedPoints(parseInt(e.target.value) || 0)}
-                    placeholder="VD: 500"
+                    placeholder="e.g. 500"
                     className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all"
                   />
                 </div>
               )}
               <div>
-                <label className="text-xs text-on-surface-variant uppercase tracking-wider mb-1 block">Nội dung xử lý *</label>
+                <label className="text-xs text-on-surface-variant uppercase tracking-wider mb-1 block">Resolution *</label>
                 <textarea
                   value={resolution}
                   onChange={(e) => setResolution(e.target.value)}
-                  placeholder="Mô tả cách xử lý sai lệch này..."
+                  placeholder="Describe how this discrepancy was resolved..."
                   rows={3}
                   className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all resize-none"
                 />
@@ -245,7 +245,7 @@ function DiscrepancyDetailModal({ item, onClose, onResolve }) {
         {/* Footer */}
         {item.status === "Pending" && (
           <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10 shrink-0">
-            <button onClick={onClose} className="gs-btn gs-btn-ghost gs-btn-sm">Hủy</button>
+            <button onClick={onClose} className="gs-btn gs-btn-ghost gs-btn-sm">Cancel</button>
             <button
               onClick={handleSubmit}
               disabled={submitting}
@@ -256,7 +256,7 @@ function DiscrepancyDetailModal({ item, onClose, onResolve }) {
               ) : (
                 <CheckCircle className="w-3.5 h-3.5" />
               )}
-              Xác nhận xử lý
+              Confirm Resolution
             </button>
           </div>
         )}
@@ -358,7 +358,7 @@ export default function AdminDiscrepanciesPage() {
       setPendingCount(data.pendingCount || 0);
       setResolvedCount(data.resolvedCount || 0);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không tải được danh sách sai lệch.");
+      setError(err instanceof Error ? err.message : "Failed to load discrepancy list.");
     } finally {
       setLoading(false);
     }
@@ -375,11 +375,11 @@ export default function AdminDiscrepanciesPage() {
   const handleResolve = async (discrepancyId, payload) => {
     await api.post(`/api/admin/discrepancies/${discrepancyId}/resolve`, payload);
     await fetchData();
-    showSuccess("Sai lệch đã được xử lý.");
+    showSuccess("Discrepancy resolved.");
   };
 
   const handleExport = () => {
-    const headers = ["ID", "Cuộc đua", "Người báo cáo", "Loại", "Trạng thái", "Ngày báo cáo", "Nội dung xử lý"];
+    const headers = ["ID", "Race", "Reporter", "Type", "Status", "Reported Date", "Resolution"];
     const rows = filtered.map((d) => [
       d.discrepancyId,
       d.raceName || "",
@@ -422,21 +422,21 @@ export default function AdminDiscrepanciesPage() {
               <Flag className="w-5 h-5 text-amber-400" />
             </div>
             <div>
-              <h1 className="font-serif text-2xl font-bold text-on-surface">Xử lý Sai lệch</h1>
+              <h1 className="font-serif text-2xl font-bold text-on-surface">Discrepancy Resolution</h1>
               <p className="text-on-surface-variant text-sm">
-                Giám sát và xử lý các sai lệch kết quả dự đoán của người dùng.
+                Monitor and resolve discrepancies in user prediction results.
               </p>
             </div>
           </div>
           <button onClick={fetchData} className="gs-btn gs-btn-ghost gs-btn-sm flex items-center gap-1.5">
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-            Làm mới
+            Refresh
           </button>
         </div>
         <div className="h-[2px] w-20 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 mt-4" />
       </div>
 
-      {/* Referee Conflict Alerts — hiện khi có conflict chưa được xử lý */}
+      {/* Referee Conflict Alerts — shown when there is an unresolved conflict */}
       {activeConflicts.map((conflict) => (
         <div
           key={`${conflict.raceId}-${conflict.legIndex}`}
@@ -445,10 +445,10 @@ export default function AdminDiscrepanciesPage() {
           <ShieldAlert size={20} className="text-orange-400 shrink-0 mt-0.5" />
           <div className="flex-1">
             <p className="text-sm font-bold text-orange-400">
-              Trọng tài chênh lệch kết quả
+              Referee Result Discrepancy
             </p>
             <p className="text-xs text-on-surface-variant mt-0.5">
-              Cuộc đua <span className="font-semibold text-orange-300">{conflict.raceName}</span> — Leg {conflict.legNumber} đang có conflict cần admin giải quyết.
+              Race <span className="font-semibold text-orange-300">{conflict.raceName}</span> — Leg {conflict.legNumber} has a conflict requiring admin resolution.
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -456,12 +456,12 @@ export default function AdminDiscrepanciesPage() {
               href={`/admin/race-execution/${conflict.raceId}`}
               className="px-3 py-1.5 rounded-lg bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/40 text-xs font-semibold text-orange-300 transition-all"
             >
-              Xử lý ngay
+              Resolve Now
             </a>
             <button
               onClick={() => handleDismissConflict(conflict.raceId)}
               className="w-7 h-7 rounded-lg bg-surface-container-high hover:bg-surface-container-highest flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-all"
-              title="Bỏ qua"
+              title="Dismiss"
             >
               <X size={14} />
             </button>
@@ -477,7 +477,7 @@ export default function AdminDiscrepanciesPage() {
           </div>
           <div>
             <p className="text-xl font-bold text-on-surface font-mono">{pendingCount}</p>
-            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Chờ xử lý</p>
+            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Pending</p>
           </div>
         </div>
         <div className="gs-card p-4 flex items-center gap-3">
@@ -486,7 +486,7 @@ export default function AdminDiscrepanciesPage() {
           </div>
           <div>
             <p className="text-xl font-bold text-on-surface font-mono">{resolvedCount}</p>
-            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Đã xử lý</p>
+            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Resolved</p>
           </div>
         </div>
         <div className="gs-card p-4 flex items-center gap-3">
@@ -495,7 +495,7 @@ export default function AdminDiscrepanciesPage() {
           </div>
           <div>
             <p className="text-xl font-bold text-on-surface font-mono">{total}</p>
-            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Tổng cộng</p>
+            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Total</p>
           </div>
         </div>
       </div>
@@ -506,7 +506,7 @@ export default function AdminDiscrepanciesPage() {
           <XCircle className="w-5 h-5 shrink-0 mt-0.5" />
           <div className="flex-1">
             <span>{error}</span>
-            <button onClick={() => setError("")} className="ml-3 text-xs underline hover:no-underline">Đóng</button>
+            <button onClick={() => setError("")} className="ml-3 text-xs underline hover:no-underline">Close</button>
           </div>
         </div>
       )}
@@ -523,7 +523,7 @@ export default function AdminDiscrepanciesPage() {
           <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/50" />
           <input
             type="text"
-            placeholder="Tìm theo cuộc đua, người báo cáo, nội dung..."
+            placeholder="Search by race, reporter, description..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-surface-container-lowest border border-outline-variant/40 text-sm rounded-xl pl-11 pr-4 py-3 text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40"
@@ -531,7 +531,7 @@ export default function AdminDiscrepanciesPage() {
         </div>
         <button onClick={handleExport} disabled={filtered.length === 0} className="gs-btn gs-btn-ghost gs-btn-sm shrink-0 flex items-center gap-2">
           <Download className="w-4 h-4" />
-          Xuất CSV
+          Export CSV
         </button>
       </div>
 
@@ -561,8 +561,8 @@ export default function AdminDiscrepanciesPage() {
           {activeConflicts.length === 0 ? (
             <div className="gs-card p-12 text-center">
               <ShieldAlert size={40} className="w-10 h-10 text-gray-500 mx-auto mb-4 opacity-60" />
-              <h3 className="font-serif text-lg font-bold text-on-surface mb-2">Không có xung đột nào</h3>
-              <p className="text-on-surface-variant text-sm">Tất cả các leg đều khớp giữa 2 referees.</p>
+              <h3 className="font-serif text-lg font-bold text-on-surface mb-2">No conflicts found</h3>
+              <p className="text-on-surface-variant text-sm">All legs match between the 2 referees.</p>
             </div>
           ) : activeConflicts.map((conflict) => (
             <div key={`${conflict.raceId}-${conflict.legIndex}`} className="gs-card p-5 flex items-center justify-between gap-4">
@@ -572,14 +572,14 @@ export default function AdminDiscrepanciesPage() {
                 </div>
                 <div>
                   <p className="font-semibold text-on-surface">{conflict.raceName}</p>
-                  <p className="text-sm text-on-surface-variant">Leg {conflict.legNumber} — 2 referees có kết quả khác nhau</p>
+                  <p className="text-sm text-on-surface-variant">Leg {conflict.legNumber} — the 2 referees reported different results</p>
                 </div>
               </div>
               <a
                 href={`/admin/races/${conflict.raceId}/conflict`}
                 className="px-4 py-2 rounded-lg bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/40 text-sm font-semibold text-orange-300 transition-all"
               >
-                Xem & Xử lý
+                View & Resolve
               </a>
             </div>
           ))}
@@ -588,7 +588,7 @@ export default function AdminDiscrepanciesPage() {
         <div className="flex items-center justify-center py-20">
           <div className="flex flex-col items-center gap-3">
             <div className="w-10 h-10 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-            <span className="text-on-surface-variant text-sm">Đang tải...</span>
+            <span className="text-on-surface-variant text-sm">Loading...</span>
           </div>
         </div>
       ) : filtered.length === 0 ? (
@@ -597,10 +597,10 @@ export default function AdminDiscrepanciesPage() {
             <CheckCircle className="w-8 h-8 text-primary/60" />
           </div>
           <h3 className="font-serif text-xl font-bold text-on-surface mb-2">
-            {searchQuery ? "Không tìm thấy kết quả" : "Không có sai lệch nào"}
+            {searchQuery ? "No results found" : "No discrepancies found"}
           </h3>
           <p className="text-on-surface-variant text-sm">
-            {searchQuery ? `Không có kết quả cho "${searchQuery}"` : "Chưa có báo cáo sai lệch nào."}
+            {searchQuery ? `No results for "${searchQuery}"` : "No discrepancy reports yet."}
           </p>
         </div>
       ) : (
@@ -610,12 +610,12 @@ export default function AdminDiscrepanciesPage() {
               <thead>
                 <tr>
                   <th style={{ width: "8%" }}>ID</th>
-                  <th style={{ width: "22%" }}>Cuộc đua</th>
-                  <th style={{ width: "18%" }}>Người báo cáo</th>
-                  <th style={{ width: "12%" }}>Loại</th>
-                  <th style={{ width: "15%" }}>Ngày báo cáo</th>
-                  <th style={{ width: "10%" }}>Trạng thái</th>
-                  <th style={{ width: "15%" }}>Thao tác</th>
+                  <th style={{ width: "22%" }}>Race</th>
+                  <th style={{ width: "18%" }}>Reporter</th>
+                  <th style={{ width: "12%" }}>Type</th>
+                  <th style={{ width: "15%" }}>Reported Date</th>
+                  <th style={{ width: "10%" }}>Status</th>
+                  <th style={{ width: "15%" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -654,7 +654,7 @@ export default function AdminDiscrepanciesPage() {
                           type="button"
                           onClick={() => setSelected(d)}
                           className="w-7 h-7 rounded-lg bg-surface-container-high hover:bg-surface-container-highest flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-all"
-                          title="Xem chi tiết"
+                          title="View details"
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
@@ -665,7 +665,7 @@ export default function AdminDiscrepanciesPage() {
                             className="gs-btn gs-btn-primary gs-btn-sm flex items-center gap-1"
                           >
                             <CheckCircle className="w-3.5 h-3.5" />
-                            Xử lý
+                            Resolve
                           </button>
                         )}
                       </div>
@@ -679,7 +679,7 @@ export default function AdminDiscrepanciesPage() {
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-4 px-2">
               <p className="text-xs text-on-surface-variant">
-                Hiển thị {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} trong {filtered.length} mục
+                Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length} items
               </p>
               <div className="flex items-center gap-1">
                 <button

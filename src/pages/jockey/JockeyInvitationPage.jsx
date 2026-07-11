@@ -21,7 +21,7 @@ function fmtDate(d) {
   });
 }
 
-// Avatar màu hash theo string
+// Avatar color hashed from string
 const AVATAR_COLORS = [
   "bg-indigo-600",
   "bg-emerald-600",
@@ -152,10 +152,10 @@ function InvitationCard({ inv, onAccept, onDecline, actioning }) {
         ) : isCancelled ? (
           <div className="text-center">
             <span className="text-xs px-2.5 py-1 rounded-md border font-medium bg-gray-500/15 text-gray-400 border-gray-500/30">
-              Đã hủy
+              Cancelled
             </span>
             <p className="text-gray-500 text-[10px] mt-2 leading-tight">
-              Chủ ngựa đã<br />chốt jockey khác
+              Horse owner has<br />chosen another jockey
             </p>
           </div>
         ) : (

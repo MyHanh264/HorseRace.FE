@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Trophy, Target, TrendingUp, BarChart2 } from "lucide-react";
-import { getHorseById } from "../../api/horseOwner";
+import { ArrowLeft, Trophy, Target, TrendingUp, BarChart2, AlertTriangle, RotateCw } from "lucide-react";
+import { toast } from "sonner";
+import { getHorseById, resubmitHorse } from "../../api/horseOwner";
 
 const STATUS_STYLE = {
   Approved: "bg-emerald-500/20 text-emerald-400 border border-emerald-700",
@@ -21,6 +22,7 @@ export default function HorseDetailPage() {
   const { horseId } = useParams();
   const [horse, setHorse] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [resubmitting, setResubmitting] = useState(false);
 
   useEffect(() => {
     getHorseById(horseId)
@@ -28,6 +30,24 @@ export default function HorseDetailPage() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [horseId]);
+
+  const handleResubmit = async () => {
+    setResubmitting(true);
+    try {
+      await resubmitHorse(horseId);
+      toast.success("Horse resubmitted — awaiting Admin review.");
+      const updated = await getHorseById(horseId);
+      setHorse(updated);
+    } catch (err) {
+      const msg =
+        err?.response?.data?.detail ||
+        err?.response?.data?.message ||
+        "Resubmit failed. Please try again.";
+      toast.error(msg);
+    } finally {
+      setResubmitting(false);
+    }
+  };
 
   const results = [];
   const upcoming = [];
@@ -73,6 +93,29 @@ export default function HorseDetailPage() {
           {horse.status}
         </span>
       </div>
+
+      {/* Rejection reason + Resubmit for review */}
+      {horse.status === "Rejected" && (
+        <div className="flex items-start gap-3 bg-red-900/20 border border-red-700 rounded-xl px-4 py-3 mb-8">
+          <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-xs text-red-400 uppercase tracking-wider mb-1">
+              Rejection Reason
+            </p>
+            <p className="text-sm text-red-300">
+              {horse.rejectionReason || "—"}
+            </p>
+          </div>
+          <button
+            onClick={handleResubmit}
+            disabled={resubmitting}
+            className="flex items-center gap-1.5 bg-yellow-500 hover:bg-yellow-400 disabled:opacity-50 text-black font-semibold text-xs px-3 py-2 rounded-lg transition-colors shrink-0"
+          >
+            <RotateCw className={`w-3.5 h-3.5 ${resubmitting ? "animate-spin" : ""}`} />
+            {resubmitting ? "Resubmitting..." : "Resubmit for Review"}
+          </button>
+        </div>
+      )}
 
       {/* Hero image */}
       <div className="h-56 bg-gray-800 rounded-2xl overflow-hidden mb-8">

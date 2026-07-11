@@ -29,61 +29,61 @@ import {
 //   Violation.Penalty  → "Warning" | "Demote" | "DQ"
 //   Violation.Status   → "Pending" | "Approved" | "Rejected"
 // Admin UI maps Status via GetAdminViolations handler:
-//   Pending   → "Pending"  (chưa xử lý)
-//   Approved  → "Resolved" (đã duyệt, đã áp penalty)
-//   Rejected  → "Dismissed" (đã từ chối)
+//   Pending   → "Pending"  (not yet processed)
+//   Approved  → "Resolved" (approved, penalty applied)
+//   Rejected  → "Dismissed" (rejected)
 
 const PENALTY_CONFIG = {
   None: {
     color: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
-    label: "Không phạt",
+    label: "No Penalty",
     icon: ShieldAlert,
-    description: "Đơn bị từ chối — không áp dụng hình phạt nào.",
+    description: "Report was rejected — no penalty applied.",
   },
   Warning: {
     color: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-    label: "Cảnh cáo",
+    label: "Warning",
     icon: AlertTriangle,
-    description: "Chỉ ghi nhận, không thay đổi thứ hạng.",
+    description: "Recorded only, no change to ranking.",
   },
   Demote: {
     color: "bg-orange-500/10 text-orange-400 border-orange-500/20",
-    label: "Tụt hạng",
+    label: "Demote",
     icon: Minus,
-    description: "Tụt 1 hạng ở chặng vi phạm, recompute Leg Points.",
+    description: "Drops 1 position in the violated leg, recomputes Leg Points.",
   },
   DQ: {
     color: "bg-red-500/10 text-red-400 border-red-500/20",
-    label: "Hủy kết quả (Race DQ)",
+    label: "Disqualify (Race DQ)",
     icon: XCircle,
-    description: "0 điểm toàn bộ chặng, xếp cuối race, 0 Prize khi Publish.",
+    description: "0 points for all legs, last place in race, 0 Prize when published.",
   },
 };
 
 const VIOLATION_TYPES = {
-  KhoiDongSom:        "Khởi động sớm",
-  CuoiNguaNguyHiem:   "Cưỡi ngựa nguy hiểm",
-  ViPhamRoi:          "Vi phạm roi",
-  CanDuongDoiThu:     "Cản đường đối thủ",
-  ViPhamDoping:       "Vi phạm doping",
-  ViPhamTrangBi:      "Vi phạm trang bị",
-  ViPhamDiemCan:      "Vi phạm điểm cân",
-  Khac:               "Khác",
+  KhoiDongSom:        "Early Start",
+  CuoiNguaNguyHiem:   "Dangerous Riding",
+  ViPhamRoi:          "Whip Violation",
+  CanDuongDoiThu:     "Obstruction",
+  ViPhamDoping:       "Doping Violation",
+  ViPhamTrangBi:      "Equipment Violation",
+  ViPhamDiemCan:      "Weight Violation",
+  Khac:               "Other",
 };
 
-// Tabs trên UI khớp 1-1 với Status mà GetAdminViolations trả về cho FE.
+// UI tabs map 1-1 to the Status that GetAdminViolations returns to the FE.
 const TABS = [
-  { key: "All",       label: "Tất cả" },
-  { key: "Pending",   label: "Chờ xử lý" },
-  { key: "Resolved",  label: "Đã duyệt" },
-  { key: "Dismissed", label: "Đã từ chối" },
+  { key: "All",       label: "All" },
+  { key: "Pending",   label: "Pending" },
+  { key: "Resolved",  label: "Resolved" },
+  { key: "Dismissed", label: "Dismissed" },
 ];
 
 const PAGE_SIZE = 15;
 
 function formatDate(v) {
   if (!v) return "—";
-  return new Date(v).toLocaleString("vi-VN", {
+  return new Date(v).toLocaleString("en-GB", {
     day: "2-digit", month: "2-digit", year: "numeric",
     hour: "2-digit", minute: "2-digit",
   });
@@ -105,11 +105,11 @@ function ViolationDetailModal({ item, onClose }) {
               <ShieldAlert className="w-4 h-4 text-red-400" />
             </div>
             <div>
-              <h2 className="font-serif font-bold text-on-surface">Chi tiết vi phạm</h2>
+              <h2 className="font-serif font-bold text-on-surface">Violation Details</h2>
               <p className="text-xs text-on-surface-variant">ID: #{item.violationId}</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-surface-container-high hover:bg-surface-container-highest flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-all" aria-label="Đóng">
+          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-surface-container-high hover:bg-surface-container-highest flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-all" aria-label="Close">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -119,7 +119,7 @@ function ViolationDetailModal({ item, onClose }) {
             {penalty && (
               <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${penalty.color}`}>
                 <penalty.icon className="w-3 h-3 inline mr-1" />
-                Hình phạt: {penalty.label}
+                Penalty: {penalty.label}
               </span>
             )}
             <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${item.status === "Resolved"
@@ -127,20 +127,20 @@ function ViolationDetailModal({ item, onClose }) {
                 : item.status === "Dismissed"
                 ? "bg-zinc-500/10 text-zinc-400 border-zinc-500/20"
                 : "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"}`}>
-              {item.status === "Resolved" ? "Đã duyệt" : item.status === "Dismissed" ? "Đã từ chối" : "Chờ xử lý"}
+              {item.status === "Resolved" ? "Resolved" : item.status === "Dismissed" ? "Dismissed" : "Pending"}
             </span>
           </div>
 
           {/* Race */}
           <div className="bg-surface-container-lowest rounded-xl p-4 border border-white/5">
-            <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-1">Cuộc đua</p>
+            <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-1">Race</p>
             <p className="text-sm font-semibold text-on-surface">{item.raceName || "—"}</p>
             <p className="text-xs text-on-surface-variant mt-0.5">{formatDate(item.raceDate)}</p>
           </div>
 
           {/* Violator */}
           <div className="bg-surface-container-lowest rounded-xl p-4 border border-white/5">
-            <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-2">Người vi phạm</p>
+            <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-2">Violator</p>
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-surface-container-highest border border-outline-variant/50 flex items-center justify-center text-sm font-bold text-on-surface-variant">
                 {(item.violatorName || "U").charAt(0).toUpperCase()}
@@ -154,11 +154,11 @@ function ViolationDetailModal({ item, onClose }) {
 
           {/* Type + Description */}
           <div className="bg-surface-container-lowest rounded-xl p-4 border border-white/5">
-            <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-2">Loại vi phạm</p>
+            <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-2">Violation Type</p>
             <p className="text-sm font-semibold text-on-surface mb-3">
               {VIOLATION_TYPES[item.violationType] || item.violationType || "—"}
             </p>
-            <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-2">Mô tả</p>
+            <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-2">Description</p>
             <p className="text-sm text-on-surface leading-relaxed">{item.description || "—"}</p>
           </div>
 
@@ -172,9 +172,9 @@ function ViolationDetailModal({ item, onClose }) {
               <p className={`text-xs uppercase tracking-wider mb-2 ${
                 item.status === "Resolved" ? "text-emerald-400" : "text-zinc-400"
               }`}>
-                {item.status === "Resolved" ? "Kết quả xử lý" : "Lý do từ chối"}
+                {item.status === "Resolved" ? "Resolution" : "Rejection Reason"}
               </p>
-              {penalty && penalty.label !== "Không phạt" && (
+              {penalty && penalty.label !== "No Penalty" && (
                 <p className={`text-sm mb-1 ${item.status === "Resolved" ? "text-emerald-300" : "text-zinc-300"}`}>
                   Penalty: <span className="font-semibold">{penalty.label}</span>
                 </p>
@@ -185,14 +185,14 @@ function ViolationDetailModal({ item, onClose }) {
                 </p>
               )}
               <p className={`text-xs mt-1 ${item.status === "Resolved" ? "text-emerald-500/60" : "text-zinc-500/60"}`}>
-                {item.resolvedByAdminName ? `Xử lý bởi ${item.resolvedByAdminName}` : ""} · {formatDate(item.resolvedAt)}
+                {item.resolvedByAdminName ? `Processed by ${item.resolvedByAdminName}` : ""} · {formatDate(item.resolvedAt)}
               </p>
             </div>
           )}
         </div>
 
         <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-white/10 shrink-0">
-          <button onClick={onClose} className="gs-btn gs-btn-ghost gs-btn-sm">Đóng</button>
+          <button onClick={onClose} className="gs-btn gs-btn-ghost gs-btn-sm">Close</button>
         </div>
       </div>
     </div>
@@ -208,7 +208,7 @@ function getPageNumbers(current, total) {
   return pages;
 }
 
-// ─── Approve Modal: chọn Penalty (BẮT BUỘC) + AdminNote (optional) ───────────
+// ─── Approve Modal: select Penalty (REQUIRED) + AdminNote (optional) ─────────
 
 function ApproveViolationModal({ item, onClose, onApproved }) {
   const [penalty,  setPenalty]  = useState("");
@@ -227,7 +227,7 @@ function ApproveViolationModal({ item, onClose, onApproved }) {
       await approveViolation(item.violationId, { penalty, adminNote: adminNote.trim() || null });
       onApproved();
     } catch (e) {
-      setErr(e?.response?.data?.message || e?.message || "Duyệt vi phạm thất bại.");
+      setErr(e?.response?.data?.message || e?.message || "Failed to approve violation.");
     } finally {
       setSaving(false);
       setConfirmDQ(false);
@@ -236,7 +236,7 @@ function ApproveViolationModal({ item, onClose, onApproved }) {
 
   const handleSubmitClick = () => {
     if (!canSubmit) return;
-    // Confirm trước khi áp dụng penalty nặng (DQ).
+    // Confirm before applying a severe penalty (DQ).
     if (penalty === "DQ" && !confirmDQ) {
       setConfirmDQ(true);
       return;
@@ -256,17 +256,17 @@ function ApproveViolationModal({ item, onClose, onApproved }) {
               <CheckCircle className="w-4 h-4 text-emerald-400" />
             </div>
             <div>
-              <h2 className="font-serif font-bold text-on-surface">Duyệt biên bản vi phạm</h2>
+              <h2 className="font-serif font-bold text-on-surface">Approve Violation Report</h2>
               <p className="text-xs text-on-surface-variant">#{item.violationId} · {item.violatorName || "—"}</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-surface-container-high hover:bg-surface-container-highest flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-all" aria-label="Đóng">
+          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-surface-container-high hover:bg-surface-container-highest flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-all" aria-label="Close">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         <div className="overflow-y-auto p-6 space-y-4 flex-1">
-          <p className="text-xs text-on-surface-variant uppercase tracking-wider">Chọn hình phạt <span className="text-red-400">*</span></p>
+          <p className="text-xs text-on-surface-variant uppercase tracking-wider">Select Penalty <span className="text-red-400">*</span></p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {Object.entries(PENALTY_CONFIG).map(([key, cfg]) => {
               const Icon = cfg.icon;
@@ -294,13 +294,13 @@ function ApproveViolationModal({ item, onClose, onApproved }) {
 
           <div>
             <label className="text-xs font-bold text-on-surface-variant uppercase tracking-widest block mb-1.5">
-              Ghi chú của Admin (tuỳ chọn)
+              Admin Note (optional)
             </label>
             <textarea
               value={adminNote}
               onChange={(e) => setAdminNote(e.target.value)}
               rows={3}
-              placeholder="Ví dụ: Áp dụng theo quy chế mục 4.2..."
+              placeholder="e.g. Applied per regulation section 4.2..."
               className="w-full bg-surface-container-lowest border border-outline-variant/50 rounded-xl px-4 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-emerald-400/60 resize-none transition-all"
             />
           </div>
@@ -309,9 +309,9 @@ function ApproveViolationModal({ item, onClose, onApproved }) {
             <div className="rounded-xl p-4 border border-red-500/30 bg-red-500/10 flex items-start gap-3">
               <AlertOctagon className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className="text-sm font-semibold text-red-300">Xác nhận Race DQ?</p>
+                <p className="text-sm font-semibold text-red-300">Confirm Race DQ?</p>
                 <p className="text-xs text-red-400/80 mt-1 leading-relaxed">
-                  Hành động này sẽ đặt điểm toàn bộ các chặng của entry về <strong>0</strong>, xếp cuối race và không nhận Prize khi Publish. Bấm "Xác nhận DQ" để tiếp tục.
+                  This action will set all leg points for the entry to <strong>0</strong>, place it last in the race, and it will receive no Prize when published. Click "Confirm DQ" to continue.
                 </p>
               </div>
             </div>
@@ -326,7 +326,7 @@ function ApproveViolationModal({ item, onClose, onApproved }) {
         </div>
 
         <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-white/10 shrink-0">
-          <button onClick={onClose} disabled={saving} className="gs-btn gs-btn-ghost gs-btn-sm">Huỷ</button>
+          <button onClick={onClose} disabled={saving} className="gs-btn gs-btn-ghost gs-btn-sm">Cancel</button>
           <button
             onClick={handleSubmitClick}
             disabled={!canSubmit || saving}
@@ -338,12 +338,12 @@ function ApproveViolationModal({ item, onClose, onApproved }) {
           >
             <CheckCircle className="w-4 h-4" />
             {saving
-              ? "Đang xử lý..."
+              ? "Processing..."
               : confirmDQ
-                ? "Xác nhận DQ"
+                ? "Confirm DQ"
                 : penalty === "DQ"
-                  ? "Áp dụng DQ"
-                  : "Duyệt vi phạm"}
+                  ? "Apply DQ"
+                  : "Approve Violation"}
           </button>
         </div>
       </div>
@@ -351,7 +351,7 @@ function ApproveViolationModal({ item, onClose, onApproved }) {
   );
 }
 
-// ─── Reject Modal: nhập Reason (BẮT BUỘC) ────────────────────────────────────
+// ─── Reject Modal: enter Reason (REQUIRED) ───────────────────────────────────
 
 function RejectViolationModal({ item, onClose, onRejected }) {
   const [reason, setReason] = useState("");
@@ -368,7 +368,7 @@ function RejectViolationModal({ item, onClose, onRejected }) {
       await rejectViolation(item.violationId, reason.trim());
       onRejected();
     } catch (e) {
-      setErr(e?.response?.data?.message || e?.message || "Từ chối thất bại.");
+      setErr(e?.response?.data?.message || e?.message || "Failed to reject.");
     } finally {
       setSaving(false);
     }
@@ -386,29 +386,29 @@ function RejectViolationModal({ item, onClose, onRejected }) {
               <XCircle className="w-4 h-4 text-zinc-400" />
             </div>
             <div>
-              <h2 className="font-serif font-bold text-on-surface">Từ chối biên bản vi phạm</h2>
+              <h2 className="font-serif font-bold text-on-surface">Reject Violation Report</h2>
               <p className="text-xs text-on-surface-variant">#{item.violationId} · {item.violatorName || "—"}</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-surface-container-high hover:bg-surface-container-highest flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-all" aria-label="Đóng">
+          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-surface-container-high hover:bg-surface-container-highest flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-all" aria-label="Close">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         <div className="overflow-y-auto p-6 space-y-4 flex-1">
           <p className="text-sm text-on-surface leading-relaxed">
-            Bạn sắp từ chối biên bản này. Vui lòng nhập lý do để lưu vào lịch sử xử lý.
+            You are about to reject this report. Please enter a reason to save in the processing history.
           </p>
           <div>
             <label className="text-xs font-bold text-on-surface-variant uppercase tracking-widest block mb-1.5">
-              Lý do từ chối <span className="text-red-400">*</span>
+              Rejection Reason <span className="text-red-400">*</span>
             </label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               rows={4}
               autoFocus
-              placeholder="Ví dụ: Bằng chứng video không đủ kết luận hành vi phạm..."
+              placeholder="e.g. Video evidence is inconclusive regarding the violation..."
               className="w-full bg-surface-container-lowest border border-outline-variant/50 rounded-xl px-4 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-zinc-400/60 resize-none transition-all"
             />
           </div>
@@ -422,14 +422,14 @@ function RejectViolationModal({ item, onClose, onRejected }) {
         </div>
 
         <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-white/10 shrink-0">
-          <button onClick={onClose} disabled={saving} className="gs-btn gs-btn-ghost gs-btn-sm">Huỷ</button>
+          <button onClick={onClose} disabled={saving} className="gs-btn gs-btn-ghost gs-btn-sm">Cancel</button>
           <button
             onClick={submit}
             disabled={!canSubmit || saving}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold bg-zinc-700 text-white hover:bg-zinc-600 disabled:opacity-50 transition-all"
           >
             <XCircle className="w-4 h-4" />
-            {saving ? "Đang xử lý..." : "Xác nhận từ chối"}
+            {saving ? "Processing..." : "Confirm Rejection"}
           </button>
         </div>
       </div>
@@ -437,10 +437,10 @@ function RejectViolationModal({ item, onClose, onRejected }) {
   );
 }
 
-// ─── Edit Modal: chỉnh sửa biên bản đã xử lý ─────────────────────────────────
-// PATCH /api/violations/{id}: cho phép admin chỉnh penalty / adminNote / status
-// sau khi xử lý. Vẫn giữ constraint: violation đang Pending không vào modal này
-// (Flow 6 yêu cầu dùng Approve/Reject để chuyển trạng thái, không nhảy thẳng).
+// ─── Edit Modal: edit an already-processed report ─────────────────────────────
+// PATCH /api/violations/{id}: allows admin to adjust penalty / adminNote / status
+// after processing. Still keeps the constraint: a Pending violation does not
+// use this modal (Flow 6 requires Approve/Reject to change status, no direct jump).
 function EditViolationModal({ item, onClose, onSaved }) {
   const [penalty,   setPenalty]   = useState(item.penalty || "None");
   const [adminNote, setAdminNote] = useState(item.adminNote || "");
@@ -448,8 +448,8 @@ function EditViolationModal({ item, onClose, onSaved }) {
   const [saving,    setSaving]    = useState(false);
   const [err,       setErr]       = useState("");
 
-  // Penalty hợp lệ phụ thuộc status.
-  //   Pending   → "None" (không penalty khi chưa duyệt)
+  // Valid penalty depends on status.
+  //   Pending   → "None" (no penalty while not yet resolved)
   //   Resolved  → Warning | Demote | DQ
   //   Dismissed → None
   const penaltyOptions = status === "Dismissed"
@@ -467,9 +467,9 @@ function EditViolationModal({ item, onClose, onSaved }) {
     setSaving(true);
     setErr("");
     try {
-      // AdminNote là lý do reject khi Dismissed, hoặc ghi chú khi Resolved.
+      // AdminNote is the rejection reason when Dismissed, or a note when Resolved.
       await updateViolation(item.violationId, {
-        // Gửi PascalCase đúng record BE (UpdateViolationCommand).
+        // Send PascalCase matching the BE record (UpdateViolationCommand).
         ViolationId:         item.violationId,
         RaceId:              item.raceId,
         LegNumber:           item.legNumber || 1,
@@ -488,7 +488,7 @@ function EditViolationModal({ item, onClose, onSaved }) {
       const firstError = e?.response?.data?.errors
         ? Object.values(e.response.data.errors).flat()[0]
         : null;
-      setErr(detail || firstError || e?.message || "Cập nhật thất bại.");
+      setErr(detail || firstError || e?.message || "Update failed.");
     } finally {
       setSaving(false);
     }
@@ -506,11 +506,11 @@ function EditViolationModal({ item, onClose, onSaved }) {
               <Edit3 className="w-4 h-4 text-blue-400" />
             </div>
             <div>
-              <h2 className="font-serif font-bold text-on-surface">Chỉnh sửa vi phạm</h2>
+              <h2 className="font-serif font-bold text-on-surface">Edit Violation</h2>
               <p className="text-xs text-on-surface-variant">#{item.violationId} · {item.violatorName || "—"}</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-surface-container-high hover:bg-surface-container-highest flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-all" aria-label="Đóng">
+          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-surface-container-high hover:bg-surface-container-highest flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-all" aria-label="Close">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -519,20 +519,20 @@ function EditViolationModal({ item, onClose, onSaved }) {
           {/* Status */}
           <div>
             <label className="text-xs font-bold text-on-surface-variant uppercase tracking-widest block mb-1.5">
-              Trạng thái
+              Status
             </label>
             <div className="grid grid-cols-3 gap-1.5">
               {[
-                { v: "Pending",   label: "Chờ xử lý", cls: "bg-yellow-500/15 text-yellow-300 border-yellow-500/40" },
-                { v: "Resolved",  label: "Đã duyệt",  cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/40" },
-                { v: "Dismissed", label: "Đã từ chối", cls: "bg-zinc-500/15 text-zinc-300 border-zinc-500/40" },
+                { v: "Pending",   label: "Pending", cls: "bg-yellow-500/15 text-yellow-300 border-yellow-500/40" },
+                { v: "Resolved",  label: "Resolved",  cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/40" },
+                { v: "Dismissed", label: "Dismissed", cls: "bg-zinc-500/15 text-zinc-300 border-zinc-500/40" },
               ].map(opt => (
                 <button
                   type="button"
                   key={opt.v}
                   onClick={() => {
                     setStatus(opt.v);
-                    // Khi chuyển status, đảm bảo penalty hợp lệ.
+                    // When status changes, ensure penalty stays valid.
                     if (opt.v === "Pending" || opt.v === "Dismissed") setPenalty("None");
                     else if (penalty === "None") setPenalty("Warning");
                   }}
@@ -549,7 +549,7 @@ function EditViolationModal({ item, onClose, onSaved }) {
           {/* Penalty */}
           <div>
             <label className="text-xs font-bold text-on-surface-variant uppercase tracking-widest block mb-1.5">
-              Hình phạt <span className="text-red-400">*</span>
+              Penalty <span className="text-red-400">*</span>
             </label>
             <div className={`grid grid-cols-2 gap-2 ${penaltyOptions.length === 1 ? "" : "sm:grid-cols-4"}`}>
               {penaltyOptions.map(key => {
@@ -581,7 +581,7 @@ function EditViolationModal({ item, onClose, onSaved }) {
           {/* AdminNote */}
           <div>
             <label className="text-xs font-bold text-on-surface-variant uppercase tracking-widest block mb-1.5">
-              {status === "Dismissed" ? "Lý do từ chối" : status === "Resolved" ? "Ghi chú của Admin" : "Mô tả"}
+              {status === "Dismissed" ? "Rejection Reason" : status === "Resolved" ? "Admin Note" : "Description"}
             </label>
             <textarea
               value={adminNote}
@@ -589,8 +589,8 @@ function EditViolationModal({ item, onClose, onSaved }) {
               rows={3}
               autoFocus
               placeholder={status === "Dismissed"
-                ? "Nhập lý do từ chối biên bản..."
-                : "Ghi chú xử lý (tuỳ chọn)..."}
+                ? "Enter the reason for rejecting the report..."
+                : "Processing note (optional)..."}
               className="w-full bg-surface-container-lowest border border-outline-variant/50 rounded-xl px-4 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-blue-400/60 resize-none transition-all"
             />
           </div>
@@ -604,14 +604,14 @@ function EditViolationModal({ item, onClose, onSaved }) {
         </div>
 
         <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-white/10 shrink-0">
-          <button onClick={onClose} disabled={saving} className="gs-btn gs-btn-ghost gs-btn-sm">Huỷ</button>
+          <button onClick={onClose} disabled={saving} className="gs-btn gs-btn-ghost gs-btn-sm">Cancel</button>
           <button
             onClick={submit}
             disabled={!canSubmit || saving}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold bg-blue-500 text-white hover:bg-blue-400 disabled:opacity-50 transition-all"
           >
             <Save className="w-4 h-4" />
-            {saving ? "Đang lưu..." : "Lưu thay đổi"}
+            {saving ? "Saving..." : "Save Changes"}
           </button>
         </div>
       </div>
@@ -642,22 +642,22 @@ export default function AdminViolationsPage() {
     setLoading(true);
     setError("");
     try {
-      // Dùng helper trong api/admin.js (không fetch trực tiếp theo FE rule).
+      // Use the helper in api/admin.js (no direct fetch per FE rule).
       const data = await getAllViolations({
         page,
         pageSize: PAGE_SIZE,
-        // BE nhận status: "Pending" | "Resolved" | "Dismissed" (xem GetAdminViolations).
+        // BE accepts status: "Pending" | "Resolved" | "Dismissed" (see GetAdminViolations).
         status: activeTab === "All" ? "" : activeTab,
       });
       setItems(Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : []);
       setTotal(data?.total || 0);
       setPendingCount(data?.pendingCount || 0);
       setResolvedCount(data?.resolvedCount || 0);
-      // BE chỉ trả pendingCount/resolvedCount → dismissedCount lấy theo total - 2 kia.
+      // BE only returns pendingCount/resolvedCount → dismissedCount is derived as total minus those two.
       const dismissed = Math.max(0, (data?.total || 0) - (data?.pendingCount || 0) - (data?.resolvedCount || 0));
       setDismissedCount(dismissed);
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || "Không tải được danh sách vi phạm.");
+      setError(err?.response?.data?.message || err?.message || "Failed to load violation list.");
     } finally {
       setLoading(false);
     }
@@ -677,12 +677,12 @@ export default function AdminViolationsPage() {
     setEditTarget(null);
     setSuccessMsg(msg);
     fetchData();
-    // Auto-clear toast sau 3.5s.
+    // Auto-clear toast after 3.5s.
     setTimeout(() => setSuccessMsg(""), 3500);
   };
 
   const handleExport = () => {
-    const headers = ["ID", "Cuộc đua", "Người vi phạm", "Vai trò", "Loại vi phạm", "Hình phạt", "Trạng thái", "Lý do/Ghi chú", "Ngày lập", "Ngày xử lý"];
+    const headers = ["ID", "Race", "Violator", "Role", "Violation Type", "Penalty", "Status", "Reason/Note", "Created Date", "Resolved Date"];
     const rows = filtered.map((v) => [
       v.violationId,
       v.raceName || "",
@@ -729,15 +729,15 @@ export default function AdminViolationsPage() {
               <ShieldAlert className="w-5 h-5 text-red-400" />
             </div>
             <div>
-              <h1 className="font-serif text-2xl font-bold text-on-surface">Vi phạm kỷ luật</h1>
+              <h1 className="font-serif text-2xl font-bold text-on-surface">Disciplinary Violations</h1>
               <p className="text-on-surface-variant text-sm">
-                Giám sát và quản lý các vi phạm trong quá trình thi đấu.
+                Monitor and manage violations during competition.
               </p>
             </div>
           </div>
           <button onClick={fetchData} className="gs-btn gs-btn-ghost gs-btn-sm flex items-center gap-1.5">
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-            Làm mới
+            Refresh
           </button>
         </div>
         <div className="h-[2px] w-20 rounded-full bg-gradient-to-r from-red-500 to-orange-500 mt-4" />
@@ -751,7 +751,7 @@ export default function AdminViolationsPage() {
           </div>
           <div>
             <p className="text-xl font-bold text-on-surface font-mono">{pendingCount}</p>
-            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Chờ xử lý</p>
+            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Pending</p>
           </div>
         </div>
         <div className="gs-card p-4 flex items-center gap-3">
@@ -760,7 +760,7 @@ export default function AdminViolationsPage() {
           </div>
           <div>
             <p className="text-xl font-bold text-on-surface font-mono">{resolvedCount}</p>
-            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Đã duyệt</p>
+            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Resolved</p>
           </div>
         </div>
         <div className="gs-card p-4 flex items-center gap-3">
@@ -769,7 +769,7 @@ export default function AdminViolationsPage() {
           </div>
           <div>
             <p className="text-xl font-bold text-on-surface font-mono">{dismissedCount}</p>
-            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Đã từ chối</p>
+            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Dismissed</p>
           </div>
         </div>
         <div className="gs-card p-4 flex items-center gap-3">
@@ -778,7 +778,7 @@ export default function AdminViolationsPage() {
           </div>
           <div>
             <p className="text-xl font-bold text-on-surface font-mono">{total}</p>
-            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Tổng cộng</p>
+            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Total</p>
           </div>
         </div>
       </div>
@@ -789,7 +789,7 @@ export default function AdminViolationsPage() {
           <CheckCircle className="w-5 h-5 shrink-0 mt-0.5" />
           <div className="flex-1">
             <span>{successMsg}</span>
-            <button onClick={() => setSuccessMsg("")} className="ml-3 text-xs underline hover:no-underline">Đóng</button>
+            <button onClick={() => setSuccessMsg("")} className="ml-3 text-xs underline hover:no-underline">Close</button>
           </div>
         </div>
       )}
@@ -798,7 +798,7 @@ export default function AdminViolationsPage() {
           <XCircle className="w-5 h-5 shrink-0 mt-0.5" />
           <div className="flex-1">
             <span>{error}</span>
-            <button onClick={() => setError("")} className="ml-3 text-xs underline hover:no-underline">Đóng</button>
+            <button onClick={() => setError("")} className="ml-3 text-xs underline hover:no-underline">Close</button>
           </div>
         </div>
       )}
@@ -809,7 +809,7 @@ export default function AdminViolationsPage() {
           <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/50" />
           <input
             type="text"
-            placeholder="Tìm theo cuộc đua, người vi phạm, loại vi phạm..."
+            placeholder="Search by race, violator, violation type..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-surface-container-lowest border border-outline-variant/40 text-sm rounded-xl pl-11 pr-4 py-3 text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40"
@@ -817,7 +817,7 @@ export default function AdminViolationsPage() {
         </div>
         <button onClick={handleExport} disabled={filtered.length === 0} className="gs-btn gs-btn-ghost gs-btn-sm shrink-0 flex items-center gap-2">
           <Download className="w-4 h-4" />
-          Xuất CSV
+          Export CSV
         </button>
       </div>
 
@@ -846,7 +846,7 @@ export default function AdminViolationsPage() {
         <div className="flex items-center justify-center py-20">
           <div className="flex flex-col items-center gap-3">
             <div className="w-10 h-10 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-            <span className="text-on-surface-variant text-sm">Đang tải...</span>
+            <span className="text-on-surface-variant text-sm">Loading...</span>
           </div>
         </div>
       ) : filtered.length === 0 ? (
@@ -855,10 +855,10 @@ export default function AdminViolationsPage() {
             <ShieldAlert className="w-8 h-8 text-primary/60" />
           </div>
           <h3 className="font-serif text-xl font-bold text-on-surface mb-2">
-            {searchQuery ? "Không tìm thấy kết quả" : "Không có vi phạm nào"}
+            {searchQuery ? "No results found" : "No violations found"}
           </h3>
           <p className="text-on-surface-variant text-sm">
-            {searchQuery ? `Không có kết quả cho "${searchQuery}"` : "Chưa có biên bản vi phạm nào."}
+            {searchQuery ? `No results for "${searchQuery}"` : "No violation reports yet."}
           </p>
         </div>
       ) : (
@@ -877,12 +877,12 @@ export default function AdminViolationsPage() {
               <thead>
                 <tr>
                   <th>ID</th>
-                  <th>Cuộc đua</th>
-                  <th>Người vi phạm</th>
-                  <th>Loại vi phạm</th>
-                  <th>Hình phạt</th>
-                  <th>Trạng thái</th>
-                  <th>Thao tác</th>
+                  <th>Race</th>
+                  <th>Violator</th>
+                  <th>Violation Type</th>
+                  <th>Penalty</th>
+                  <th>Status</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -934,7 +934,7 @@ export default function AdminViolationsPage() {
                             ? "bg-zinc-500/10 text-zinc-400 border-zinc-500/30"
                             : "bg-yellow-500/10 text-yellow-400 border-yellow-500/30"
                         }`}>
-                          {isResolved ? "Đã duyệt" : isDismissed ? "Đã từ chối" : "Chờ xử lý"}
+                          {isResolved ? "Resolved" : isDismissed ? "Dismissed" : "Pending"}
                         </span>
                       </td>
                       <td>
@@ -943,8 +943,8 @@ export default function AdminViolationsPage() {
                             type="button"
                             onClick={() => setSelected(v)}
                             className="w-7 h-7 rounded-lg bg-surface-container-high hover:bg-surface-container-highest flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-all shrink-0"
-                            title="Xem chi tiết"
-                            aria-label="Xem chi tiết vi phạm"
+                            title="View details"
+                            aria-label="View violation details"
                           >
                             <Eye className="w-3.5 h-3.5" />
                           </button>
@@ -955,22 +955,22 @@ export default function AdminViolationsPage() {
                                 onClick={() => setApproveTarget(v)}
                                 disabled={approveTarget !== null || rejectTarget !== null || editTarget !== null}
                                 className="h-7 px-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 flex items-center gap-1 text-xs font-semibold text-emerald-400 disabled:opacity-40 transition-all"
-                                title="Duyệt vi phạm"
-                                aria-label="Duyệt vi phạm"
+                                title="Approve violation"
+                                aria-label="Approve violation"
                               >
                                 <CheckCircle className="w-3.5 h-3.5 shrink-0" />
-                                Duyệt
+                                Approve
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setRejectTarget(v)}
                                 disabled={approveTarget !== null || rejectTarget !== null || editTarget !== null}
                                 className="h-7 px-2 rounded-lg bg-zinc-500/10 border border-zinc-500/30 hover:bg-zinc-500/20 flex items-center gap-1 text-xs font-semibold text-zinc-300 disabled:opacity-40 transition-all"
-                                title="Từ chối vi phạm"
-                                aria-label="Từ chối vi phạm"
+                                title="Reject violation"
+                                aria-label="Reject violation"
                               >
                                 <XCircle className="w-3.5 h-3.5 shrink-0" />
-                                Từ chối
+                                Reject
                               </button>
                             </>
                           ) : (
@@ -979,11 +979,11 @@ export default function AdminViolationsPage() {
                               onClick={() => setEditTarget(v)}
                               disabled={approveTarget !== null || rejectTarget !== null || editTarget !== null}
                               className="h-7 px-2 rounded-lg bg-blue-500/10 border border-blue-500/30 hover:bg-blue-500/20 flex items-center gap-1 text-xs font-semibold text-blue-300 disabled:opacity-40 transition-all"
-                              title="Chỉnh sửa biên bản"
-                              aria-label="Chỉnh sửa biên bản"
+                              title="Edit report"
+                              aria-label="Edit report"
                             >
                               <Edit3 className="w-3.5 h-3.5 shrink-0" />
-                              Sửa
+                              Edit
                             </button>
                           )}
                         </div>
@@ -998,7 +998,7 @@ export default function AdminViolationsPage() {
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-4 px-2">
               <p className="text-xs text-on-surface-variant">
-                Hiển thị {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} trong {filtered.length} mục
+                Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length} items
               </p>
               <div className="flex items-center gap-1">
                 <button
@@ -1041,21 +1041,21 @@ export default function AdminViolationsPage() {
         <ApproveViolationModal
           item={approveTarget}
           onClose={() => setApproveTarget(null)}
-          onApproved={() => handleActionDone("Đã duyệt biên bản và áp dụng hình phạt.")}
+          onApproved={() => handleActionDone("Report approved and penalty applied.")}
         />
       )}
       {rejectTarget && (
         <RejectViolationModal
           item={rejectTarget}
           onClose={() => setRejectTarget(null)}
-          onRejected={() => handleActionDone("Đã từ chối biên bản vi phạm.")}
+          onRejected={() => handleActionDone("Violation report rejected.")}
         />
       )}
       {editTarget && (
         <EditViolationModal
           item={editTarget}
           onClose={() => setEditTarget(null)}
-          onSaved={() => handleActionDone("Đã cập nhật biên bản vi phạm.")}
+          onSaved={() => handleActionDone("Violation report updated.")}
         />
       )}
     </div>

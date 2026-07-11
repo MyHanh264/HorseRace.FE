@@ -16,8 +16,8 @@ import {
 } from '../../api/referee'
 import { validateLegPositions } from '../../utils/legValidation'
 
-// Lưu session-key cho mỗi (raceId, legIndex) đã submit để chống
-// duplicate khi user mở nhiều tab. Key reset khi tab đóng (sessionStorage).
+// Store a session key for each (raceId, legIndex) that has been submitted, to prevent
+// duplicates when the user opens multiple tabs. Key resets when the tab closes (sessionStorage).
 function getSubmitSessionKey(raceId, legIndex) {
   return `referee-submitted-${raceId}-${legIndex}`
 }
@@ -33,7 +33,7 @@ function getLegPoints(position) {
 
 function fmtDateTime(dt) {
   if (!dt) return '—'
-  return new Date(dt).toLocaleString('vi-VN', {
+  return new Date(dt).toLocaleString('en-GB', {
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
@@ -52,11 +52,11 @@ function RacePickerScreen({ userId, onPick }) {
       setError('')
       try {
         const list = await getAllRaces()
-        // Lọc races InProgress mà referee này được phân công
+        // Filter InProgress races this referee is assigned to
         const inProgress = list.filter(
           r => r.status === 'InProgress' || r.status === 'Paused',
         )
-        // Lấy chi tiết để lọc referee
+        // Fetch details to filter by referee
         const settled = await Promise.allSettled(
           inProgress.map(r => getRaceDetail(r.raceId)),
         )
@@ -66,7 +66,7 @@ function RacePickerScreen({ userId, onPick }) {
           .filter(r => r.referee1Id === userId || r.referee2Id === userId)
         setRaces(myRaces)
       } catch (err) {
-        setError(err?.message || 'Không tải được danh sách cuộc đua.')
+        setError(err?.message || 'Failed to load the race list.')
       } finally {
         setLoading(false)
       }
@@ -94,15 +94,15 @@ function RacePickerScreen({ userId, onPick }) {
         <h2 className="text-xl font-bold text-on-surface mb-1">Race Execution</h2>
         <p className="text-on-surface-variant text-sm">
           {races.length === 0
-            ? 'Không có cuộc đua nào đang diễn ra'
-            : 'Chọn cuộc đua để bắt đầu nhập kết quả'}
+            ? 'No races currently in progress'
+            : 'Select a race to start entering results'}
         </p>
       </div>
 
       {races.length === 0 ? (
         <div className="gs-card max-w-sm mx-auto p-10 text-center">
           <p className="text-on-surface-variant text-sm">
-            Các cuộc đua bạn được phân công sẽ xuất hiện ở đây khi chúng bắt đầu.
+            Races you are assigned to will appear here once they begin.
           </p>
         </div>
       ) : (
@@ -123,7 +123,7 @@ function RacePickerScreen({ userId, onPick }) {
                   </p>
                   {race.status === 'Paused' && (
                     <span className="inline-flex items-center gap-1 mt-2 text-xs font-semibold text-orange-400">
-                      <Zap size={11} /> Đang tạm dừng — chờ Admin xử lý
+                      <Zap size={11} /> Currently paused — awaiting admin action
                     </span>
                   )}
                 </div>
@@ -178,7 +178,7 @@ export default function RefereeResultEntryPage() {
   const [positions, setPositions] = useState({})
   const [draftSaved, setDraftSaved] = useState(false)
 
-  // 401/loading errors - không crash trang mà hiển thị thông báo
+  // 401/loading errors - don't crash the page, show a message instead
   const [legError, setLegError] = useState('')
 
   // Submission
@@ -186,13 +186,13 @@ export default function RefereeResultEntryPage() {
   const [submitError, setSubmitError] = useState('')
   const [submitResult, setSubmitResult] = useState(null) // { status, message }
 
-  // Local lock flag — set ngay khi user click submit (trước khi API trả về).
-  // Cần thiết để chống double-click & multi-tab duplicate submission.
-  // Khởi tạo là false vì raceId chưa có giá trị tại thời điểm init.
+  // Local lock flag — set immediately when the user clicks submit (before the API responds).
+  // Needed to prevent double-click & multi-tab duplicate submission.
+  // Initialized to false since raceId has no value yet at init time.
   const [hasSubmitted, setHasSubmitted] = useState(false)
 
-  // Đồng bộ hasSubmitted từ sessionStorage khi race hoặc activeLegIndex thay đổi.
-  // Reset hasSubmitted về false khi chuyển leg (mỗi leg có sessionStorage key riêng).
+  // Sync hasSubmitted from sessionStorage when race or activeLegIndex changes.
+  // Reset hasSubmitted to false when switching legs (each leg has its own sessionStorage key).
   useEffect(() => {
     const id = race?.raceId ?? preselectedRaceId
     if (id == null) return
@@ -213,7 +213,7 @@ export default function RefereeResultEntryPage() {
   const pollRef = useRef(null)
   const isMountedRef = useRef(true)
 
-  // Dùng ref để tránh stale closure mà không gây re-render loop
+  // Use a ref to avoid stale closures without causing a re-render loop
   const positionsRef = useRef(positions)
   useEffect(() => { positionsRef.current = positions }, [positions])
 
@@ -234,7 +234,7 @@ export default function RefereeResultEntryPage() {
       // Init positions from legView (will be fetched below)
     } catch (err) {
       if (!isMountedRef.current) return
-      setError(err?.message || 'Không tải được thông tin cuộc đua.')
+      setError(err?.message || 'Failed to load race information.')
     } finally {
       if (isMountedRef.current) setLoading(false)
     }
@@ -250,15 +250,15 @@ export default function RefereeResultEntryPage() {
       if (!isMountedRef.current) return
       setLegView(view)
 
-      // Đồng bộ hasSubmitted từ sessionStorage + server (phòng trường hợp
-      // tab khác đã submit trước khi polling nhận được update).
+      // Sync hasSubmitted from sessionStorage + server (in case
+      // another tab already submitted before polling picks up the update).
       const sessionFlag = typeof window !== 'undefined'
         && Boolean(sessionStorage.getItem(getSubmitSessionKey(raceId, legIndex)))
       if ((sessionFlag || view?.mySubmitted) && isMountedRef.current) {
         setHasSubmitted(true)
       }
 
-      // Init entries array nếu không có (phòng trường hợp API trả về null)
+      // Init entries array if missing (in case the API returns null)
       const entriesData = view?.entries ?? []
 
       // Pre-fill positions from mySubmittedData if available
@@ -271,9 +271,9 @@ export default function RefereeResultEntryPage() {
           return newPos
         })
       } else {
-        // Chỉ reset về rỗng khi CHƯA có entry nào được gán position.
-        // Tránh stale-closure reset mất dữ liệu user đang nhập dở.
-        // Dùng ref thay vì state để tránh dependency loop.
+        // Only reset to empty when NO entry has been assigned a position yet.
+        // Avoids a stale-closure reset wiping out data the user is mid-typing.
+        // Use a ref instead of state to avoid a dependency loop.
         const posSlice = positionsRef.current[legIndex] ?? {}
         const hasAnyPosition = Object.values(posSlice).some(
           (p) => p !== null && p !== undefined && p !== '',
@@ -282,7 +282,7 @@ export default function RefereeResultEntryPage() {
           const empty = {}
           entriesData.forEach(e => { empty[e.entryId] = '' })
           setPositions(prev => {
-            // Chỉ set nếu state hiện tại cũng trống (tránh overwrite user input)
+            // Only set if the current state is also empty (avoid overwriting user input)
             const currentPos = prev[legIndex] ?? {}
             const currentHasValue = Object.values(currentPos).some(v => v !== '' && v != null)
             if (currentHasValue) return prev
@@ -292,21 +292,21 @@ export default function RefereeResultEntryPage() {
       }
     } catch (err) {
       if (!isMountedRef.current) return
-      // 401 = race đang conflict, user chưa có quyền xem
-      // 404 = leg không tồn tại hoặc đã confirmed
-      // Các lỗi khác = có thể là race paused hoặc network issue
+      // 401 = race is conflicted, user doesn't have permission to view yet
+      // 404 = leg doesn't exist or is already confirmed
+      // Other errors = could be race paused or a network issue
       if (err?.response?.status === 401 || err?.response?.status === 403) {
-        setLegError('Bạn không có quyền xem leg này. Race có thể đang có chênh lệch giữa 2 referees.')
+        setLegError('You do not have permission to view this leg. The race may have a discrepancy between the two referees.')
       } else if (err?.response?.status === 404) {
-        setLegError('Leg này không tồn tại hoặc đã được xác nhận.')
+        setLegError('This leg does not exist or has already been confirmed.')
       } else {
-        setLegError('Không tải được dữ liệu leg. Đang thử lại...')
+        setLegError('Failed to load leg data. Retrying...')
       }
       console.error('Failed to load leg view:', err)
     } finally {
       if (isMountedRef.current) setLoadingLeg(false)
     }
-  // Xóa positions khỏi deps - dùng positionsRef thay thế để tránh re-render loop
+  // Removed positions from deps - use positionsRef instead to avoid a re-render loop
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -321,7 +321,7 @@ export default function RefereeResultEntryPage() {
       setExecution(execData)
       setStandings(standingsData)
 
-      // Kiểm tra sessionStorage từ tab khác đã submit chưa.
+      // Check sessionStorage to see if another tab already submitted.
       const sessionFlag = Boolean(
         sessionStorage.getItem(getSubmitSessionKey(raceId, activeLegIndex)),
       )
@@ -353,9 +353,9 @@ export default function RefereeResultEntryPage() {
   }, [preselectedRaceId, loadRace])
 
   // Start polling when race is loaded
-  // Chỉ poll execution status - KHÔNG reload leg view trong polling
-  // để tránh race condition gây reload modal khi user đang nhập liệu.
-  // Dùng ref để track previous leg status thay vì state dependency để tránh infinite loop.
+  // Only poll execution status - do NOT reload the leg view during polling,
+  // to avoid a race condition that reloads the modal while the user is entering data.
+  // Use a ref to track the previous leg status instead of a state dependency, to avoid an infinite loop.
   useEffect(() => {
     if (!race) return
     let previousLegStatus = null
@@ -370,7 +370,7 @@ export default function RefereeResultEntryPage() {
         setExecution(execData)
         setStandings(standingsData)
 
-        // Kiểm tra sessionStorage từ tab khác đã submit chưa.
+        // Check sessionStorage to see if another tab already submitted.
         const sessionFlag = Boolean(
           sessionStorage.getItem(getSubmitSessionKey(race.raceId, activeLegIndex)),
         )
@@ -378,11 +378,11 @@ export default function RefereeResultEntryPage() {
           setHasSubmitted(true)
         }
 
-        // Kiểm tra leg hiện tại
+        // Check the current leg
         const currentLegIdx = execData.currentLegIndex ?? activeLegIndex
         const currentLeg = execData.legs?.[currentLegIdx]
 
-        // Khi leg hiện tại được confirm (cả 2 referees cùng đúng)
+        // When the current leg is confirmed (both referees agree)
         if (currentLegIdx === activeLegIndex && currentLeg?.status === 'Confirmed') {
           // Auto-advance to next leg if available
           if (execData.currentLegIndex !== undefined && execData.currentLegIndex !== activeLegIndex) {
@@ -395,10 +395,10 @@ export default function RefereeResultEntryPage() {
           return
         }
 
-        // Chỉ reload leg view khi leg chuyển sang Pending (sau khi admin override)
+        // Only reload the leg view when the leg switches to Pending (after an admin override)
         if (execData.status === 'InProgress' || execData.status === 'Paused') {
           if (currentLeg && currentLeg.status === 'Pending') {
-            // Chỉ reload khi leg mới chuyển sang Pending (so với lần poll trước)
+            // Only reload when the leg just switched to Pending (compared to the previous poll)
             if (previousLegStatus !== 'Pending') {
               loadLegView(race.raceId, currentLegIdx)
             }
@@ -409,7 +409,7 @@ export default function RefereeResultEntryPage() {
       } catch { /* silent polling fail */ }
     }, 8000)
     return () => clearInterval(pollRef.current)
-  // Xóa execution khỏi deps - dùng ref để track thay vì state để tránh infinite loop
+  // Removed execution from deps - use a ref to track instead of state to avoid an infinite loop
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [race, activeLegIndex, loadLegView])
 
@@ -429,9 +429,9 @@ export default function RefereeResultEntryPage() {
     setDraftSaved(false)
   }
 
-  // Validation: mỗi position chỉ có 1 entry (không trùng rank, kể cả DNF/DQ)
-  // Bug #7: dùng shared validateLegPositions để đảm bảo rule nhất quán
-  // với LegSubmissionPage.
+  // Validation: each position can only have 1 entry (no duplicate ranks, including DNF/DQ)
+  // Bug #7: use the shared validateLegPositions to ensure consistent rules
+  // with LegSubmissionPage.
   function getLegValidation(legIndex) {
     const posMap = positions[legIndex] ?? {}
     const entries = (legView?.entries ?? []).map((e) => ({ entryId: e.entryId }))
@@ -441,9 +441,9 @@ export default function RefereeResultEntryPage() {
   // ── Save Draft ──
   const handleSaveDraft = async () => {
     if (!race) return
-    // Bug #11: không cho save draft khi race không còn InProgress.
+    // Bug #11: don't allow saving a draft when the race is no longer InProgress.
     if (execution?.status && execution.status !== 'InProgress') {
-      setSubmitError('Không thể lưu nháp khi race không ở trạng thái InProgress.')
+      setSubmitError('Cannot save draft when the race is not in InProgress status.')
       return
     }
 
@@ -456,24 +456,24 @@ export default function RefereeResultEntryPage() {
       await saveLegDraft(race.raceId, activeLegIndex, entries)
       setDraftSaved(true)
     } catch (err) {
-      setSubmitError(err?.message || 'Lưu nháp thất bại.')
+      setSubmitError(err?.message || 'Failed to save draft.')
     }
   }
 
   // ── Submit ──
-  // Bug #1 + #2: set hasSubmitted + sessionStorage NGAY TRƯỚC khi gọi API,
-  // để chống double-click race condition và duplicate từ tab khác.
+  // Bug #1 + #2: set hasSubmitted + sessionStorage IMMEDIATELY BEFORE calling the API,
+  // to prevent the double-click race condition and duplicates from another tab.
   const handleSubmit = async () => {
     if (!race) return
 
     if (hasSubmitted || submitting) {
-      // Đã submit (ở tab này hoặc tab khác) — bỏ qua để chống duplicate.
+      // Already submitted (in this tab or another tab) — skip to prevent duplicates.
       return
     }
 
     const { valid } = getLegValidation(activeLegIndex)
     if (!valid) {
-      setSubmitError('Vui lòng nhập đầy đủ và không trùng thứ hạng.')
+      setSubmitError('Please fill in all positions without duplicate rankings.')
       return
     }
 
@@ -498,7 +498,7 @@ export default function RefereeResultEntryPage() {
       await refreshExecution(race.raceId)
 
       // Auto-advance to next leg if matched
-      // Ưu tiên dùng result.nextLegIndex, fallback sang execution.currentLegIndex
+      // Prefer result.nextLegIndex, fall back to execution.currentLegIndex
       if (result.status === 'Matched' && !result.isRaceComplete) {
         const nextLegIdx = result.nextLegIndex ?? execution?.currentLegIndex
         if (nextLegIdx !== undefined && nextLegIdx !== activeLegIndex) {
@@ -511,12 +511,12 @@ export default function RefereeResultEntryPage() {
       }
     } catch (err) {
       const msg = err?.response?.data?.error === 'ALREADY_SUBMITTED'
-        ? 'Bạn đã submit kết quả cho Leg này rồi.'
+        ? 'You have already submitted results for this leg.'
         : err?.response?.data?.message
         || err?.message
-        || 'Submit thất bại.'
+        || 'Submission failed.'
       setSubmitError(msg)
-      // Submit fail → mở lại UI cho user retry (Bug #1)
+      // Submit failed → reopen the UI so the user can retry (Bug #1)
       setHasSubmitted(false)
       sessionStorage.removeItem(sessionKey)
     } finally {
@@ -526,8 +526,8 @@ export default function RefereeResultEntryPage() {
 
   // ── Derived ──
   const currentLegData = execution?.legs?.[activeLegIndex]
-  // hasSubmitted đảm bảo UI lock NGAY khi user click submit,
-  // không đợi server response (chống double-click).
+  // hasSubmitted ensures the UI locks IMMEDIATELY when the user clicks submit,
+  // without waiting for the server response (prevents double-click).
   const isLegLocked = currentLegData?.status === 'Confirmed'
                     || currentLegData?.status === 'Conflicted'
                     || currentLegData?.mySubmitted
@@ -558,7 +558,7 @@ export default function RefereeResultEntryPage() {
           <div>
             <h1 className="font-serif text-2xl font-bold text-on-surface">Race Execution</h1>
             <p className="text-xs text-on-surface-variant">
-              Blind Double-Entry — kết quả của bạn được ẩn với referee kia cho đến khi cả 2 submit.
+              Blind Double-Entry — your results are hidden from the other referee until both of you submit.
             </p>
           </div>
           <div className="ml-auto flex items-center gap-2">
@@ -581,20 +581,20 @@ export default function RefereeResultEntryPage() {
         )}
 
         {/* ── Race Status Guards (Bug #6) ──}
-        {/* Race không còn InProgress → không cho nhập/save/submit. */}
+        {/* Race is no longer InProgress → don't allow entering/saving/submitting. */}
         {race && execution?.status === 'Paused' && (
           <div className="mb-4 p-4 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-start gap-3">
             <AlertCircle size={18} className="text-orange-400 shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-bold text-orange-400">Race Paused</p>
               <p className="text-xs text-on-surface-variant mt-0.5">
-                Cuộc đua đang tạm dừng do có chênh lệch giữa 2 referees. Vui lòng chờ Admin xử lý.
+                The race is paused due to a discrepancy between the two referees. Please wait for admin resolution.
               </p>
               <button
                 onClick={() => navigate('/referee')}
                 className="mt-3 px-3 py-1.5 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-black text-xs font-bold transition-all"
               >
-                Quay lại Dashboard
+                Back to Dashboard
               </button>
             </div>
           </div>
@@ -608,13 +608,13 @@ export default function RefereeResultEntryPage() {
                 Race {execution?.status === 'Cancelled' ? 'Cancelled' : 'Finished'}
               </p>
               <p className="text-xs text-on-surface-variant mt-0.5">
-                Cuộc đua đã kết thúc.
+                The race has finished.
               </p>
               <button
                 onClick={() => navigate('/referee')}
                 className="mt-3 px-3 py-1.5 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-black text-xs font-bold transition-all"
               >
-                Quay lại Dashboard
+                Back to Dashboard
               </button>
             </div>
           </div>
@@ -678,9 +678,9 @@ export default function RefereeResultEntryPage() {
               <div className="mb-4 p-4 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-start gap-3">
                 <Zap size={18} className="text-orange-400 shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-bold text-orange-400">Cuộc đua đang tạm dừng</p>
+                  <p className="text-sm font-bold text-orange-400">Race is currently paused</p>
                   <p className="text-xs text-on-surface-variant mt-0.5">
-                    Đã phát hiện chênh lệch giữa 2 referees. Admin đang xem xét và sẽ resume race.
+                    A discrepancy between the two referees was detected. Admin is reviewing and will resume the race.
                   </p>
                 </div>
               </div>
@@ -729,7 +729,7 @@ export default function RefereeResultEntryPage() {
                   <p className="text-xs text-on-surface-variant mt-0.5">{submitResult.message}</p>
                   {!submitResult.isRaceComplete && submitResult.nextLegIndex !== undefined && (
                     <p className="text-xs text-emerald-400/70 mt-1">
-                      → Chuyển sang Leg {submitResult.nextLegIndex + 1} trong giây lát...
+                      → Moving to Leg {submitResult.nextLegIndex + 1} shortly...
                     </p>
                   )}
                 </div>
@@ -740,7 +740,7 @@ export default function RefereeResultEntryPage() {
               <div className="mb-4 p-4 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-start gap-3 animate-fade-in-up">
                 <AlertCircle size={18} className="text-orange-400 shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-bold text-orange-400">Chênh lệch phát hiện — Race Paused</p>
+                  <p className="text-sm font-bold text-orange-400">Discrepancy Detected — Race Paused</p>
                   <p className="text-xs text-on-surface-variant mt-0.5">{submitResult.message}</p>
                 </div>
               </div>
@@ -753,12 +753,12 @@ export default function RefereeResultEntryPage() {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <h3 className="font-semibold text-on-surface text-sm">
-                      Leg {legNumber} — Kết quả của bạn
+                      Leg {legNumber} — Your Results
                     </h3>
                     <p className="text-xs text-on-surface-variant mt-0.5">
                       {isLegLocked
-                        ? 'Đã submit · không thể sửa'
-                        : 'Nhập thứ hạng cho từng Entry · dữ liệu ẩn với referee kia'}
+                        ? 'Submitted · cannot edit'
+                        : 'Enter the ranking for each entry · data hidden from the other referee'}
                     </p>
                   </div>
                   <span className={`shrink-0 text-[11px] font-bold px-3 py-1 rounded-lg border uppercase tracking-wider
@@ -767,7 +767,7 @@ export default function RefereeResultEntryPage() {
                       : 'bg-surface-container-high text-on-surface-variant border-white/10'
                     }`}
                   >
-                    {isLegLocked ? 'Đã khóa' : 'Đang mở'}
+                    {isLegLocked ? 'Locked' : 'Open'}
                   </span>
                 </div>
               </div>
@@ -777,8 +777,8 @@ export default function RefereeResultEntryPage() {
                 <EyeOff size={13} className="text-yellow-400/70 shrink-0" />
                 <p className="text-xs text-on-surface-variant">
                   <span className="text-yellow-400/80 font-medium">Blind Entry: </span>
-                  Dữ liệu của bạn KHÔNG hiển thị cho referee kia cho đến khi cả 2 submit.
-                  Server tự động so sánh khi cả 2 đã submit.
+                  Your data is NOT visible to the other referee until both of you submit.
+                  The server automatically compares results once both have submitted.
                 </p>
               </div>
 
@@ -787,17 +787,17 @@ export default function RefereeResultEntryPage() {
                 <div className="px-5 py-2 border-b border-white/5 bg-white/3 flex items-center gap-4 text-xs text-on-surface-variant">
                   <span className="flex items-center gap-1">
                     {legView.mySubmitted
-                      ? <><CheckCircle2 size={12} className="text-emerald-400" /> Đã submit</>
-                      : <><Lock size={12} className="text-gray-500" /> Chưa submit</>}
+                      ? <><CheckCircle2 size={12} className="text-emerald-400" /> Submitted</>
+                      : <><Lock size={12} className="text-gray-500" /> Not submitted</>}
                   </span>
                   <span className="flex items-center gap-1">
                     {legView.opponentSubmitted
-                      ? <><CheckCircle2 size={12} className="text-emerald-400" /> Referee kia đã submit</>
-                      : <><Loader2 size={12} className="text-gray-500 animate-spin" /> Đang chờ referee kia...</>}
+                      ? <><CheckCircle2 size={12} className="text-emerald-400" /> Other referee has submitted</>
+                      : <><Loader2 size={12} className="text-gray-500 animate-spin" /> Waiting for other referee...</>}
                   </span>
                   {legView.bothSubmitted && (
                     <span className={`font-bold ${legView.legStatus === 'Matched' ? 'text-emerald-400' : 'text-orange-400'}`}>
-                      {legView.legStatus === 'Matched' ? '✓ Khớp hoàn toàn' : '⚠ Có chênh lệch'}
+                      {legView.legStatus === 'Matched' ? '✓ Fully Matched' : '⚠ Discrepancy Found'}
                     </span>
                   )}
                 </div>
@@ -816,7 +816,7 @@ export default function RefereeResultEntryPage() {
                     onClick={() => loadLegView(race.raceId, activeLegIndex)}
                     className="mt-3 px-4 py-2 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-sm text-on-surface transition-all"
                   >
-                    Thử lại
+                    Retry
                   </button>
                 </div>
               ) : entries.length === 0 ? (
@@ -832,17 +832,17 @@ export default function RefereeResultEntryPage() {
                   </div>
                   <p className="text-sm font-semibold text-on-surface mb-1">
                     {currentLegData?.status === 'Confirmed'
-                      ? 'Leg này đã được xác nhận'
+                      ? 'This leg has been confirmed'
                       : currentLegData?.status === 'Conflicted'
-                      ? 'Leg này đang có chênh lệch — chờ admin xử lý'
-                      : 'Chưa có dữ liệu entries'}
+                      ? 'This leg has a discrepancy — awaiting admin resolution'
+                      : 'No entry data yet'}
                   </p>
                   <p className="text-xs text-on-surface-variant">
                     {currentLegData?.status === 'Confirmed'
-                      ? 'Kết quả của bạn đã được ghi nhận. Chờ admin xác nhận và tiếp tục race.'
+                      ? 'Your results have been recorded. Waiting for admin to confirm and continue the race.'
                       : currentLegData?.status === 'Conflicted'
-                      ? 'Admin sẽ xem xét và quyết định kết quả chính thức.'
-                      : 'Đang chờ dữ liệu từ server...'}
+                      ? 'Admin will review and decide the official result.'
+                      : 'Waiting for data from the server...'}
                   </p>
                 </div>
               ) : (
@@ -853,8 +853,8 @@ export default function RefereeResultEntryPage() {
                         <th className="px-5 py-3 text-left text-xs text-on-surface-variant font-medium uppercase tracking-wider w-16">Gate</th>
                         <th className="px-3 py-3 text-left text-xs text-on-surface-variant font-medium uppercase tracking-wider">Horse</th>
                         <th className="px-3 py-3 text-left text-xs text-on-surface-variant font-medium uppercase tracking-wider">Jockey</th>
-                        <th className="px-3 py-3 text-center text-xs text-on-surface-variant font-medium uppercase tracking-wider w-28">Thứ hạng</th>
-                        <th className="px-3 py-3 text-center text-xs text-on-surface-variant font-medium uppercase tracking-wider w-20">Điểm</th>
+                        <th className="px-3 py-3 text-center text-xs text-on-surface-variant font-medium uppercase tracking-wider w-28">Position</th>
+                        <th className="px-3 py-3 text-center text-xs text-on-surface-variant font-medium uppercase tracking-wider w-20">Points</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -913,12 +913,12 @@ export default function RefereeResultEntryPage() {
                   {draftSaved && (
                     <p className="text-xs text-emerald-400 mb-3 flex items-center gap-1.5">
                       <CheckCircle2 size={13} />
-                      Đã lưu nháp thành công.
+                      Draft saved successfully.
                     </p>
                   )}
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <p className="text-xs text-on-surface-variant/60 italic">
-                      Mỗi thứ hạng chỉ gán cho 1 Entry duy nhất.
+                      Each position can only be assigned to a single entry.
                     </p>
                     <div className="flex items-center gap-2">
                       <button
@@ -927,7 +927,7 @@ export default function RefereeResultEntryPage() {
                         className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-white/20 text-sm text-gray-300 hover:bg-white/10 transition-all disabled:opacity-50"
                       >
                         <Save size={14} />
-                        Lưu nháp
+                        Save Draft
                       </button>
                       <button
                         onClick={handleSubmit}
@@ -939,7 +939,7 @@ export default function RefereeResultEntryPage() {
                           } disabled:opacity-50`}
                       >
                         {submitting
-                          ? <><Loader2 size={14} className="animate-spin" /> Đang gửi...</>
+                          ? <><Loader2 size={14} className="animate-spin" /> Submitting...</>
                           : <><Send size={14} /> Submit Leg {legNumber}</>}
                       </button>
                     </div>
@@ -968,7 +968,7 @@ export default function RefereeResultEntryPage() {
         {loading && (
           <div className="flex flex-col items-center justify-center py-40">
             <Loader2 className="w-10 h-10 text-yellow-400 animate-spin mb-4" />
-            <p className="text-on-surface-variant text-sm">Đang tải cuộc đua...</p>
+            <p className="text-on-surface-variant text-sm">Loading race...</p>
           </div>
         )}
       </div>

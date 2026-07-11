@@ -1,6 +1,6 @@
 /**
- * Shared helpers cho Horse feature (FLOW 1 — Registration & Approval).
- * Centralize status/column metadata để tránh hardcode UI nhiều nơi.
+ * Shared helpers for the Horse feature (FLOW 1 — Registration & Approval).
+ * Centralizes status/column metadata to avoid hardcoding UI in multiple places.
  */
 
 export const HORSE_STATUS = Object.freeze({
@@ -22,10 +22,10 @@ const STATUS_BADGE_CLASS = {
 }
 
 const STATUS_LABEL_VI = {
-  [HORSE_STATUS.APPROVED]: "Đã duyệt",
-  [HORSE_STATUS.PENDING]: "Chờ duyệt",
-  [HORSE_STATUS.REJECTED]: "Từ chối",
-  [HORSE_STATUS.REVOKED]: "Thu hồi",
+  [HORSE_STATUS.APPROVED]: "Approved",
+  [HORSE_STATUS.PENDING]: "Pending",
+  [HORSE_STATUS.REJECTED]: "Rejected",
+  [HORSE_STATUS.REVOKED]: "Revoked",
 }
 
 export function getHorseBadgeClass(status) {
@@ -41,8 +41,8 @@ export function canCreateHorse(submitting) {
 }
 
 /**
- * Cột hiển thị cho bảng Approved horses.
- * Mỗi entry: { key, label, render(horse) }
+ * Display columns for the Approved horses table.
+ * Each entry: { key, label, render(horse) }
  */
 export function getApprovedHorseColumns() {
   return [
@@ -58,7 +58,7 @@ export function getApprovedHorseColumns() {
 }
 
 /**
- * Cột hiển thị cho bảng Rejected horses.
+ * Display columns for the Rejected horses table.
  */
 export function getRejectedHorseColumns() {
   return [
@@ -74,23 +74,23 @@ export function getRejectedHorseColumns() {
 }
 
 /**
- * Field mà Admin nhập khi reject (lý do). Có thể rỗng.
+ * Field Admin enters when rejecting (the reason). Can be empty.
  */
 export function validateRejectReason(reason) {
   const trimmed = (reason ?? "").trim()
   if (trimmed.length > 500) {
-    return { valid: false, error: "Lý do từ chối không được vượt quá 500 ký tự." }
+    return { valid: false, error: "Rejection reason must not exceed 500 characters." }
   }
   return { valid: true, error: null }
 }
 
 /**
- * Trả về danh sách status còn hiển thị ở Admin page
- * (đã loại bỏ Revoked theo FLOW 1 mới).
+ * Returns the list of statuses shown on the Admin page
+ * (Revoked removed under the new FLOW 1).
  */
 export const ADMIN_HORSE_TABS = [
-  { key: "All", label: "Tất cả" },
-  { key: HORSE_STATUS.PENDING, label: "Chờ duyệt" },
-  { key: HORSE_STATUS.APPROVED, label: "Đã duyệt" },
-  { key: HORSE_STATUS.REJECTED, label: "Từ chối" },
+  { key: "All", label: "All" },
+  { key: HORSE_STATUS.PENDING, label: "Pending" },
+  { key: HORSE_STATUS.APPROVED, label: "Approved" },
+  { key: HORSE_STATUS.REJECTED, label: "Rejected" },
 ]

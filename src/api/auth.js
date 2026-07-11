@@ -23,7 +23,7 @@ export async function loginUser({ email, password }) {
   }
 
   if (!res.ok) {
-    throw new Error(getErrorMessage(data, `Đăng nhập thất bại (${res.status})`))
+    throw new Error(getErrorMessage(data, `Login failed (${res.status})`))
   }
 
   return data
@@ -51,7 +51,7 @@ export async function getMyProfile(accessToken) {
     headers: authHeaders(accessToken),
   })
 
-  if (!res.ok) await readJsonError(res, 'Không tải được hồ sơ')
+  if (!res.ok) await readJsonError(res, 'Failed to load profile')
   const data = await res.json()
   return data?.user ?? data
 }
@@ -71,7 +71,7 @@ export async function refreshAuthToken(refreshToken) {
   }
 
   if (!res.ok) {
-    throw new Error(getErrorMessage(data, `Làm mới phiên đăng nhập thất bại (${res.status})`))
+    throw new Error(getErrorMessage(data, `Session refresh failed (${res.status})`))
   }
 
   return data
@@ -84,7 +84,7 @@ export async function logoutUser({ accessToken, refreshToken }) {
     body: JSON.stringify({ refreshToken: refreshToken || undefined }),
   })
 
-  if (!res.ok) await readJsonError(res, 'Đăng xuất thất bại')
+  if (!res.ok) await readJsonError(res, 'Logout failed')
   return true
 }
 
@@ -103,7 +103,7 @@ export async function forgotPassword(email) {
   }
 
   if (!res.ok) {
-    throw new Error(getErrorMessage(data, `Gửi mã OTP thất bại (${res.status})`))
+    throw new Error(getErrorMessage(data, `Failed to send OTP code (${res.status})`))
   }
 
   return data
@@ -124,7 +124,7 @@ export async function resetPassword(payload) {
   }
 
   if (!res.ok) {
-    throw new Error(getErrorMessage(data, `Đặt lại mật khẩu thất bại (${res.status})`))
+    throw new Error(getErrorMessage(data, `Password reset failed (${res.status})`))
   }
 
   return data
@@ -154,7 +154,7 @@ export async function registerUser(payload) {
   }
 
   if (!res.ok) {
-    throw new Error(getErrorMessage(data, `Đăng ký thất bại (${res.status})`))
+    throw new Error(getErrorMessage(data, `Registration failed (${res.status})`))
   }
 
   return data

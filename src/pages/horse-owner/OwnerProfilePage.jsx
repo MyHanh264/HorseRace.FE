@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
-// ─── mock (swap bằng API call sau) ───────────────────────────────────────────
+// ─── mock (swap for a real API call later) ───────────────────────────────────
 const MOCK_PROFILE = {
   fullName: "Arthur Pendelton",
   email: "arthur.pendelton@grandstride.ext",
@@ -107,7 +107,7 @@ function PasswordField({ placeholder, value, onChange }) {
 export default function OwnerProfilePage() {
   const { user } = useAuth();
 
-  // Merge auth context vào mock (khi có API thật thì fetch ở đây)
+  // Merge auth context into mock data (fetch here once a real API exists)
   const base = {
     ...MOCK_PROFILE,
     fullName: user?.fullName ?? MOCK_PROFILE.fullName,
@@ -134,7 +134,7 @@ export default function OwnerProfilePage() {
 
   const handleSave = async () => {
     setSaving(true);
-    // TODO: gọi API update profile
+    // TODO: call API to update profile
     await new Promise((r) => setTimeout(r, 800));
     setSaving(false);
     setSaved(true);

@@ -4,6 +4,9 @@ import {
   BarChart2, User, LogOut,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
+import NotificationBell from '../NotificationBell'
+import { useSpectatorNotifications } from '../../hooks/useSpectatorNotifications'
+import { useNotificationRead } from '../../hooks/useNotificationRead'
 
 const navItems = [
   { to: '/spectator',             label: 'Dashboard',       icon: LayoutDashboard, end: true },
@@ -21,6 +24,8 @@ function getInitials(name) {
 
 export default function SpectatorLayout() {
   const { user, logout } = useAuth()
+  const notifItems = useSpectatorNotifications()
+  const notifRead = useNotificationRead(notifItems, user?.userId)
 
   return (
     <div className="flex h-screen font-sans" style={{ background: '#0D1117', color: '#E6EDF3' }}>
@@ -80,9 +85,14 @@ export default function SpectatorLayout() {
       </aside>
 
       {/* Main */}
-      <main className="flex-1 overflow-auto ml-[200px]">
-        <Outlet />
-      </main>
+      <div className="flex-1 flex flex-col min-w-0 ml-[200px]">
+        <header className="h-14 px-6 flex items-center justify-end flex-shrink-0 sticky top-0 z-40 bg-[#111418] border-b border-white/10">
+          <NotificationBell items={notifItems} {...notifRead} />
+        </header>
+        <main className="flex-1 overflow-auto">
+          <Outlet />
+        </main>
+      </div>
     </div>
   )
 }

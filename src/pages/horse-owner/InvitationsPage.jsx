@@ -217,14 +217,14 @@ export default function InvitationsPage() {
                   const submittedSame  = myJockeyKeys.has(jockeyKey);
                   const submittedOther = !submittedSame && anyEntryKeys.has(raceHorseKey);
                   const disabled       = submittedSame || submittedOther;
-                  const label          = submittedSame  ? "Đã nộp Entry"
-                                       : submittedOther ? "Đã chốt jockey khác"
-                                       : "Xác nhận & Nộp Entry";
+                  const label          = submittedSame  ? "Entry Submitted"
+                                       : submittedOther ? "Another Jockey Confirmed"
+                                       : "Confirm & Submit Entry";
                   return (
                     <button
                       onClick={() => !disabled && setConfirmInv(inv)}
                       disabled={disabled}
-                      title={submittedOther ? "Race này đã có entry với jockey khác" : ""}
+                      title={submittedOther ? "This race already has an entry with a different jockey" : ""}
                       className={`text-xs font-bold px-4 py-1.5 rounded-lg transition-colors
                         ${disabled
                           ? "bg-gray-600 text-gray-400 cursor-not-allowed opacity-60"

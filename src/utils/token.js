@@ -42,7 +42,7 @@ export function clearAuthTokens() {
   sessionStorage.removeItem('refreshToken')
 }
 
-/** Ghi token vào đúng một nơi — tránh token cũ trong localStorage gây sai role */
+/** Write the token to exactly one place — avoids a stale token in localStorage causing the wrong role */
 export function setAuthTokens({ accessToken, refreshToken, remember }) {
   clearAuthTokens()
   const store = remember ? localStorage : sessionStorage

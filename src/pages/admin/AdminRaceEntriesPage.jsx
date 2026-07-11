@@ -89,7 +89,7 @@ export default function AdminRaceEntriesPage() {
       setError('')
       setLoading(false)
     }).catch(err => {
-      if (!cancelled) { setError(err?.message || 'Không tải được dữ liệu'); setLoading(false) }
+      if (!cancelled) { setError(err?.message || 'Failed to load data'); setLoading(false) }
     })
     return () => { cancelled = true }
   }, [raceId, tick])
@@ -125,28 +125,28 @@ export default function AdminRaceEntriesPage() {
   const handleOpenReg = async () => {
     setRegLoading(true); setError('')
     try { await openRegistration(raceId); refresh() }
-    catch (err) { setError(err?.response?.data?.detail ?? err?.message ?? 'Mở đăng ký thất bại') }
+    catch (err) { setError(err?.response?.data?.detail ?? err?.message ?? 'Failed to open registration') }
     finally { setRegLoading(false) }
   }
 
   const handleCloseReg = async () => {
     setRegLoading(true); setError('')
     try { await closeRegistration(raceId); refresh() }
-    catch (err) { setError(err?.response?.data?.detail ?? err?.message ?? 'Đóng đăng ký thất bại') }
+    catch (err) { setError(err?.response?.data?.detail ?? err?.message ?? 'Failed to close registration') }
     finally { setRegLoading(false) }
   }
 
   const handleStartRace = async () => {
     setRegLoading(true); setError('')
     try { await startRace(raceId); refresh() }
-    catch (err) { setError(err?.response?.data?.detail ?? err?.message ?? 'Bắt đầu race thất bại') }
+    catch (err) { setError(err?.response?.data?.detail ?? err?.message ?? 'Failed to start race') }
     finally { setRegLoading(false) }
   }
 
   const handleApprove = async (entryId) => {
     setEntryAction({ id: entryId, type: 'Approved' }); setEntryError('')
     try { await approveEntry(entryId); refresh() }
-    catch (err) { setEntryError(err?.message || 'Duyệt entry thất bại') }
+    catch (err) { setEntryError(err?.message || 'Failed to approve entry') }
     finally { setEntryAction(null) }
   }
 
@@ -157,7 +157,7 @@ export default function AdminRaceEntriesPage() {
       setRejectingEntryId(null); setRejectReason('')
       refresh()
     }
-    catch (err) { setEntryError(err?.message || 'Từ chối entry thất bại') }
+    catch (err) { setEntryError(err?.message || 'Failed to reject entry') }
     finally { setEntryAction(null) }
   }
 

@@ -4,7 +4,7 @@ import {
   Users, CheckCircle, XCircle, ArrowLeft, UserCheck, Eye,
   LockOpen, Lock, Send, RotateCcw, MoreVertical,
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   getAllTournaments, getRaces, getRaceDetail, createRace, updateRace, deleteRace,
   getAllUser, approveEntry, rejectEntry, openRegistration, closeRegistration, startRace,
@@ -159,14 +159,14 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
           )}
           {refereeMismatch && (
             <div className="p-3 rounded-lg bg-error/10 border border-error/25 text-error text-sm flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />Referee 1 và Referee 2 phải khác nhau
+              <AlertCircle className="w-4 h-4 shrink-0" />Referee 1 and Referee 2 must be different
             </div>
           )}
           {refereeConflict && (
             <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-400 text-sm flex items-start gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
               <span>
-                Trọng tài đã được assign vào race <strong>"{refereeConflict.name}"</strong> (tournament khác) cùng khung giờ này. Bạn vẫn có thể tiếp tục.
+                A referee is already assigned to race <strong>"{refereeConflict.name}"</strong> (a different tournament) at this same time slot. You can still continue.
               </span>
             </div>
           )}
@@ -297,6 +297,7 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
 
 export default function AdminRacesPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   // ── Data ──
   const [tournaments, setTournaments] = useState([])
@@ -307,8 +308,8 @@ export default function AdminRacesPage() {
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState('')
 
-  // ── Filters ──
-  const [selectedTournamentId, setSelectedTournamentId] = useState('')
+  // ── Filters ── (reads ?tournamentId= from URL — navigated here from Tournament Management)
+  const [selectedTournamentId, setSelectedTournamentId] = useState(() => searchParams.get('tournamentId') || '')
 
   // ── View: 'races' | 'entries' ──
   const [view, setView]         = useState('races')
@@ -329,8 +330,8 @@ export default function AdminRacesPage() {
   const [rejectReason, setRejectReason] = useState('')
 
   // ── Registration open/close ──
-  const [regLoading, setRegLoading] = useState(null) // raceId đang xử lý
-  // raceId → { registrationOpenAt, registrationCloseAt } từ list endpoint (detail endpoint thiếu 2 field này)
+  const [regLoading, setRegLoading] = useState(null) // raceId currently being processed
+  // raceId → { registrationOpenAt, registrationCloseAt } from the list endpoint (detail endpoint is missing these 2 fields)
   const [raceRegMap, setRaceRegMap] = useState({})
 
   const buildRegMap = (raceList) => {
@@ -369,7 +370,7 @@ export default function AdminRacesPage() {
         setRaceDetails([])
       }
     } catch (err) {
-      setError(err?.message || 'Không tải được dữ liệu')
+      setError(err?.message || 'Failed to load data')
     } finally {
       setLoading(false)
     }
@@ -395,7 +396,7 @@ export default function AdminRacesPage() {
         }
         setRaceDetails([])
       })
-      .catch(err => setError(err?.message || 'Không tải được dữ liệu'))
+      .catch(err => setError(err?.message || 'Failed to load data'))
       .finally(() => setLoading(false))
   }, [])
 
@@ -451,7 +452,7 @@ export default function AdminRacesPage() {
       setDeletingId(null)
       await loadAll()
     } catch (err) {
-      setError(err?.message || 'Xóa race thất bại')
+      setError(err?.message || 'Failed to delete race')
       setDeletingId(null)
     }
   }
@@ -468,7 +469,7 @@ export default function AdminRacesPage() {
       setShowModal(false)
       await loadAll()
     } catch (err) {
-      setFormError(err?.message || 'Lưu race thất bại')
+      setFormError(err?.message || 'Failed to save race')
     } finally {
       setSubmitting(false)
     }
@@ -487,7 +488,7 @@ export default function AdminRacesPage() {
       await openRegistration(raceId)
       await loadAll()
     } catch (err) {
-      setError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Mở đăng ký thất bại')
+      setError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Failed to open registration')
     } finally {
       setRegLoading(null)
     }
@@ -500,7 +501,7 @@ export default function AdminRacesPage() {
       await closeRegistration(raceId)
       await loadAll()
     } catch (err) {
-      setError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Đóng đăng ký thất bại')
+      setError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Failed to close registration')
     } finally {
       setRegLoading(null)
     }
@@ -515,7 +516,7 @@ export default function AdminRacesPage() {
       setView('races')
       setActiveRace(null)
     } catch (err) {
-      setEntryError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Bắt đầu race thất bại')
+      setEntryError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Failed to start race')
     } finally {
       setRegLoading(null)
     }
@@ -528,7 +529,7 @@ export default function AdminRacesPage() {
       await publishRace(raceId)
       await loadAll()
     } catch (err) {
-      setError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Publish race thất bại')
+      setError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Failed to publish race')
     } finally {
       setRegLoading(null)
     }
@@ -541,7 +542,7 @@ export default function AdminRacesPage() {
       await unpublishRace(raceId)
       await loadAll()
     } catch (err) {
-      setError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Unpublish race thất bại')
+      setError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Failed to unpublish race')
     } finally {
       setRegLoading(null)
     }
@@ -554,7 +555,7 @@ export default function AdminRacesPage() {
       await approveEntry(entryId)
       await loadAll()
     } catch (err) {
-      setEntryError(err?.message || 'Duyệt entry thất bại')
+      setEntryError(err?.message || 'Failed to approve entry')
     } finally {
       setEntryAction(null)
     }
@@ -569,7 +570,7 @@ export default function AdminRacesPage() {
       setRejectReason('')
       await loadAll()
     } catch (err) {
-      setEntryError(err?.message || 'Từ chối entry thất bại')
+      setEntryError(err?.message || 'Failed to reject entry')
     } finally {
       setEntryAction(null)
     }
@@ -809,10 +810,10 @@ export default function AdminRacesPage() {
                                   <div className="border-t border-outline-variant/30 my-1" />
                                   {deletingId === race.raceId ? (
                                     <div className="px-3 py-2">
-                                      <p className="text-xs text-error mb-1.5">Xác nhận xóa?</p>
+                                      <p className="text-xs text-error mb-1.5">Confirm delete?</p>
                                       <div className="flex gap-1.5">
-                                        <button onClick={() => handleDelete(race.raceId)} className="gs-btn gs-btn-danger gs-btn-sm flex-1">Xóa</button>
-                                        <button onClick={() => setDeletingId(null)} className="gs-btn gs-btn-ghost gs-btn-sm">Hủy</button>
+                                        <button onClick={() => handleDelete(race.raceId)} className="gs-btn gs-btn-danger gs-btn-sm flex-1">Delete</button>
+                                        <button onClick={() => setDeletingId(null)} className="gs-btn gs-btn-ghost gs-btn-sm">Cancel</button>
                                       </div>
                                     </div>
                                   ) : (

@@ -40,11 +40,11 @@ export default function ViewHorseModal({ horseId, onClose }) {
             </div>
           ) : !horse ? (
             <p className="text-gray-400 text-center py-8">
-              Không tìm thấy thông tin ngựa.
+              Horse information not found.
             </p>
           ) : (
             <>
-              {/* Ảnh */}
+              {/* Image */}
               <div className="h-48 bg-gray-800 rounded-xl overflow-hidden mb-5">
                 {horse.imageUrl ? (
                   <img
@@ -59,7 +59,7 @@ export default function ViewHorseModal({ horseId, onClose }) {
                 )}
               </div>
 
-              {/* Status + Tên */}
+              {/* Status + Name */}
               <div className="flex items-center gap-3 mb-4">
                 <span
                   className={`text-xs px-2.5 py-0.5 rounded-full ${STATUS_STYLE[horse.status]}`}

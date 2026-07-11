@@ -78,10 +78,10 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
   const estPayout    = selectedEntryId && amount > 0 ? `~${fmtBalance(amount * selectedOdds)} pts` : '—'
 
   const validate = () => {
-    if (!selectedEntryId) return 'Hãy chọn ngựa đua.'
-    if (amount < 10) return 'Đặt cược tối thiểu là 10 điểm.'
-    if (amount > balance * 0.5) return `Tối đa 50% số dư (${fmtBalance(Math.floor(balance * 0.5))} pts).`
-    if (amount > balance) return `Số dư không đủ (hiện có ${fmtBalance(balance)} pts).`
+    if (!selectedEntryId) return 'Please select a horse.'
+    if (amount < 10) return 'Minimum bet is 10 points.'
+    if (amount > balance * 0.5) return `Maximum 50% of balance (${fmtBalance(Math.floor(balance * 0.5))} pts).`
+    if (amount > balance) return `Insufficient balance (you have ${fmtBalance(balance)} pts).`
     return null
   }
 
@@ -104,7 +104,7 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
         ?? err?.response?.data?.detail
         ?? (typeof err?.response?.data === 'string' ? err.response.data : null)
         ?? err?.message
-        ?? 'Đặt cược thất bại'
+        ?? 'Failed to place bet'
       setBetError(`[${err?.response?.status ?? '?'}] ${msg}`)
     } finally {
       setSubmitting(false)
@@ -162,13 +162,13 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
         {betSuccess && (
           <div className="mb-3 p-3 rounded-lg bg-primary/10 border border-primary/25 text-primary text-sm flex items-center gap-2">
             <CheckCircle className="w-4 h-4 shrink-0" />
-            Đặt cược thành công!
+            Bet placed successfully!
           </div>
         )}
 
         {alreadyBet && !betSuccess && (
           <div className="mb-3 p-3 rounded-lg bg-surface-container border border-outline-variant/40 text-on-surface-variant text-sm">
-            Bạn đã đặt cược cho cuộc đua này.
+            You have already placed a bet on this race.
           </div>
         )}
 
@@ -287,7 +287,7 @@ export default function RacesBettingPage() {
         setRaceDetails(prev => ({ ...prev, [selectedId]: detail }))
       }
     } catch (err) {
-      setError(err?.message || 'Không tải được dữ liệu')
+      setError(err?.message || 'Failed to load data')
     } finally {
       setLoading(false)
     }
@@ -384,7 +384,7 @@ export default function RacesBettingPage() {
                 </div>
               ) : filteredRaces.length === 0 ? (
                 <div className="py-12 text-center text-on-surface-variant text-sm">
-                  Không có cuộc đua nào.
+                  No races found.
                 </div>
               ) : (
                 <div className="divide-y divide-outline-variant/30 max-h-[520px] overflow-y-auto">

@@ -23,19 +23,19 @@ const VIOLATION_TYPES = [
 ]
 
 const VIOLATION_TYPE_LABELS = {
-  KhoiDongSom:       'Khởi động sớm',
-  CuoiNguaNguyHiem:  'Cưỡi ngựa nguy hiểm',
-  ViPhamRoi:         'Vi phạm roi',
-  CanDuongDoiThu:    'Cản đường đối thủ',
-  ViPhamDoping:      'Vi phạm doping',
-  ViPhamTrangBi:     'Vi phạm trang bị',
-  Khac:              'Khác',
+  KhoiDongSom:       'False Start',
+  CuoiNguaNguyHiem:  'Dangerous Riding',
+  ViPhamRoi:         'Whip Violation',
+  CanDuongDoiThu:    'Obstruction',
+  ViPhamDoping:      'Doping Violation',
+  ViPhamTrangBi:     'Equipment Violation',
+  Khac:              'Other',
 }
 
 const STATUS_META = {
-  Pending:             { label: 'Chờ xử lý',              cls: 'bg-yellow-400/10 text-yellow-400 border border-yellow-400/25' },
-  Approved:            { label: 'Đã duyệt',               cls: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' },
-  Rejected:            { label: 'Đã từ chối',             cls: 'bg-zinc-500/10 text-zinc-400 border border-zinc-500/30' },
+  Pending:             { label: 'Pending',                cls: 'bg-yellow-400/10 text-yellow-400 border border-yellow-400/25' },
+  Approved:            { label: 'Approved',                cls: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' },
+  Rejected:            { label: 'Rejected',                cls: 'bg-zinc-500/10 text-zinc-400 border border-zinc-500/30' },
 }
 
 function getStatusMeta(s) {
@@ -43,13 +43,13 @@ function getStatusMeta(s) {
 }
 
 function fmtIncidentId(v) {
-  // BE GetViolationList không trả createdAt — fallback theo violationId.
+  // BE GetViolationList doesn't return createdAt — fall back to violationId.
   return `#V-${String(v.violationId).padStart(3, '0')}`
 }
 
 function fmtDate(dt) {
   if (!dt) return '—'
-  return new Date(dt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  return new Date(dt).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 function getInitials(name) {
@@ -83,13 +83,13 @@ function ReportViolationModal({ assignedRaces, raceEntries, horseMap, onClose, o
       })
       onReported()
     } catch (e) {
-      // BE thường trả ProblemDetails (title/detail) khi bind fail, hoặc plain message.
+      // BE usually returns ProblemDetails (title/detail) on a bind failure, or a plain message.
       const detail = e?.response?.data?.detail || e?.response?.data?.title
       const title  = e?.response?.data?.title
       const firstError = e?.response?.data?.errors
         ? Object.values(e.response.data.errors).flat()[0]
         : null
-      setErr(detail || firstError || title || e?.message || 'Gửi biên bản thất bại.')
+      setErr(detail || firstError || title || e?.message || 'Failed to submit report.')
     } finally {
       setSaving(false)
     }
@@ -102,7 +102,7 @@ function ReportViolationModal({ assignedRaces, raceEntries, horseMap, onClose, o
         <div className="flex items-center justify-between px-5 py-4 border-b border-outline-variant/40">
           <div className="flex items-center gap-2.5">
             <AlertTriangle size={17} className="text-yellow-400" />
-            <h2 className="font-bold text-on-surface text-sm">Lập biên bản vi phạm</h2>
+            <h2 className="font-bold text-on-surface text-sm">Report a Violation</h2>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant transition-colors">
             <X size={16} />
@@ -119,7 +119,7 @@ function ReportViolationModal({ assignedRaces, raceEntries, horseMap, onClose, o
               onChange={e => { setRaceId(e.target.value); setEntryId('') }}
               className="w-full bg-surface-container-lowest border border-outline-variant/50 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-yellow-400/60 transition-all"
             >
-              <option value="">-- Chọn cuộc đua --</option>
+              <option value="">-- Select a race --</option>
               {assignedRaces.map(r => (
                 <option key={r.raceId} value={r.raceId}>{r.name}</option>
               ))}
@@ -135,7 +135,7 @@ function ReportViolationModal({ assignedRaces, raceEntries, horseMap, onClose, o
               disabled={!raceId}
               className="w-full bg-surface-container-lowest border border-outline-variant/50 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-yellow-400/60 transition-all disabled:opacity-50"
             >
-              <option value="">-- Chọn entry --</option>
+              <option value="">-- Select entry --</option>
               {availableEntries.map(e => (
                 <option key={e.entryId} value={e.entryId}>
                   {horseMap[e.horseId]?.name ?? `Entry #${e.entryId}`}
@@ -153,7 +153,7 @@ function ReportViolationModal({ assignedRaces, raceEntries, horseMap, onClose, o
               onChange={e => setType(e.target.value)}
               className="w-full bg-surface-container-lowest border border-outline-variant/50 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-yellow-400/60 transition-all"
             >
-              <option value="">-- Chọn loại vi phạm --</option>
+              <option value="">-- Select violation type --</option>
               {VIOLATION_TYPES.map(t => (
                 <option key={t} value={t}>{VIOLATION_TYPE_LABELS[t]}</option>
               ))}
@@ -167,7 +167,7 @@ function ReportViolationModal({ assignedRaces, raceEntries, horseMap, onClose, o
               value={desc}
               onChange={e => setDesc(e.target.value)}
               rows={4}
-              placeholder="Mô tả chi tiết sự việc..."
+              placeholder="Describe the incident in detail..."
               className="w-full bg-surface-container-lowest border border-outline-variant/50 rounded-xl px-4 py-3 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-yellow-400/60 resize-none transition-all"
             />
           </div>
@@ -177,13 +177,13 @@ function ReportViolationModal({ assignedRaces, raceEntries, horseMap, onClose, o
 
         {/* Footer */}
         <div className="px-5 pb-5 flex justify-end gap-3">
-          <button onClick={onClose} className="gs-btn gs-btn-ghost">Huỷ</button>
+          <button onClick={onClose} className="gs-btn gs-btn-ghost">Cancel</button>
           <button
             onClick={handleSubmit}
             disabled={!canSubmit || saving}
             className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold bg-yellow-400 text-black hover:bg-yellow-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
-            {saving ? 'Đang gửi...' : 'Gửi biên bản'}
+            {saving ? 'Submitting...' : 'Submit Report'}
           </button>
         </div>
       </div>
@@ -241,7 +241,7 @@ export default function RefereeViolationsPage() {
       setRaceEntries(eByRace)
       setHorseMap(hMap)
     } catch (err) {
-      setError(err?.message || 'Không tải được vi phạm')
+      setError(err?.message || 'Failed to load violations')
     } finally {
       setLoading(false)
     }
@@ -264,9 +264,9 @@ export default function RefereeViolationsPage() {
   const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const STATS = [
-    { label: 'Chờ xử lý',     value: activeCount,   Icon: Shield,       sub: 'Referee đã báo cáo, chờ Admin',  cls: 'text-yellow-400', bg: 'bg-yellow-400/10 border border-yellow-400/25' },
-    { label: 'Đã duyệt',       value: approvedCount, Icon: AlertTriangle, sub: 'Đã áp dụng penalty vào race',     cls: 'text-emerald-400', bg: 'bg-emerald-500/10 border border-emerald-500/30' },
-    { label: 'Đã từ chối',     value: rejectedCount, Icon: CheckCircle2,  sub: 'Mùa giải hiện tại',               cls: 'text-zinc-400',  bg: 'bg-zinc-500/10 border border-zinc-500/30' },
+    { label: 'Pending',     value: activeCount,   Icon: Shield,       sub: 'Reported by referee, awaiting admin',  cls: 'text-yellow-400', bg: 'bg-yellow-400/10 border border-yellow-400/25' },
+    { label: 'Approved',       value: approvedCount, Icon: AlertTriangle, sub: 'Penalty applied to race',     cls: 'text-emerald-400', bg: 'bg-emerald-500/10 border border-emerald-500/30' },
+    { label: 'Rejected',     value: rejectedCount, Icon: CheckCircle2,  sub: 'Current season',               cls: 'text-zinc-400',  bg: 'bg-zinc-500/10 border border-zinc-500/30' },
   ]
 
   return (
@@ -281,8 +281,8 @@ export default function RefereeViolationsPage() {
                 <AlertTriangle size={20} className="text-yellow-400" />
               </div>
               <div>
-                <h1 className="font-serif text-2xl font-bold text-on-surface">Vi phạm kỷ luật</h1>
-                <p className="text-on-surface-variant text-sm">Theo dõi, lập và quản lý biên bản vi phạm trong các cuộc đua.</p>
+                <h1 className="font-serif text-2xl font-bold text-on-surface">Disciplinary Violations</h1>
+                <p className="text-on-surface-variant text-sm">Track, file, and manage violation reports across races.</p>
               </div>
             </div>
             <div className="h-[2px] w-20 rounded-full bg-gradient-to-r from-yellow-400 to-secondary mt-3" />
@@ -292,7 +292,7 @@ export default function RefereeViolationsPage() {
             onClick={() => setReportModal(true)}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold bg-yellow-400 text-black hover:bg-yellow-300 transition-all"
           >
-            <Plus size={16} /> Lập biên bản vi phạm
+            <Plus size={16} /> Report a Violation
           </button>
         </div>
 
@@ -327,7 +327,7 @@ export default function RefereeViolationsPage() {
         {/* Table */}
         <div className="gs-card overflow-hidden">
           <div className="px-5 py-4 border-b border-outline-variant/40 flex items-center justify-between flex-wrap gap-3">
-            <h2 className="font-serif font-bold text-on-surface">Biên bản gần đây</h2>
+            <h2 className="font-serif font-bold text-on-surface">Recent Reports</h2>
             <div className="flex items-center gap-2">
               <SlidersHorizontal size={14} className="text-on-surface-variant" />
               <select
@@ -337,7 +337,7 @@ export default function RefereeViolationsPage() {
               >
                 {STATUS_FILTERS.map(f => (
                   <option key={f} value={f}>
-                    {f === 'All' ? 'Tất cả trạng thái' : getStatusMeta(f).label}
+                    {f === 'All' ? 'All Statuses' : getStatusMeta(f).label}
                   </option>
                 ))}
               </select>
@@ -351,8 +351,8 @@ export default function RefereeViolationsPage() {
           ) : paginated.length === 0 ? (
             <div className="py-20 text-center">
               <AlertTriangle size={36} className="text-on-surface-variant/30 mx-auto mb-3" />
-              <p className="text-on-surface font-semibold">Chưa có biên bản vi phạm</p>
-              <p className="text-on-surface-variant text-sm mt-1">Nhấn "Lập biên bản vi phạm" để báo cáo sự việc.</p>
+              <p className="text-on-surface font-semibold">No violation reports yet</p>
+              <p className="text-on-surface-variant text-sm mt-1">Click "Report a Violation" to report an incident.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -424,7 +424,7 @@ export default function RefereeViolationsPage() {
           {!loading && filtered.length > 0 && (
             <div className="flex items-center justify-between px-5 py-3 border-t border-outline-variant/40">
               <span className="text-xs text-on-surface-variant">
-                Hiển thị {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} / {filtered.length} mục
+                Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length} items
               </span>
               <div className="flex items-center gap-1">
                 <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="gs-btn gs-btn-ghost gs-btn-sm px-2">

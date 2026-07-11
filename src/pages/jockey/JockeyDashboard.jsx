@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
 import {
-  Bell,
-  Settings,
   Mail,
   Flag,
   User,
@@ -176,7 +174,7 @@ export default function JockeyDashboard() {
         ),
       );
     } catch (err) {
-      const msg = err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? "Lỗi không xác định";
+      const msg = err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? "Unknown error";
       setActionError(`[${err?.response?.status ?? "?"}] ${msg}`);
     } finally {
       setAccepting(null);
@@ -194,7 +192,7 @@ export default function JockeyDashboard() {
         ),
       );
     } catch (err) {
-      const msg = err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? "Lỗi không xác định";
+      const msg = err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? "Unknown error";
       setActionError(`[${err?.response?.status ?? "?"}] ${msg}`);
     } finally {
       setDeclining(null);
@@ -218,26 +216,13 @@ export default function JockeyDashboard() {
   const notifications = [];
   if (!loading) {
     if (pending.length > 0)
-      notifications.push({ type: "warn", icon: Mail, msg: `Bạn có ${pending.length} lời mời chưa phản hồi.` });
+      notifications.push({ type: "warn", icon: Mail, msg: `You have ${pending.length} unanswered invitation(s).` });
     if (upcomingRaces.some((r) => r.status === "InProgress"))
-      notifications.push({ type: "info", icon: Flag, msg: `Một cuộc đua của bạn đang diễn ra.` });
+      notifications.push({ type: "info", icon: Flag, msg: `One of your races is currently in progress.` });
   }
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Top bar */}
-      <header className="flex items-center justify-end gap-2 px-8 py-3.5 border-b border-white/8 flex-shrink-0">
-        <button className="w-8 h-8 rounded-lg hover:bg-white/8 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
-          <Bell size={16} />
-        </button>
-        <button className="w-8 h-8 rounded-lg hover:bg-white/8 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
-          <Settings size={16} />
-        </button>
-        <div className="w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center text-xs font-bold text-black ml-1">
-          {user?.fullName?.[0] ?? "J"}
-        </div>
-      </header>
-
       {/* Scrollable content */}
       <main className="flex-1 overflow-auto p-8 space-y-6">
           {/* Welcome */}
@@ -284,7 +269,7 @@ export default function JockeyDashboard() {
               label="Upcoming Races"
               icon={Flag}
               value={loading ? "—" : upcomingRaces.length}
-              sub={upcomingRaces.length > 0 ? "Đã xác nhận tham gia" : "Chưa có lịch đua"}
+              sub={upcomingRaces.length > 0 ? "Confirmed participation" : "No races scheduled"}
               subColor={upcomingRaces.length > 0 ? "text-emerald-400" : "text-gray-500"}
             />
             <StatCard
@@ -298,7 +283,7 @@ export default function JockeyDashboard() {
               label="Career Prize Points"
               icon={Star}
               value={loading ? "—" : (prizePoints ?? "—")}
-              sub={prizePoints != null ? "Tổng điểm thưởng" : "Chưa có dữ liệu"}
+              sub={prizePoints != null ? "Total prize points" : "No data yet"}
               subColor={prizePoints != null ? "text-yellow-400" : "text-gray-500"}
             />
           </div>
@@ -366,7 +351,7 @@ export default function JockeyDashboard() {
                 ) : upcomingRaces.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-10 gap-3">
                     <Flag size={28} className="text-gray-700" />
-                    <p className="text-gray-500 text-sm text-center">Chưa có lịch đua.</p>
+                    <p className="text-gray-500 text-sm text-center">No races scheduled.</p>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
@@ -378,7 +363,7 @@ export default function JockeyDashboard() {
                           <p className="text-gray-500 text-xs">{fmtDate(r.scheduledAt ?? r.scheduledStartTime)}</p>
                         </div>
                         <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${r.status === "InProgress" ? "bg-emerald-500/20 text-emerald-400" : "bg-yellow-500/20 text-yellow-400"}`}>
-                          {r.status === "InProgress" ? "Live" : "Sắp diễn ra"}
+                          {r.status === "InProgress" ? "Live" : "Upcoming"}
                         </span>
                       </div>
                     ))}

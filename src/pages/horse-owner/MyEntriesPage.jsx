@@ -11,14 +11,14 @@ const STATUS_BADGE = {
   Cancelled: "bg-gray-500 text-white",
 };
 
-const STATUS_FILTERS = ["Tất cả", "Approved", "Pending", "Rejected", "Đã rút"];
+const STATUS_FILTERS = ["All", "Approved", "Pending", "Rejected", "Withdrawn"];
 
 export default function MyEntriesPage() {
   const [entries, setEntries] = useState([]);
   const [races, setRaces] = useState([]);
   const [resultMap, setResultMap] = useState({});
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("Tất cả");
+  const [activeTab, setActiveTab] = useState("All");
   const [expandedId, setExpandedId] = useState(null);
   const [search, setSearch] = useState("");
   const [confirmWithdrawId, setConfirmWithdrawId] = useState(null);
@@ -34,10 +34,10 @@ export default function MyEntriesPage() {
         prev.map((e) => e.entryId === entryId ? { ...e, status: "Withdrawn" } : e)
       );
       setConfirmWithdrawId(null);
-      setActiveTab("Đã rút");
+      setActiveTab("Withdrawn");
     } catch (err) {
       const detail = err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message;
-      setWithdrawError(`[${err?.response?.status ?? "?"}] ${detail ?? "Rút đăng ký thất bại."}`);
+      setWithdrawError(`[${err?.response?.status ?? "?"}] ${detail ?? "Withdrawal failed."}`);
     } finally {
       setWithdrawing(false);
     }
@@ -89,8 +89,8 @@ export default function MyEntriesPage() {
 
   const filtered = entries
     .filter((e) => {
-      if (activeTab === "Tất cả") return true;
-      if (activeTab === "Đã rút") return e.status === "Withdrawn" || e.status === "Cancelled";
+      if (activeTab === "All") return true;
+      if (activeTab === "Withdrawn") return e.status === "Withdrawn" || e.status === "Cancelled";
       if (activeTab === "Pending") return e.status === "Pending" || e.status === "PendingReview";
       return e.status === activeTab;
     })
@@ -292,20 +292,20 @@ export default function MyEntriesPage() {
                       confirmWithdrawId === entry.entryId ? (
                         <div className="flex flex-col gap-1">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-red-400 text-xs whitespace-nowrap">Xác nhận rút?</span>
+                            <span className="text-red-400 text-xs whitespace-nowrap">Confirm withdrawal?</span>
                             <button
                               onClick={() => handleWithdraw(entry.entryId)}
                               disabled={withdrawing}
                               className="text-xs px-2 py-0.5 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded transition-colors"
                             >
-                              {withdrawing ? "…" : "Rút"}
+                              {withdrawing ? "…" : "Withdraw"}
                             </button>
                             <button
                               onClick={() => { setConfirmWithdrawId(null); setWithdrawError(""); }}
                               disabled={withdrawing}
                               className="text-xs px-2 py-0.5 bg-white/10 hover:bg-white/20 text-gray-300 rounded transition-colors"
                             >
-                              Hủy
+                              Cancel
                             </button>
                           </div>
                           {withdrawError && confirmWithdrawId === entry.entryId && (
@@ -317,7 +317,7 @@ export default function MyEntriesPage() {
                           onClick={() => setConfirmWithdrawId(entry.entryId)}
                           className="text-xs px-2.5 py-1 border border-red-500/40 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors whitespace-nowrap"
                         >
-                          Rút đăng ký
+                          Withdraw Entry
                         </button>
                       )
                     )}
@@ -389,21 +389,21 @@ export default function MyEntriesPage() {
                         </p>
                       </div>
                       <div className="bg-[#1a2035] rounded-lg p-3 border border-white/10">
-                        <p className="text-xs text-gray-500 mb-1">Ngày nộp</p>
+                        <p className="text-xs text-gray-500 mb-1">Submitted</p>
                         <p className="text-sm text-white font-medium">
                           {entry.submittedAt ? formatDate(entry.submittedAt) : "—"}
                         </p>
                       </div>
                       <div className="bg-[#1a2035] rounded-lg p-3 border border-white/10">
-                        <p className="text-xs text-gray-500 mb-1">Ngày duyệt</p>
+                        <p className="text-xs text-gray-500 mb-1">Approved On</p>
                         <p className="text-sm text-white font-medium">
-                          {entry.approvedAt ? formatDate(entry.approvedAt) : "Chưa duyệt"}
+                          {entry.approvedAt ? formatDate(entry.approvedAt) : "Not yet approved"}
                         </p>
                       </div>
                       {isFinished && result && (
                         <>
                           <div className="bg-[#1a2035] rounded-lg p-3 border border-white/10">
-                            <p className="text-xs text-gray-500 mb-1">Kết quả</p>
+                            <p className="text-xs text-gray-500 mb-1">Result</p>
                             <p className={`text-sm font-bold ${result.isRaceDQ ? "text-red-400" : "text-yellow-300"}`}>
                               {posLabel}
                             </p>
@@ -415,7 +415,7 @@ export default function MyEntriesPage() {
                             </p>
                           </div>
                           <div className="bg-[#1a2035] rounded-lg p-3 border border-white/10">
-                            <p className="text-xs text-gray-500 mb-1">Leg thắng</p>
+                            <p className="text-xs text-gray-500 mb-1">Legs Won</p>
                             <p className="text-sm text-white font-medium">
                               {result.legWinCount} / {result.legTop3Count} top-3
                             </p>
