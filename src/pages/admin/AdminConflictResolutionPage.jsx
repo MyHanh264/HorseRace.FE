@@ -24,7 +24,7 @@ function getLegPoints(pos) {
 
 function fmtDateTime(dt) {
   if (!dt) return '—'
-  return new Date(dt).toLocaleString('vi-VN', {
+  return new Date(dt).toLocaleString('en-GB', {
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
@@ -355,8 +355,8 @@ export default function AdminConflictResolutionPage() {
   }
 
   function getValidation() {
-    // Bug #3: dùng shared validateOverrideReason để đảm bảo rule nhất quán
-    // với OverrideModal trong AdminRaceExecutionPage (min 10 ký tự).
+    // Bug #3: use the shared validateOverrideReason to keep the rule consistent
+    // with OverrideModal in AdminRaceExecutionPage (min 10 characters).
     return validateOverrideReason(overrideReason)
   }
 

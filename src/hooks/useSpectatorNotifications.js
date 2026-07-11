@@ -30,32 +30,36 @@ export function useSpectatorNotifications() {
         const list = [];
 
         predictions.forEach((p) => {
+          const race = raceById.get(p.raceId);
           if (p.status === "Won") {
             const payout = p.pointsWon ?? p.payout ?? null;
             list.push({
               id: `bet-won-${p.predictionId}`,
               type: "success",
-              msg: `Congratulations! Your prediction won${payout ? `, +${payout} points` : ""}.`,
+              msg: `Congratulations! Your prediction for "${race?.name ?? `race #${p.raceId}`}" won${payout ? `, +${payout} points` : ""}.`,
               path: "/spectator/predictions",
+              ts: race?.scheduledAt,
             });
           } else if (p.status === "Lost") {
             list.push({
               id: `bet-lost-${p.predictionId}`,
               type: "info",
-              msg: `Prediction #${p.predictionId} did not win.`,
+              msg: `Your prediction for "${race?.name ?? `race #${p.raceId}`}" did not win.`,
               path: "/spectator/predictions",
+              ts: race?.scheduledAt,
             });
           } else if (p.status === "Locked") {
-            const race = raceById.get(p.raceId);
             list.push({
               id: `bet-locked-${p.predictionId}`,
               type: "warn",
               msg: `Your prediction for "${race?.name ?? `race #${p.raceId}`}" is locked, awaiting results.`,
               path: "/spectator/predictions",
+              ts: race?.scheduledAt,
             });
           }
         });
 
+        list.sort((a, b) => new Date(b.ts ?? 0) - new Date(a.ts ?? 0));
         setItems(list);
       } catch {
         // silent — don't break the layout due to a notification load error

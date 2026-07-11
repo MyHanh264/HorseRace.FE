@@ -45,6 +45,7 @@ export default function InvitationsPage() {
   const [raceMap, setRaceMap] = useState({});
   const [anyEntryKeys, setAnyEntryKeys] = useState(new Set());
   const [myJockeyKeys, setMyJockeyKeys] = useState(new Set());
+  const [jockeyRaceKeys, setJockeyRaceKeys] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("Sent");
   const [refreshKey, setRefreshKey] = useState(0);
@@ -70,6 +71,7 @@ export default function InvitationsPage() {
         const activeEntries = entryList.filter((e) => e.status === "Pending" || e.status === "Approved");
         setAnyEntryKeys(new Set(activeEntries.map((e) => `${e.raceId}_${e.horseId}`)));
         setMyJockeyKeys(new Set(activeEntries.map((e) => `${e.raceId}_${e.horseId}_${e.jockeyId}`)));
+        setJockeyRaceKeys(new Set(activeEntries.map((e) => `${e.raceId}_${e.jockeyId}`)));
       })
       .catch((err) => {
         console.error("getInvitations failed:", err);
@@ -214,17 +216,22 @@ export default function InvitationsPage() {
                 {(inv.status === "Accepted" || inv.status === "Confirmed") && (() => {
                   const raceHorseKey   = `${inv.raceId}_${inv.horseId}`;
                   const jockeyKey      = `${inv.raceId}_${inv.horseId}_${inv.jockeyId}`;
+                  const raceJockeyKey  = `${inv.raceId}_${inv.jockeyId}`;
                   const submittedSame  = myJockeyKeys.has(jockeyKey);
                   const submittedOther = !submittedSame && anyEntryKeys.has(raceHorseKey);
-                  const disabled       = submittedSame || submittedOther;
+                  const jockeyBusy     = !submittedSame && !submittedOther && jockeyRaceKeys.has(raceJockeyKey);
+                  const disabled       = submittedSame || submittedOther || jockeyBusy;
                   const label          = submittedSame  ? "Entry Submitted"
                                        : submittedOther ? "Another Jockey Confirmed"
+                                       : jockeyBusy      ? "Jockey Riding Another Horse"
                                        : "Confirm & Submit Entry";
                   return (
                     <button
                       onClick={() => !disabled && setConfirmInv(inv)}
                       disabled={disabled}
-                      title={submittedOther ? "This race already has an entry with a different jockey" : ""}
+                      title={submittedOther ? "This race already has an entry with a different jockey"
+                           : jockeyBusy      ? "This jockey already has a confirmed entry with a different horse in this race"
+                           : ""}
                       className={`text-xs font-bold px-4 py-1.5 rounded-lg transition-colors
                         ${disabled
                           ? "bg-gray-600 text-gray-400 cursor-not-allowed opacity-60"

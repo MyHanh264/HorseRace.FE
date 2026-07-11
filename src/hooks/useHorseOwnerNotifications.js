@@ -2,11 +2,14 @@ import { useEffect, useState } from "react";
 import { getMyHorses, getInvitations, getMyEntries, getRaces } from "../api/horseOwner";
 
 const POLL_MS = 45_000;
+const DEADLINE_WARNING_MS = 48 * 60 * 60 * 1000; // warn inside the last 48h before registration closes
 
 /**
  * Notification list (individual items, not grouped) for Horse Owner:
  * horse Approved/Rejected, jockey Accepts/Declines an invitation, entry
- * Approved/Rejected, a race has published results for an entry they entered.
+ * Approved/Rejected, a race has published results for an entry they entered,
+ * and a registration-deadline risk warning when a race they engaged with is
+ * about to close registration with no confirmed entry yet.
  */
 export function useHorseOwnerNotifications() {
   const [items, setItems] = useState([]);
@@ -34,6 +37,7 @@ export function useHorseOwnerNotifications() {
               type: "success",
               msg: `Horse "${h.name}" has been approved and is ready to compete.`,
               path: "/horse-owner/horses",
+              ts: h.createdAt,
             });
           } else if (h.status === "Rejected") {
             list.push({
@@ -41,6 +45,7 @@ export function useHorseOwnerNotifications() {
               type: "error",
               msg: `Horse "${h.name}" was rejected${h.rejectionReason ? `: ${h.rejectionReason}` : "."}`,
               path: "/horse-owner/horses",
+              ts: h.createdAt,
             });
           }
         });
@@ -52,6 +57,7 @@ export function useHorseOwnerNotifications() {
               type: "success",
               msg: `The jockey has accepted the invitation for horse "${inv.horseName ?? `#${inv.horseId}`}".`,
               path: "/horse-owner/invitations",
+              ts: inv.sentAt,
             });
           } else if (inv.status === "Declined") {
             list.push({
@@ -59,24 +65,30 @@ export function useHorseOwnerNotifications() {
               type: "error",
               msg: `The jockey has declined the invitation for horse "${inv.horseName ?? `#${inv.horseId}`}".`,
               path: "/horse-owner/invitations",
+              ts: inv.sentAt,
             });
           }
         });
 
         entries.forEach((e) => {
+          const race = raceById.get(e.raceId);
+          const horseLabel = e.horseName ?? `#${e.horseId}`;
+          const raceLabel = race?.name ?? `#${e.raceId}`;
           if (e.status === "Approved") {
             list.push({
               id: `entry-approved-${e.entryId}`,
               type: "success",
-              msg: `Race entry #${e.entryId} has been approved.`,
+              msg: `Entry for horse "${horseLabel}" in race "${raceLabel}" has been approved.`,
               path: "/horse-owner/entries",
+              ts: e.submittedAt,
             });
           } else if (e.status === "Rejected") {
             list.push({
               id: `entry-rejected-${e.entryId}`,
               type: "error",
-              msg: `Race entry #${e.entryId} was rejected${e.rejectionReason ? `: ${e.rejectionReason}` : "."}`,
+              msg: `Entry for horse "${horseLabel}" in race "${raceLabel}" was rejected${e.rejectionReason ? `: ${e.rejectionReason}` : "."}`,
               path: "/horse-owner/entries",
+              ts: e.submittedAt,
             });
           }
         });
@@ -92,10 +104,51 @@ export function useHorseOwnerNotifications() {
               type: "success",
               msg: `Race "${race.name}" has results — check your bonus points.`,
               path: "/horse-owner/entries",
+              ts: race.scheduledAt,
             });
           }
         });
 
+        // Registration-deadline risk: races the owner engaged with (sent invitations for)
+        // that close soon without a confirmed entry yet.
+        const now = Date.now();
+        races.forEach((race) => {
+          if (race.status !== "Scheduled" || !race.registrationCloseAt) return;
+          const msLeft = new Date(race.registrationCloseAt).getTime() - now;
+          if (msLeft <= 0 || msLeft > DEADLINE_WARNING_MS) return;
+
+          const raceInvitations = invitations.filter((inv) => inv.raceId === race.raceId);
+          if (raceInvitations.length === 0) return;
+
+          const hasActiveEntry = entries.some(
+            (e) => e.raceId === race.raceId && (e.status === "Pending" || e.status === "Approved"),
+          );
+          if (hasActiveEntry) return;
+
+          const hasLivePath = raceInvitations.some(
+            (inv) => inv.status === "Pending" || inv.status === "Accepted",
+          );
+
+          list.push(
+            hasLivePath
+              ? {
+                  id: `deadline-risk-${race.raceId}`,
+                  type: "warn",
+                  msg: `Registration for "${race.name}" closes soon and you don't have a confirmed entry yet.`,
+                  path: "/horse-owner/invitations",
+                  ts: now,
+                }
+              : {
+                  id: `deadline-risk-${race.raceId}`,
+                  type: "error",
+                  msg: `All jockeys declined your invitations for "${race.name}" and registration closes soon — invite another jockey now.`,
+                  path: "/horse-owner/invitations",
+                  ts: now,
+                },
+          );
+        });
+
+        list.sort((a, b) => new Date(b.ts ?? 0) - new Date(a.ts ?? 0));
         setItems(list);
       } catch {
         // silent — don't break the layout due to a notification load error

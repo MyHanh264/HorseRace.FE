@@ -23,7 +23,7 @@ function getLegPoints(pos) {
 
 function fmtDateTime(dt) {
   if (!dt) return '—'
-  return new Date(dt).toLocaleString('vi-VN', {
+  return new Date(dt).toLocaleString('en-GB', {
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   getAllUser,
   getPendingUsers,
@@ -10,7 +10,6 @@ import {
   deleteUser,
   lockUser,
   unlockUser,
-  getUsersByStatus,
   getRoleMap,
   getRoleCodeById,
 } from "../../api/admin";
@@ -33,9 +32,6 @@ import {
   ChevronRight,
   UserX,
   UserCheck,
-  RefreshCw,
-  Shield,
-  Trophy,
 } from "lucide-react";
 
 function formatDate(value) {
@@ -919,11 +915,6 @@ export default function AdminUsersPage() {
         setTotalUsers(items.length);
       } else {
         // approved/rejected/deleted tabs - filter from allUsersCache
-        const statusMap = {
-          approved: "APPROVED",
-          rejected: "REJECTED",
-          deleted: "DELETED",
-        };
         let all = allUsersCache;
         if (all.length === 0) {
           const data = await getAllUser();
@@ -937,7 +928,9 @@ export default function AdminUsersPage() {
           if (Array.isArray(pendingData)) {
             pendingData.forEach((u) => pendingIds.add(u.userId));
           }
-        } catch {}
+        } catch {
+          // Ignore — pendingIds stays empty, filtering below just proceeds without it.
+        }
 
         let filtered = all;
         if (activeTab === "approved") {

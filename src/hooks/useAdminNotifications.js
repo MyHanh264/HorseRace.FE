@@ -5,6 +5,7 @@ import {
   getPendingUsers,
   getAllViolations,
   getRaces,
+  getEntries,
 } from "../api/admin";
 
 const POLL_MS = 45_000;
@@ -16,8 +17,10 @@ function toArray(d) {
 /**
  * Notification list for Admin: pending-approval queues (horses/entries/users/
  * violations, grouped by count since these are already separate "todo queue"
- * pages) and races that are Paused and need urgent intervention (mismatch
- * between the 2 referees — blocks the whole race).
+ * pages), races that are Paused and need urgent intervention (mismatch
+ * between the 2 referees — blocks the whole race), and entries the owner
+ * withdrew themselves (informational — no action needed, but worth surfacing
+ * since it silently disappears from the pending-review queue).
  */
 export function useAdminNotifications() {
   const [items, setItems] = useState([]);
@@ -27,12 +30,13 @@ export function useAdminNotifications() {
 
     async function load() {
       try {
-        const [horsesRes, entriesRes, usersRes, violationsRes, racesRes] = await Promise.all([
+        const [horsesRes, entriesRes, usersRes, violationsRes, racesRes, allEntriesRes] = await Promise.all([
           getPendingHorses(),
           getPendingEntries(),
           getPendingUsers(),
           getAllViolations({ status: "Pending" }),
           getRaces(),
+          getEntries().catch(() => []),
         ]);
         if (!active) return;
 
@@ -42,7 +46,12 @@ export function useAdminNotifications() {
         const pendingViolations = toArray(violationsRes);
         const races = toArray(racesRes);
         const pausedRaces = races.filter((r) => r.status === "Paused");
+        const withdrawnEntries = toArray(allEntriesRes).filter((e) => e.status === "Withdrawn");
+        const raceById = new Map(races.map((r) => [r.raceId, r]));
 
+        // Live queue/urgent items are re-evaluated fresh every poll, so pin them to "now"
+        // — they should always outrank historical items like a withdrawn-entry notice.
+        const now = Date.now();
         const list = [];
 
         if (pendingHorses.length > 0) {
@@ -51,6 +60,7 @@ export function useAdminNotifications() {
             type: "warn",
             msg: `${pendingHorses.length} horses pending review.`,
             path: "/admin/horses",
+            ts: now,
           });
         }
         if (pendingEntries.length > 0) {
@@ -59,6 +69,7 @@ export function useAdminNotifications() {
             type: "warn",
             msg: `${pendingEntries.length} race entries pending review.`,
             path: "/admin/races",
+            ts: now,
           });
         }
         if (pendingUsers.length > 0) {
@@ -67,6 +78,7 @@ export function useAdminNotifications() {
             type: "warn",
             msg: `${pendingUsers.length} new accounts pending review.`,
             path: "/admin/users",
+            ts: now,
           });
         }
         if (pendingViolations.length > 0) {
@@ -75,6 +87,7 @@ export function useAdminNotifications() {
             type: "warn",
             msg: `${pendingViolations.length} violation reports pending review.`,
             path: "/admin/violations",
+            ts: now,
           });
         }
 
@@ -84,9 +97,22 @@ export function useAdminNotifications() {
             type: "error",
             msg: `Race "${r.name}" is paused — the 2 referees reported mismatched results, needs immediate attention.`,
             path: "/admin/race-execution",
+            ts: now,
           });
         });
 
+        withdrawnEntries.forEach((e) => {
+          const race = raceById.get(e.raceId);
+          list.push({
+            id: `entry-withdrawn-${e.entryId}`,
+            type: "info",
+            msg: `Horse owner withdrew the entry for "${e.horseName ?? `Horse #${e.horseId}`}" in race "${race?.name ?? `#${e.raceId}`}".`,
+            path: "/admin/races",
+            ts: e.updatedAt,
+          });
+        });
+
+        list.sort((a, b) => new Date(b.ts ?? 0) - new Date(a.ts ?? 0));
         setItems(list);
       } catch {
         // silent — don't break the layout due to a notification load error

@@ -35,6 +35,7 @@ export function useJockeyNotifications() {
               type: "warn",
               msg: `New invitation for horse "${inv.horseName ?? `#${inv.horseId}`}".`,
               path: "/jockey/invitations",
+              ts: inv.sentAt,
             });
           } else if (inv.status === "Confirmed") {
             list.push({
@@ -42,6 +43,7 @@ export function useJockeyNotifications() {
               type: "success",
               msg: `The horse owner has confirmed you to compete with horse "${inv.horseName ?? `#${inv.horseId}`}".`,
               path: "/jockey/invitations",
+              ts: inv.sentAt,
             });
           } else if (inv.status === "Cancelled") {
             list.push({
@@ -49,6 +51,7 @@ export function useJockeyNotifications() {
               type: "info",
               msg: `Invitation for horse "${inv.horseName ?? `#${inv.horseId}`}" has been cancelled.`,
               path: "/jockey/invitations",
+              ts: inv.sentAt,
             });
           }
         });
@@ -66,6 +69,7 @@ export function useJockeyNotifications() {
               type: "info",
               msg: `Race "${race.name}" you're competing in is now in progress.`,
               path: "/jockey/races",
+              ts: race.scheduledAt,
             });
           } else if (race.status === "Finished") {
             list.push({
@@ -73,10 +77,12 @@ export function useJockeyNotifications() {
               type: "success",
               msg: `Race "${race.name}" has results — check your performance.`,
               path: "/jockey/races",
+              ts: race.scheduledAt,
             });
           }
         });
 
+        list.sort((a, b) => new Date(b.ts ?? 0) - new Date(a.ts ?? 0));
         setItems(list);
       } catch {
         // silent — don't break the layout due to a notification load error

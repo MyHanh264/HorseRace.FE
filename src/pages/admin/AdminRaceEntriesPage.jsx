@@ -146,18 +146,18 @@ export default function AdminRaceEntriesPage() {
   const handleApprove = async (entryId) => {
     setEntryAction({ id: entryId, type: 'Approved' }); setEntryError('')
     try { await approveEntry(entryId); refresh() }
-    catch (err) { setEntryError(err?.message || 'Failed to approve entry') }
+    catch (err) { setEntryError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Failed to approve entry') }
     finally { setEntryAction(null) }
   }
 
   const handleReject = async (entryId) => {
     setEntryAction({ id: entryId, type: 'Rejected' }); setEntryError('')
     try {
-      await rejectEntry(entryId, rejectReason.trim() || null)
+      await rejectEntry(entryId, rejectReason.trim())
       setRejectingEntryId(null); setRejectReason('')
       refresh()
     }
-    catch (err) { setEntryError(err?.message || 'Failed to reject entry') }
+    catch (err) { setEntryError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Failed to reject entry') }
     finally { setEntryAction(null) }
   }
 
@@ -238,13 +238,21 @@ export default function AdminRaceEntriesPage() {
               </button>
             )}
             {isRegOpen && (
-              <button onClick={handleCloseReg} disabled={regLoading}
-                className="gs-btn gs-btn-secondary flex items-center gap-2 px-5 py-2.5">
-                {regLoading
-                  ? <div className="w-3.5 h-3.5 border-2 border-black/20 border-t-black/70 rounded-full animate-spin" />
-                  : <Lock className="w-4 h-4" />}
-                Close Registration
-              </button>
+              <>
+                <button onClick={handleCloseReg} disabled={regLoading || entryStats.approved < 2}
+                  title={entryStats.approved < 2 ? `Needs at least 2 approved entries to close registration (currently ${entryStats.approved}).` : ''}
+                  className="gs-btn gs-btn-secondary flex items-center gap-2 px-5 py-2.5 disabled:opacity-40 disabled:cursor-not-allowed">
+                  {regLoading
+                    ? <div className="w-3.5 h-3.5 border-2 border-black/20 border-t-black/70 rounded-full animate-spin" />
+                    : <Lock className="w-4 h-4" />}
+                  Close Registration
+                </button>
+                {entryStats.approved < 2 && (
+                  <p className="text-xs text-on-surface-variant mt-1.5 text-right">
+                    Needs ≥2 approved entries ({entryStats.approved} now)
+                  </p>
+                )}
+              </>
             )}
             {isRegClosed && race?.status === 'Scheduled' && (
               <button onClick={handleStartRace} disabled={regLoading}
@@ -411,12 +419,12 @@ export default function AdminRaceEntriesPage() {
                                 <input
                                   value={rejectReason}
                                   onChange={e => setRejectReason(e.target.value)}
-                                  placeholder="Reject reason (optional)"
+                                  placeholder="Reject reason (required) *"
                                   className="text-xs bg-surface-container-lowest border border-outline-variant/40 rounded px-2 py-1.5 text-on-surface focus:outline-none focus:border-error w-full"
                                 />
                                 <div className="flex gap-1.5">
-                                  <button disabled={isActing} onClick={() => handleReject(entry.entryId)}
-                                    className="gs-btn gs-btn-danger gs-btn-sm flex-1 flex items-center justify-center gap-1">
+                                  <button disabled={isActing || !rejectReason.trim()} onClick={() => handleReject(entry.entryId)}
+                                    className="gs-btn gs-btn-danger gs-btn-sm flex-1 flex items-center justify-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed">
                                     {isActing && entryAction?.type === 'Rejected'
                                       ? <div className="w-3 h-3 border-2 border-error/30 border-t-error rounded-full animate-spin" />
                                       : <XCircle className="w-3 h-3" />}

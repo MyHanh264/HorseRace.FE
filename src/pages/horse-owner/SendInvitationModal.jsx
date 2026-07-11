@@ -4,6 +4,7 @@ import {
   getMyHorses,
   getRaces,
   getJockeys,
+  getInvitations,
   sendInvitation,
 } from "../../api/horseOwner";
 import { useAuth } from "../../context/AuthContext";
@@ -298,9 +299,11 @@ const JOCKEY_FILTERS = [
   { key: "avail",  label: "Available" },
 ];
 
-function Step3({ jockeys, search, onSearch, onClose, onInvite, selectedRace, selectedHorse, blockedJockeyIds = new Set() }) {
+function Step3({ jockeys, search, onSearch, onClose, onInvite, selectedRace, selectedHorse, blockedJockeyIds = new Set(), preInvitedJockeyIds = new Set() }) {
   const [activeFilters, setActiveFilters] = useState([]);
-  const [invitedIds, setInvitedIds]       = useState(new Set());
+  // Nạp sẵn các jockey đã có Invitation active cho đúng cặp (ngựa, race) này —
+  // hiện luôn "Invited" thay vì để bấm lại rồi mới bị BE từ chối.
+  const [invitedIds, setInvitedIds]       = useState(() => new Set(preInvitedJockeyIds));
   const [sendingId, setSendingId]         = useState(null);
   const [errorMsg, setErrorMsg]           = useState("");
 
@@ -510,6 +513,7 @@ export default function SendInvitationModal({ onClose, onSuccess, initialRace = 
   const [races, setRaces] = useState([]);
   const [horses, setHorses] = useState([]);
   const [jockeys, setJockeys] = useState([]);
+  const [invitations, setInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError] = useState("");
 
@@ -527,6 +531,23 @@ export default function SendInvitationModal({ onClose, onSuccess, initialRace = 
 
   // Jockey IDs already committed in an active entry for this race (cannot be invited again)
   const blockedJockeyIds = new Set(activeEntriesForRace.map((e) => e.jockeyId));
+
+  // Invitations still active (not yet turned into an Entry, not Declined/Cancelled) for this race —
+  // BE blocks a duplicate invitation for the exact same (horse, jockey, race) triple, so we need to
+  // know this BEFORE Step 3 lets the owner click "Invite" again, not find out only after it fails.
+  const activeInvitationsForRace = invitations.filter((inv) =>
+    selectedRace &&
+    inv.raceId === selectedRace.raceId &&
+    ["Pending", "Accepted", "Confirmed"].includes(inv.status)
+  );
+  const preInvitedJockeyIds = new Set(
+    selectedHorse
+      ? activeInvitationsForRace
+          .filter((inv) => inv.horseId === selectedHorse.horseId)
+          .map((inv) => inv.jockeyId)
+      : []
+  );
+
   const [raceSearch, setRaceSearch] = useState("");
   const [jockeySearch, setJockeySearch] = useState("");
 
@@ -535,11 +556,13 @@ export default function SendInvitationModal({ onClose, onSuccess, initialRace = 
       getRaces().catch(() => []),
       getMyHorses().catch(() => []),
       getJockeys().catch(() => []),
+      getInvitations().catch(() => []),
     ])
-      .then(([r, h, j]) => {
+      .then(([r, h, j, inv]) => {
         setRaces(Array.isArray(r) ? r : (r?.data ?? []));
         setHorses(Array.isArray(h) ? h : (h?.data ?? []));
         setJockeys(Array.isArray(j) ? j : (j?.data ?? []));
+        setInvitations(Array.isArray(inv) ? inv : (inv?.data ?? inv?.invitations ?? []));
       })
       .finally(() => setLoading(false));
   }, []);
@@ -620,6 +643,7 @@ export default function SendInvitationModal({ onClose, onSuccess, initialRace = 
                 selectedRace={selectedRace}
                 selectedHorse={selectedHorse}
                 blockedJockeyIds={blockedJockeyIds}
+                preInvitedJockeyIds={preInvitedJockeyIds}
               />
             )}
           </>

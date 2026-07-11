@@ -38,6 +38,7 @@ export function useRefereeNotifications() {
               type: "warn",
               msg: `Race "${r.name}" is paused — the 2 referees' results don't match, awaiting Admin resolution.`,
               path: `/referee/races/${r.raceId}`,
+              ts: r.scheduledAt,
             });
           } else if (r.status === "Finished") {
             list.push({
@@ -45,6 +46,7 @@ export function useRefereeNotifications() {
               type: "success",
               msg: `Race "${r.name}" results have been published.`,
               path: `/referee/races/${r.raceId}`,
+              ts: r.scheduledAt,
             });
           }
         });
@@ -59,6 +61,8 @@ export function useRefereeNotifications() {
               type: "success",
               msg: `Violation report #${v.violationId} was approved by Admin (${v.penalty ?? "—"}).`,
               path: "/referee/violations",
+              // BE doesn't return a timestamp for violations — use the ID as a recency proxy.
+              ts: v.violationId,
             });
           } else if (v.status === "Rejected") {
             list.push({
@@ -66,10 +70,12 @@ export function useRefereeNotifications() {
               type: "error",
               msg: `Violation report #${v.violationId} was rejected by Admin.`,
               path: "/referee/violations",
+              ts: v.violationId,
             });
           }
         });
 
+        list.sort((a, b) => new Date(b.ts ?? 0) - new Date(a.ts ?? 0));
         setItems(list);
       } catch {
         // silent — don't break the layout due to a notification load error

@@ -13,6 +13,16 @@ const STATUS_BADGE = {
 
 const STATUS_FILTERS = ["All", "Approved", "Pending", "Rejected", "Withdrawn"];
 
+// Lower = shown first: needs attention (Pending) > active (Approved) > dead (Rejected/Withdrawn/Cancelled).
+const STATUS_PRIORITY = {
+  Pending: 0,
+  PendingReview: 0,
+  Approved: 1,
+  Rejected: 2,
+  Withdrawn: 2,
+  Cancelled: 2,
+};
+
 export default function MyEntriesPage() {
   const [entries, setEntries] = useState([]);
   const [races, setRaces] = useState([]);
@@ -103,6 +113,19 @@ export default function MyEntriesPage() {
         `horse #${e.horseId}`.toLowerCase().includes(q) ||
         e.status?.toLowerCase().includes(q)
       );
+    })
+    .sort((a, b) => {
+      const pa = STATUS_PRIORITY[a.status] ?? 3;
+      const pb = STATUS_PRIORITY[b.status] ?? 3;
+      if (pa !== pb) return pa - pb;
+
+      const dateA = getRaceById(a.raceId)?.scheduledAt;
+      const dateB = getRaceById(b.raceId)?.scheduledAt;
+      if (!dateA || !dateB) return 0;
+      // Active entries: soonest race first. Dead entries: most recent first.
+      return pa >= 2
+        ? new Date(dateB) - new Date(dateA)
+        : new Date(dateA) - new Date(dateB);
     });
 
   return (
@@ -289,37 +312,12 @@ export default function MyEntriesPage() {
                   {/* Action */}
                   <div className="flex items-center gap-2">
                     {entry.status === "Pending" && (
-                      confirmWithdrawId === entry.entryId ? (
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-red-400 text-xs whitespace-nowrap">Confirm withdrawal?</span>
-                            <button
-                              onClick={() => handleWithdraw(entry.entryId)}
-                              disabled={withdrawing}
-                              className="text-xs px-2 py-0.5 bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white rounded transition-colors"
-                            >
-                              {withdrawing ? "…" : "Withdraw"}
-                            </button>
-                            <button
-                              onClick={() => { setConfirmWithdrawId(null); setWithdrawError(""); }}
-                              disabled={withdrawing}
-                              className="text-xs px-2 py-0.5 bg-white/10 hover:bg-white/20 text-gray-300 rounded transition-colors"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                          {withdrawError && confirmWithdrawId === entry.entryId && (
-                            <span className="text-red-400 text-[10px] leading-tight">{withdrawError}</span>
-                          )}
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setConfirmWithdrawId(entry.entryId)}
-                          className="text-xs px-2.5 py-1 border border-red-500/40 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors whitespace-nowrap"
-                        >
-                          Withdraw Entry
-                        </button>
-                      )
+                      <button
+                        onClick={() => { setConfirmWithdrawId(entry.entryId); setWithdrawError(""); }}
+                        className="text-xs px-2.5 py-1 border border-red-500/40 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors whitespace-nowrap"
+                      >
+                        Withdraw Entry
+                      </button>
                     )}
                     <button
                       onClick={() =>
@@ -400,6 +398,14 @@ export default function MyEntriesPage() {
                           {entry.approvedAt ? formatDate(entry.approvedAt) : "Not yet approved"}
                         </p>
                       </div>
+                      {entry.status === "Rejected" && (
+                        <div className="col-span-4 bg-red-500/[0.06] rounded-lg p-3 border border-red-500/20">
+                          <p className="text-xs text-red-400/80 mb-1">Rejection Reason</p>
+                          <p className="text-sm text-red-200">
+                            {entry.rejectionReason || "No reason provided."}
+                          </p>
+                        </div>
+                      )}
                       {isFinished && result && (
                         <>
                           <div className="bg-[#1a2035] rounded-lg p-3 border border-white/10">
@@ -430,6 +436,53 @@ export default function MyEntriesPage() {
           })
         )}
       </div>
+
+      {/* Withdraw confirmation modal */}
+      {confirmWithdrawId && (() => {
+        const entry = entries.find((e) => e.entryId === confirmWithdrawId);
+        const race = entry ? getRaceById(entry.raceId) : null;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+            <div className="bg-[#111827] border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl p-6">
+              <h2 className="text-white font-bold text-lg mb-2">Withdraw Entry?</h2>
+              <p className="text-gray-400 text-sm leading-relaxed mb-4">
+                This will withdraw{" "}
+                <span className="text-white font-semibold">
+                  {entry?.horseName ?? `Horse #${entry?.horseId}`}
+                </span>
+                {" from "}
+                <span className="text-white font-semibold">
+                  {race?.name ?? `Race #${entry?.raceId}`}
+                </span>
+                {". This cannot be undone."}
+              </p>
+
+              {withdrawError && (
+                <p className="text-red-400 text-xs bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2 mb-4">
+                  {withdrawError}
+                </p>
+              )}
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => { setConfirmWithdrawId(null); setWithdrawError(""); }}
+                  disabled={withdrawing}
+                  className="flex-1 py-2.5 rounded-xl border border-white/15 text-gray-300 hover:bg-white/5 text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleWithdraw(confirmWithdrawId)}
+                  disabled={withdrawing}
+                  className="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white font-bold text-sm transition-colors"
+                >
+                  {withdrawing ? "Withdrawing…" : "Withdraw"}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -532,7 +532,7 @@ export default function AdminRaceExecutionPage() {
       await approveEntry(entryId)
       await loadEntries(selectedRace.raceId)
     } catch (err) {
-      setEntryError(err?.message || 'Failed to approve entry')
+      setEntryError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Failed to approve entry')
     } finally {
       setEntryAction(null)
     }
@@ -541,11 +541,11 @@ export default function AdminRaceExecutionPage() {
   const handleReject = async (entryId) => {
     setEntryAction({ id: entryId, type: 'Rejected' }); setEntryError('')
     try {
-      await rejectEntry(entryId, rejectReason.trim() || null)
+      await rejectEntry(entryId, rejectReason.trim())
       setRejectingEntryId(null); setRejectReason('')
       await loadEntries(selectedRace.raceId)
     }
-    catch (err) { setEntryError(err?.message || 'Failed to reject entry') }
+    catch (err) { setEntryError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Failed to reject entry') }
     finally { setEntryAction(null) }
   }
 
@@ -685,11 +685,17 @@ export default function AdminRaceExecutionPage() {
                 )}
               </div>
               {isRegOpen && (
-                <button onClick={handleCloseReg} disabled={regLoading}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold transition-all disabled:opacity-50 shrink-0">
-                  {regLoading ? <Loader2 size={13} className="animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
-                  Close Registration
-                </button>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <button onClick={handleCloseReg} disabled={regLoading || entryStats.approved < 2}
+                    title={entryStats.approved < 2 ? `Needs at least 2 approved entries to close registration (currently ${entryStats.approved}).` : ''}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                    {regLoading ? <Loader2 size={13} className="animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
+                    Close Registration
+                  </button>
+                  {entryStats.approved < 2 && (
+                    <p className="text-[10px] text-on-surface-variant">Needs ≥2 approved entries ({entryStats.approved} now)</p>
+                  )}
+                </div>
               )}
             </div>
 
@@ -805,11 +811,11 @@ export default function AdminRaceExecutionPage() {
                               rejectingEntryId === entry.entryId ? (
                                 <div className="flex flex-col gap-1.5 min-w-[180px]">
                                   <input value={rejectReason} onChange={e => setRejectReason(e.target.value)}
-                                    placeholder="Reject reason (optional)"
+                                    placeholder="Reject reason (required) *"
                                     className="text-xs bg-surface-container-lowest border border-outline-variant/40 rounded px-2 py-1.5 text-on-surface focus:outline-none focus:border-error w-full" />
                                   <div className="flex gap-1.5">
-                                    <button disabled={isActing} onClick={() => handleReject(entry.entryId)}
-                                      className="gs-btn gs-btn-danger gs-btn-sm flex-1 flex items-center justify-center gap-1">
+                                    <button disabled={isActing || !rejectReason.trim()} onClick={() => handleReject(entry.entryId)}
+                                      className="gs-btn gs-btn-danger gs-btn-sm flex-1 flex items-center justify-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed">
                                       {isActing && entryAction?.type === 'Rejected'
                                         ? <div className="w-3 h-3 border-2 border-error/30 border-t-error rounded-full animate-spin" />
                                         : <XCircle className="w-3 h-3" />} Confirm

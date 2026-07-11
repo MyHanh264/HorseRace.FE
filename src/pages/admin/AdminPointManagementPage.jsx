@@ -19,15 +19,15 @@ import {
 import api from "../../services/api";
 
 const TRANSACTION_TYPE_CONFIG = {
-  Credit: { color: "bg-emerald-500/10 text-emerald-400", label: "Cộng", icon: Plus },
-  Debit: { color: "bg-red-500/10 text-red-400", label: "Trừ", icon: Minus },
-  Bonus: { color: "bg-blue-500/10 text-blue-400", label: "Thưởng", icon: TrendingUp },
-  Fine: { color: "bg-orange-500/10 text-orange-400", label: "Phạt", icon: TrendingDown },
+  Credit: { color: "bg-emerald-500/10 text-emerald-400", label: "Credit", icon: Plus },
+  Debit: { color: "bg-red-500/10 text-red-400", label: "Debit", icon: Minus },
+  Bonus: { color: "bg-blue-500/10 text-blue-400", label: "Bonus", icon: TrendingUp },
+  Fine: { color: "bg-orange-500/10 text-orange-400", label: "Fine", icon: TrendingDown },
 };
 
 const TABS = [
-  { key: "Balances", label: "Số dư" },
-  { key: "Transactions", label: "Lịch sử giao dịch" },
+  { key: "Balances", label: "Balances" },
+  { key: "Transactions", label: "Transaction History" },
 ];
 
 const PAGE_SIZE_BALANCES = 20;
@@ -35,7 +35,7 @@ const PAGE_SIZE_TRANSACTIONS = 25;
 
 function formatDate(v) {
   if (!v) return "—";
-  return new Date(v).toLocaleString("vi-VN", {
+  return new Date(v).toLocaleString("en-US", {
     day: "2-digit", month: "2-digit", year: "numeric",
     hour: "2-digit", minute: "2-digit",
   });
@@ -69,10 +69,10 @@ function AdjustPointsModal({ onClose }) {
   });
 
   const handleSubmit = async () => {
-    if (!selectedUser) { setError("Vui lòng chọn người dùng."); return; }
+    if (!selectedUser) { setError("Please select a user."); return; }
     const amt = parseInt(amount);
-    if (!amt || amt <= 0) { setError("Số điểm phải lớn hơn 0."); return; }
-    if (!reason.trim()) { setError("Vui lòng nhập lý do."); return; }
+    if (!amt || amt <= 0) { setError("Points must be greater than 0."); return; }
+    if (!reason.trim()) { setError("Please enter a reason."); return; }
     setSubmitting(true);
     setError("");
     try {
@@ -82,13 +82,13 @@ function AdjustPointsModal({ onClose }) {
         type,
         reason: reason.trim(),
       });
-      setSuccess(`Đã ${type === "Credit" || type === "Bonus" ? "cộng" : "trừ"} ${amt.toLocaleString("vi-VN")} điểm cho ${selectedUser.userName}. Số dư mới: ${(res.data.newBalance || 0).toLocaleString("vi-VN")}`);
+      setSuccess(`${type === "Credit" || type === "Bonus" ? "Added" : "Deducted"} ${amt.toLocaleString("en-US")} points ${type === "Credit" || type === "Bonus" ? "to" : "from"} ${selectedUser.userName}. New balance: ${(res.data.newBalance || 0).toLocaleString("en-US")}`);
       setSelectedUser(null);
       setAmount("");
       setReason("");
       setType("Credit");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Điều chỉnh thất bại.");
+      setError(err instanceof Error ? err.message : "Adjustment failed.");
     } finally {
       setSubmitting(false);
     }
@@ -106,8 +106,8 @@ function AdjustPointsModal({ onClose }) {
               <Coins className="w-4 h-4 text-blue-400" />
             </div>
             <div>
-              <h2 className="font-serif font-bold text-on-surface">Điều chỉnh điểm</h2>
-              <p className="text-xs text-on-surface-variant">Thêm hoặc trừ điểm thủ công</p>
+              <h2 className="font-serif font-bold text-on-surface">Adjust Points</h2>
+              <p className="text-xs text-on-surface-variant">Manually add or deduct points</p>
             </div>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-lg bg-surface-container-high hover:bg-surface-container-highest flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-all">
@@ -126,12 +126,12 @@ function AdjustPointsModal({ onClose }) {
           {/* Select user */}
           {!selectedUser ? (
             <div>
-              <label className="text-xs text-on-surface-variant uppercase tracking-wider mb-1.5 block">Chọn người dùng *</label>
+              <label className="text-xs text-on-surface-variant uppercase tracking-wider mb-1.5 block">Select User *</label>
               <div className="relative">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50" />
                 <input
                   type="text"
-                  placeholder="Tìm theo tên hoặc email..."
+                  placeholder="Search by name or email..."
                   value={searchUser}
                   onChange={(e) => setSearchUser(e.target.value)}
                   className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg pl-9 pr-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all"
@@ -139,9 +139,9 @@ function AdjustPointsModal({ onClose }) {
               </div>
               <div className="mt-2 max-h-48 overflow-y-auto rounded-lg border border-white/5 space-y-1">
                 {loadingBalances ? (
-                  <div className="p-4 text-center text-xs text-on-surface-variant">Đang tải...</div>
+                  <div className="p-4 text-center text-xs text-on-surface-variant">Loading...</div>
                 ) : filtered.length === 0 ? (
-                  <div className="p-4 text-center text-xs text-on-surface-variant">Không tìm thấy</div>
+                  <div className="p-4 text-center text-xs text-on-surface-variant">No results found</div>
                 ) : (
                   filtered.map((b) => (
                     <button
@@ -159,7 +159,7 @@ function AdjustPointsModal({ onClose }) {
                         </div>
                       </div>
                       <span className="text-sm font-mono font-bold text-blue-400">
-                        {b.currentBalance.toLocaleString("vi-VN")}
+                        {b.currentBalance.toLocaleString("en-US")}
                       </span>
                     </button>
                   ))
@@ -174,18 +174,18 @@ function AdjustPointsModal({ onClose }) {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-on-surface">{selectedUser.userName}</p>
-                  <p className="text-xs text-on-surface-variant">Số dư: {selectedUser.currentBalance.toLocaleString("vi-VN")} điểm</p>
+                  <p className="text-xs text-on-surface-variant">Balance: {selectedUser.currentBalance.toLocaleString("en-US")} pts</p>
                 </div>
               </div>
               <button onClick={() => setSelectedUser(null)} className="text-xs text-red-400 hover:text-red-300 underline">
-                Đổi
+                Change
               </button>
             </div>
           )}
 
           {/* Type */}
           <div>
-            <label className="text-xs text-on-surface-variant uppercase tracking-wider mb-1.5 block">Loại giao dịch *</label>
+            <label className="text-xs text-on-surface-variant uppercase tracking-wider mb-1.5 block">Transaction Type *</label>
             <div className="grid grid-cols-2 gap-2">
               {Object.entries(TRANSACTION_TYPE_CONFIG).map(([key, cfg]) => {
                 const Icon = cfg.icon;
@@ -209,14 +209,14 @@ function AdjustPointsModal({ onClose }) {
 
           {/* Amount */}
           <div>
-            <label className="text-xs text-on-surface-variant uppercase tracking-wider mb-1.5 block">Số điểm *</label>
+            <label className="text-xs text-on-surface-variant uppercase tracking-wider mb-1.5 block">Points *</label>
             <div className="relative">
               <Coins className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50" />
               <input
                 type="number"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder="VD: 500"
+                placeholder="e.g. 500"
                 min="1"
                 className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg pl-9 pr-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all"
               />
@@ -225,11 +225,11 @@ function AdjustPointsModal({ onClose }) {
 
           {/* Reason */}
           <div>
-            <label className="text-xs text-on-surface-variant uppercase tracking-wider mb-1.5 block">Lý do *</label>
+            <label className="text-xs text-on-surface-variant uppercase tracking-wider mb-1.5 block">Reason *</label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="VD: Thưởng khi giới thiệu bạn bè"
+              placeholder="e.g. Referral bonus"
               rows={2}
               className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all resize-none"
             />
@@ -244,7 +244,7 @@ function AdjustPointsModal({ onClose }) {
         </div>
 
         <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10 shrink-0">
-          <button onClick={onClose} className="gs-btn gs-btn-ghost gs-btn-sm">Đóng</button>
+          <button onClick={onClose} className="gs-btn gs-btn-ghost gs-btn-sm">Close</button>
           <button
             onClick={handleSubmit}
             disabled={submitting || !selectedUser}
@@ -255,7 +255,7 @@ function AdjustPointsModal({ onClose }) {
             ) : (
               <Coins className="w-3.5 h-3.5" />
             )}
-            Xác nhận
+            Confirm
           </button>
         </div>
       </div>
@@ -299,7 +299,7 @@ export default function AdminPointManagementPage() {
       setBalances(Array.isArray(data.items) ? data.items : []);
       setTotalBalances(data.total || 0);
     } catch (err) {
-      setErrorBalances(err instanceof Error ? err.message : "Không tải được số dư.");
+      setErrorBalances(err instanceof Error ? err.message : "Failed to load balances.");
     } finally {
       setLoadingBalances(false);
     }
@@ -317,7 +317,7 @@ export default function AdminPointManagementPage() {
       setTransactions(Array.isArray(data.items) ? data.items : []);
       setTotalTransactions(data.total || 0);
     } catch (err) {
-      setErrorTransactions(err instanceof Error ? err.message : "Không tải được lịch sử giao dịch.");
+      setErrorTransactions(err instanceof Error ? err.message : "Failed to load transaction history.");
     } finally {
       setLoadingTransactions(false);
     }
@@ -332,14 +332,14 @@ export default function AdminPointManagementPage() {
   }, [searchQuery, transactionTypeFilter]);
 
   const handleExportBalances = () => {
-    const headers = ["ID", "Tên", "Email", "Số dư hiện tại", "Tổng nạp", "Tổng tiêu", "Lần cuối"];
+    const headers = ["ID", "Name", "Email", "Current Balance", "Total Earned", "Total Spent", "Last Activity"];
     const rows = balances.map((b) => [
       b.userId, b.userName || "", b.userEmail || "",
       b.currentBalance, b.totalEarned, b.totalSpent,
       formatDate(b.lastTransactionAt),
     ]);
     const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = `point_balances_${new Date().toISOString().slice(0, 10)}.csv`;
@@ -347,13 +347,13 @@ export default function AdminPointManagementPage() {
   };
 
   const handleExportTransactions = () => {
-    const headers = ["ID", "Người dùng", "Email", "Loại", "Số điểm", "Số dư sau", "Lý do", "Ngày"];
+    const headers = ["ID", "User", "Email", "Type", "Points", "Balance After", "Reason", "Date"];
     const rows = transactions.map((t) => [
       t.transactionId, t.userName || "", t.userEmail || "",
       t.type, t.amount, t.balanceAfter, t.reason || "", formatDate(t.createdAt),
     ]);
     const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = `point_transactions_${new Date().toISOString().slice(0, 10)}.csv`;
@@ -379,15 +379,15 @@ export default function AdminPointManagementPage() {
               <Coins className="w-5 h-5 text-blue-400" />
             </div>
             <div>
-              <h1 className="font-serif text-2xl font-bold text-on-surface">Quản lý Điểm</h1>
+              <h1 className="font-serif text-2xl font-bold text-on-surface">Point Management</h1>
               <p className="text-on-surface-variant text-sm">
-                Giám sát số dư và lịch sử giao dịch điểm của người dùng.
+                Monitor user point balances and transaction history.
               </p>
             </div>
           </div>
           <button onClick={() => setShowAdjust(true)} className="gs-btn gs-btn-primary gs-btn-sm flex items-center gap-1.5">
             <Coins className="w-4 h-4" />
-            Điều chỉnh điểm
+            Adjust Points
           </button>
         </div>
         <div className="h-[2px] w-20 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 mt-4" />
@@ -400,8 +400,8 @@ export default function AdminPointManagementPage() {
             <Coins className="w-4 h-4 text-blue-400" />
           </div>
           <div>
-            <p className="text-lg font-bold text-on-surface font-mono">{totalPoints.toLocaleString("vi-VN")}</p>
-            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Tổng điểm lưu hành</p>
+            <p className="text-lg font-bold text-on-surface font-mono">{totalPoints.toLocaleString("en-US")}</p>
+            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Total Points in Circulation</p>
           </div>
         </div>
         <div className="gs-card p-4 flex items-center gap-3">
@@ -409,8 +409,8 @@ export default function AdminPointManagementPage() {
             <TrendingUp className="w-4 h-4 text-emerald-400" />
           </div>
           <div>
-            <p className="text-lg font-bold text-emerald-400 font-mono">{totalEarned.toLocaleString("vi-VN")}</p>
-            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Tổng nạp vào</p>
+            <p className="text-lg font-bold text-emerald-400 font-mono">{totalEarned.toLocaleString("en-US")}</p>
+            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Total Earned</p>
           </div>
         </div>
         <div className="gs-card p-4 flex items-center gap-3">
@@ -418,8 +418,8 @@ export default function AdminPointManagementPage() {
             <TrendingDown className="w-4 h-4 text-red-400" />
           </div>
           <div>
-            <p className="text-lg font-bold text-red-400 font-mono">{totalSpent.toLocaleString("vi-VN")}</p>
-            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Tổng đã tiêu</p>
+            <p className="text-lg font-bold text-red-400 font-mono">{totalSpent.toLocaleString("en-US")}</p>
+            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Total Spent</p>
           </div>
         </div>
         <div className="gs-card p-4 flex items-center gap-3">
@@ -427,8 +427,8 @@ export default function AdminPointManagementPage() {
             <User className="w-4 h-4 text-on-surface-variant" />
           </div>
           <div>
-            <p className="text-lg font-bold text-on-surface font-mono">{totalBalances.toLocaleString("vi-VN")}</p>
-            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Người dùng</p>
+            <p className="text-lg font-bold text-on-surface font-mono">{totalBalances.toLocaleString("en-US")}</p>
+            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Users</p>
           </div>
         </div>
       </div>
@@ -439,7 +439,7 @@ export default function AdminPointManagementPage() {
           <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/50" />
           <input
             type="text"
-            placeholder={activeTab === "Balances" ? "Tìm theo tên hoặc email..." : "Tìm theo tên, email, lý do..."}
+            placeholder={activeTab === "Balances" ? "Search by name or email..." : "Search by name, email, reason..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-surface-container-lowest border border-outline-variant/40 text-sm rounded-xl pl-11 pr-4 py-3 text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40"
@@ -450,7 +450,7 @@ export default function AdminPointManagementPage() {
           className="gs-btn gs-btn-ghost gs-btn-sm shrink-0 flex items-center gap-1.5"
         >
           <RefreshCw className="w-4 h-4" />
-          Làm mới
+          Refresh
         </button>
       </div>
 
@@ -476,7 +476,7 @@ export default function AdminPointManagementPage() {
               <XCircle className="w-5 h-5 shrink-0 mt-0.5" />
               <div className="flex-1">
                 <span>{errorBalances}</span>
-                <button onClick={() => setErrorBalances("")} className="ml-3 text-xs underline">Đóng</button>
+                <button onClick={() => setErrorBalances("")} className="ml-3 text-xs underline">Close</button>
               </div>
             </div>
           )}
@@ -485,7 +485,7 @@ export default function AdminPointManagementPage() {
             <div className="flex items-center justify-center py-20">
               <div className="flex flex-col items-center gap-3">
                 <div className="w-10 h-10 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                <span className="text-on-surface-variant text-sm">Đang tải...</span>
+                <span className="text-on-surface-variant text-sm">Loading...</span>
               </div>
             </div>
           ) : balances.length === 0 ? (
@@ -494,7 +494,7 @@ export default function AdminPointManagementPage() {
                 <Coins className="w-8 h-8 text-primary/60" />
               </div>
               <h3 className="font-serif text-xl font-bold text-on-surface mb-2">
-                {searchQuery ? "Không tìm thấy" : "Chưa có dữ liệu số dư"}
+                {searchQuery ? "No results found" : "No balance data yet"}
               </h3>
             </div>
           ) : (
@@ -503,12 +503,12 @@ export default function AdminPointManagementPage() {
                 <table className="admin-table">
                   <thead>
                     <tr>
-                      <th style={{ width: "25%" }}>Người dùng</th>
+                      <th style={{ width: "25%" }}>User</th>
                       <th style={{ width: "20%" }}>Email</th>
-                      <th style={{ width: "14%" }}>Số dư</th>
-                      <th style={{ width: "13%" }}>Tổng nạp</th>
-                      <th style={{ width: "13%" }}>Tổng tiêu</th>
-                      <th style={{ width: "15%" }}>Lần cuối giao dịch</th>
+                      <th style={{ width: "14%" }}>Balance</th>
+                      <th style={{ width: "13%" }}>Total Earned</th>
+                      <th style={{ width: "13%" }}>Total Spent</th>
+                      <th style={{ width: "15%" }}>Last Activity</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -525,14 +525,14 @@ export default function AdminPointManagementPage() {
                         <td className="text-sm text-on-surface-variant truncate">{b.userEmail || "—"}</td>
                         <td>
                           <span className="text-sm font-bold font-mono text-blue-400">
-                            {b.currentBalance.toLocaleString("vi-VN")}
+                            {b.currentBalance.toLocaleString("en-US")}
                           </span>
                         </td>
                         <td className="text-sm text-emerald-400 font-mono">
-                          {b.totalEarned.toLocaleString("vi-VN")}
+                          {b.totalEarned.toLocaleString("en-US")}
                         </td>
                         <td className="text-sm text-red-400 font-mono">
-                          {b.totalSpent.toLocaleString("vi-VN")}
+                          {b.totalSpent.toLocaleString("en-US")}
                         </td>
                         <td className="text-on-surface-variant font-mono text-xs">
                           {formatDate(b.lastTransactionAt)}
@@ -546,7 +546,7 @@ export default function AdminPointManagementPage() {
               {totalPagesBal > 1 && (
                 <div className="flex items-center justify-between mt-4 px-2">
                   <p className="text-xs text-on-surface-variant">
-                    Hiển thị {(pageBalances - 1) * PAGE_SIZE_BALANCES + 1}–{Math.min(pageBalances * PAGE_SIZE_BALANCES, totalBalances)} trong {totalBalances} người dùng
+                    Showing {(pageBalances - 1) * PAGE_SIZE_BALANCES + 1}–{Math.min(pageBalances * PAGE_SIZE_BALANCES, totalBalances)} of {totalBalances} users
                   </p>
                   <div className="flex items-center gap-1">
                     <button onClick={() => setPageBalances((p) => Math.max(1, p - 1))} disabled={pageBalances === 1}
@@ -590,14 +590,14 @@ export default function AdminPointManagementPage() {
                       : "bg-surface-container-lowest text-on-surface-variant border-outline-variant/40"
                   }`}
                 >
-                  {t === "All" ? "Tất cả" : cfg?.label || t}
+                  {t === "All" ? "All" : cfg?.label || t}
                 </button>
               );
             })}
             <button onClick={handleExportTransactions} disabled={transactions.length === 0}
               className="gs-btn gs-btn-ghost gs-btn-sm shrink-0 flex items-center gap-1.5 ml-auto">
               <Download className="w-3.5 h-3.5" />
-              Xuất CSV
+              Export CSV
             </button>
           </div>
 
@@ -606,7 +606,7 @@ export default function AdminPointManagementPage() {
               <XCircle className="w-5 h-5 shrink-0 mt-0.5" />
               <div className="flex-1">
                 <span>{errorTransactions}</span>
-                <button onClick={() => setErrorTransactions("")} className="ml-3 text-xs underline">Đóng</button>
+                <button onClick={() => setErrorTransactions("")} className="ml-3 text-xs underline">Close</button>
               </div>
             </div>
           )}
@@ -615,7 +615,7 @@ export default function AdminPointManagementPage() {
             <div className="flex items-center justify-center py-20">
               <div className="flex flex-col items-center gap-3">
                 <div className="w-10 h-10 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                <span className="text-on-surface-variant text-sm">Đang tải...</span>
+                <span className="text-on-surface-variant text-sm">Loading...</span>
               </div>
             </div>
           ) : transactions.length === 0 ? (
@@ -624,7 +624,7 @@ export default function AdminPointManagementPage() {
                 <Coins className="w-8 h-8 text-primary/60" />
               </div>
               <h3 className="font-serif text-xl font-bold text-on-surface mb-2">
-                {searchQuery ? "Không tìm thấy" : "Chưa có giao dịch nào"}
+                {searchQuery ? "No results found" : "No transactions yet"}
               </h3>
             </div>
           ) : (
@@ -633,12 +633,12 @@ export default function AdminPointManagementPage() {
                 <table className="admin-table">
                   <thead>
                     <tr>
-                      <th style={{ width: "22%" }}>Người dùng</th>
-                      <th style={{ width: "12%" }}>Loại</th>
-                      <th style={{ width: "12%" }}>Số điểm</th>
-                      <th style={{ width: "12%" }}>Số dư sau</th>
-                      <th style={{ width: "22%" }}>Lý do</th>
-                      <th style={{ width: "20%" }}>Ngày</th>
+                      <th style={{ width: "22%" }}>User</th>
+                      <th style={{ width: "12%" }}>Type</th>
+                      <th style={{ width: "12%" }}>Points</th>
+                      <th style={{ width: "12%" }}>Balance After</th>
+                      <th style={{ width: "22%" }}>Reason</th>
+                      <th style={{ width: "20%" }}>Date</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -667,11 +667,11 @@ export default function AdminPointManagementPage() {
                           </td>
                           <td>
                             <span className={`text-sm font-bold font-mono ${isPositive ? "text-emerald-400" : "text-red-400"}`}>
-                              {isPositive ? "+" : "−"}{Math.abs(t.amount).toLocaleString("vi-VN")}
+                              {isPositive ? "+" : "−"}{Math.abs(t.amount).toLocaleString("en-US")}
                             </span>
                           </td>
                           <td className="text-sm font-mono text-on-surface-variant">
-                            {t.balanceAfter.toLocaleString("vi-VN")}
+                            {t.balanceAfter.toLocaleString("en-US")}
                           </td>
                           <td>
                             <p className="text-sm text-on-surface truncate" title={t.reason || ""}>
@@ -696,7 +696,7 @@ export default function AdminPointManagementPage() {
               {totalPagesTx > 1 && (
                 <div className="flex items-center justify-between mt-4 px-2">
                   <p className="text-xs text-on-surface-variant">
-                    Hiển thị {(pageTransactions - 1) * PAGE_SIZE_TRANSACTIONS + 1}–{Math.min(pageTransactions * PAGE_SIZE_TRANSACTIONS, totalTransactions)} trong {totalTransactions} giao dịch
+                    Showing {(pageTransactions - 1) * PAGE_SIZE_TRANSACTIONS + 1}–{Math.min(pageTransactions * PAGE_SIZE_TRANSACTIONS, totalTransactions)} of {totalTransactions} transactions
                   </p>
                   <div className="flex items-center gap-1">
                     <button onClick={() => setPageTransactions((p) => Math.max(1, p - 1))} disabled={pageTransactions === 1}

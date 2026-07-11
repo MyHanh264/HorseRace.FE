@@ -6,7 +6,7 @@ import NotificationBell from "../NotificationBell";
 import { useAdminNotifications } from "../../hooks/useAdminNotifications";
 import { useNotificationRead } from "../../hooks/useNotificationRead";
 
-// `path: null` = chưa có trang thật (giữ nguyên hành vi cũ, chỉ đổi tab UI).
+// `path: null` = no real page yet (keeps the old behavior, just a UI tab toggle).
 const TABS = [
   { label: "Dashboard", path: "/admin" },
   { label: "Reports", path: null },
@@ -22,7 +22,7 @@ export default function AdminHeader() {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  // Chỉ dùng cho tab "Reports" — chưa có trang thật, giữ hành vi toggle cũ.
+  // Only used for the "Reports" tab — no real page yet, keeps the old toggle behavior.
   const [localTab, setLocalTab] = useState("Dashboard");
   const notifItems = useAdminNotifications();
   const notifRead = useNotificationRead(notifItems, user?.userId);
