@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
-import { X, Trash2 } from "lucide-react";
+import { X, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { getInvitations, deleteInvitation, getRaces, getMyEntries } from "../../api/horseOwner";
 import ConfirmJockeyModal from "./ConfirmJockeyModal";
+
+const PAGE_SIZE = 10;
 
 const STATUS_BADGE = {
   Accepted:  "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40",
@@ -48,6 +50,7 @@ export default function InvitationsPage() {
   const [jockeyRaceKeys, setJockeyRaceKeys] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("Sent");
+  const [page, setPage] = useState(1);
   const [refreshKey, setRefreshKey] = useState(0);
   const [confirmInv, setConfirmInv] = useState(null);
 
@@ -91,6 +94,11 @@ export default function InvitationsPage() {
     }
   };
 
+  // Reset to page 1 whenever the visible set changes shape (tab).
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab]);
+
   const formatDate = (dateStr) => {
     if (!dateStr) return "—";
     return new Date(dateStr).toLocaleDateString("en-GB", {
@@ -104,6 +112,10 @@ export default function InvitationsPage() {
     activeTab === "Pending Response"
       ? invitations.filter((i) => i.status === "Pending")
       : invitations;
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
+  const pageSafe = Math.min(page, totalPages);
+  const paginated = filtered.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE);
 
   return (
     <div className="p-8">
@@ -160,7 +172,7 @@ export default function InvitationsPage() {
             No invitations found.
           </p>
         ) : (
-          filtered.map((inv) => (
+          paginated.map((inv) => (
             <div
               key={inv.invitationId}
               className={`grid grid-cols-[2.2fr_1.6fr_1.6fr_1.1fr_1fr_1fr] px-6 py-4 items-center
@@ -263,6 +275,35 @@ export default function InvitationsPage() {
           ))
         )}
       </div>
+
+      {/* Pagination */}
+      {!loading && totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4">
+          <p className="text-sm text-gray-500">
+            Showing {(pageSafe - 1) * PAGE_SIZE + 1}-
+            {Math.min(pageSafe * PAGE_SIZE, filtered.length)} of {filtered.length}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={pageSafe === 1}
+              className="flex items-center justify-center w-8 h-8 rounded-lg border border-white/20 text-gray-300 hover:bg-white/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span className="text-sm text-gray-300 font-mono px-2">
+              {pageSafe} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={pageSafe >= totalPages}
+              className="flex items-center justify-center w-8 h-8 rounded-lg border border-white/20 text-gray-300 hover:bg-white/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Confirm Jockey Modal */}
       {confirmInv && (

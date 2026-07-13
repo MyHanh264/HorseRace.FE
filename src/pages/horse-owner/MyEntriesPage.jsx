@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { getMyEntries, getRaces, withdrawEntry, getRaceResults } from "../../api/horseOwner";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from "lucide-react";
+
+const PAGE_SIZE = 10;
 
 const STATUS_BADGE = {
   Approved:  "bg-emerald-500 text-white",
@@ -31,6 +33,7 @@ export default function MyEntriesPage() {
   const [activeTab, setActiveTab] = useState("All");
   const [expandedId, setExpandedId] = useState(null);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [confirmWithdrawId, setConfirmWithdrawId] = useState(null);
   const [withdrawing, setWithdrawing] = useState(false);
   const [withdrawError, setWithdrawError] = useState("");
@@ -75,6 +78,11 @@ export default function MyEntriesPage() {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  // Reset to page 1 whenever the visible set changes shape (tab or search).
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab, search]);
 
   const getRaceById = (raceId) => races.find((r) => r.raceId === raceId);
 
@@ -127,6 +135,10 @@ export default function MyEntriesPage() {
         ? new Date(dateB) - new Date(dateA)
         : new Date(dateA) - new Date(dateB);
     });
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
+  const pageSafe = Math.min(page, totalPages);
+  const paginated = filtered.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE);
 
   return (
     <div className="p-8">
@@ -216,7 +228,7 @@ export default function MyEntriesPage() {
             {search ? `No results for "${search}"` : "No entries found."}
           </p>
         ) : (
-          filtered.map((entry) => {
+          paginated.map((entry) => {
             const race = getRaceById(entry.raceId);
             const result = resultMap[entry.entryId];
             const isFinished = race?.status === "Finished";
@@ -415,7 +427,7 @@ export default function MyEntriesPage() {
                             </p>
                           </div>
                           <div className="bg-[#1a2035] rounded-lg p-3 border border-white/10">
-                            <p className="text-xs text-gray-500 mb-1">Prize Points</p>
+                            <p className="text-xs text-gray-500 mb-1">Race Points</p>
                             <p className="text-sm text-emerald-400 font-bold">
                               +{result.totalPoints} pts
                             </p>
@@ -436,6 +448,35 @@ export default function MyEntriesPage() {
           })
         )}
       </div>
+
+      {/* Pagination */}
+      {!loading && totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4">
+          <p className="text-sm text-gray-500">
+            Showing {(pageSafe - 1) * PAGE_SIZE + 1}-
+            {Math.min(pageSafe * PAGE_SIZE, filtered.length)} of {filtered.length}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={pageSafe === 1}
+              className="flex items-center justify-center w-8 h-8 rounded-lg border border-white/20 text-gray-300 hover:bg-white/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span className="text-sm text-gray-300 font-mono px-2">
+              {pageSafe} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={pageSafe >= totalPages}
+              className="flex items-center justify-center w-8 h-8 rounded-lg border border-white/20 text-gray-300 hover:bg-white/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Withdraw confirmation modal */}
       {confirmWithdrawId && (() => {

@@ -48,3 +48,15 @@ export async function getRaces() {
   const res = await api.get('/api/races')
   return res.data
 }
+
+// GET /api/entries — not role-scoped for JOCKEY on BE, so callers must filter by jockeyId client-side.
+export async function getEntries() {
+  const res = await api.get('/api/entries')
+  return Array.isArray(res.data) ? res.data : []
+}
+
+// GET /api/race-results — rows only exist for races that have been Published (Finished).
+export async function getRaceResults() {
+  const res = await api.get('/api/race-results')
+  return Array.isArray(res.data) ? res.data : []
+}

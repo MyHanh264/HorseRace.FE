@@ -1,34 +1,47 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
-  Flag, AlertTriangle, CheckCircle2,
-  RefreshCw, Loader2, AlertCircle, Lock, Eye, Shield,
-  ChevronRight, ArrowLeft, Users, UserCheck, CheckCircle, XCircle, X,
+  Flag, AlertTriangle,
+  RefreshCw, Loader2, AlertCircle, Lock, Eye, Shield, Send,
+  ChevronLeft, ChevronRight, ArrowLeft, Users, UserCheck, CheckCircle, XCircle, X,
 } from 'lucide-react'
 import {
   getRaces, getRaceDetail, getAllTournaments, getAllUser,
-  getRaceExecutionStatus, getRacePauseInfo,
-  resolveRaceConflict, resumeRace, getRaceStandings,
+  getRaceExecutionStatus,
+  resumeRace, getRaceStandings,
   startRace, closeRegistration, approveEntry, rejectEntry, getEntries,
+  publishRace, getAllViolations, getViolationsWithEntryDetail,
 } from '../../api/admin'
-import { validateOverrideReason } from '../../utils/validation'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const LEG_POINTS = { 1: 6, 2: 5, 3: 4, 4: 3, 5: 2, 6: 1 }
-function getLegPoints(pos) { return pos && pos >= 1 ? (LEG_POINTS[pos] ?? 0) : 0 }
-
-function fmtDateTime(dt) {
-  if (!dt) return '—'
-  return new Date(dt).toLocaleString('en-GB', {
-    day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
-}
 
 function fmtDate(s) {
   if (!s) return '—'
   const d = new Date(s)
   return `${d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}, ${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`
+}
+
+// Explains WHY an entry's total points look the way they do — per-leg points plus any
+// approved violation penalty applied to that leg (or to the whole race, for DQ).
+function buildScoreBreakdown(entryId, execution, approvedViolations) {
+  const entryViolations = approvedViolations.filter(v => v.entryId === entryId)
+  const isRaceDQ = entryViolations.some(v => v.penalty === 'DQ')
+  const lines = (execution?.legs ?? [])
+    .map(leg => {
+      const result = leg.results?.find(r => r.entryId === entryId)
+      if (!result) return null
+      const legViolation = entryViolations.find(v => v.legNumber === leg.legNumber)
+      const posLabel = result.position === -1 ? 'DNF' : result.position === -2 ? 'DQ' : `#${result.position}`
+      const penaltyNote = !legViolation
+        ? ''
+        : legViolation.penalty === 'Warning'
+          ? ` — Warning noted (${legViolation.violationType})`
+          : ` — ${legViolation.penalty} applied (${legViolation.violationType})`
+      return `Leg ${leg.legNumber}: ${result.points}p (${posLabel})${penaltyNote}`
+    })
+    .filter(Boolean)
+  const hasPenalty = entryViolations.some(v => v.penalty !== 'Warning')
+  return { lines, isRaceDQ, hasPenalty }
 }
 
 const ENTRY_STATUS_META = {
@@ -56,149 +69,6 @@ function HorseAvatar({ name, index }) {
   )
 }
 
-// ─── Override Modal ───────────────────────────────────────────────────────────
-
-function OverrideModal({ race, legIndex, pauseInfo, onClose, onResolved }) {
-  const [decisions, setDecisions] = useState(() => {
-    const d = {}
-    const comparison = pauseInfo?.conflictedLeg?.comparison ?? []
-    comparison.forEach(item => {
-      d[item.entryId] = item.referee1Position ?? item.referee2Position ?? 1
-    })
-    return d
-  })
-  const [overrideReason, setOverrideReason] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
-
-  const entries = pauseInfo?.conflictedLeg?.comparison ?? []
-
-  function setPosition(entryId, value) {
-    setDecisions(prev => ({ ...prev, [entryId]: Number(value) }))
-  }
-
-  function getLegValidation() {
-    const usedPositions = {}
-    const errors = []
-    Object.entries(decisions).forEach(([entryId, pos]) => {
-      if (usedPositions[pos] !== undefined) errors.push({ entryId, conflictWith: usedPositions[pos], position: pos })
-      usedPositions[pos] = Number(entryId)
-    })
-    return { valid: errors.length === 0, errors }
-  }
-
-  async function handleOverride() {
-    // Validate that the number of decisions matches the leg's approved entries
-    const expectedEntryIds = new Set(entries.map(e => e.entryId))
-    const sentEntryIds = new Set(Object.keys(decisions).map(Number))
-    if (expectedEntryIds.size !== sentEntryIds.size ||
-        ![...expectedEntryIds].every(id => sentEntryIds.has(id))) {
-      setError('The number of decisions does not match the approved entries.')
-      return
-    }
-
-    const reasonCheck = validateOverrideReason(overrideReason)
-    if (!reasonCheck.valid) {
-      setError(reasonCheck.error)
-      return
-    }
-    const { valid } = getLegValidation()
-    if (!valid) {
-      setError('Each position can only be assigned to a single Entry.')
-      return
-    }
-
-    setSubmitting(true)
-    setError('')
-    try {
-      const payload = {
-        decisions: Object.entries(decisions).map(([entryId, officialPosition]) => ({ entryId: Number(entryId), officialPosition })),
-        overrideReason: overrideReason.trim(),
-      }
-      // Backend automatically resumes the race after a successful override (handler OverrideLegResult.cs).
-      // Calling resumeRace() afterwards would cause a 400 because the Conflicted leg was already resolved → race moves to InProgress/PendingResult.
-      await resolveRaceConflict(race.raceId, legIndex, payload)
-      onResolved()
-    } catch (err) {
-      setError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Override failed.')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-[#1a2035] rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-white/10 shadow-2xl" onClick={e => e.stopPropagation()}>
-        <div className="sticky top-0 bg-[#1a2035] border-b border-white/10 px-6 py-4 flex items-start justify-between gap-4 z-10">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <Shield size={16} className="text-orange-400" />
-              <h2 className="text-lg font-bold text-white">Override Leg {legIndex + 1} Result</h2>
-            </div>
-            <p className="text-xs text-gray-400">Results between the 2 referees do not match. Admin confirms the official result.</p>
-          </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg border border-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-all shrink-0">✕</button>
-        </div>
-
-        <div className="px-6 py-4 border-b border-white/5 bg-orange-500/5">
-          <div className="flex items-center gap-2 text-orange-400 text-xs font-semibold mb-2">
-            <AlertTriangle size={13} /> Discrepancy detected — Race paused
-          </div>
-          <p className="text-xs text-gray-400">Paused at: {fmtDateTime(pauseInfo?.pausedAt)} · Leg {legIndex + 1}</p>
-        </div>
-
-        <div className="px-6 py-4">
-          <div className="grid grid-cols-4 gap-2 mb-2 text-center">
-            {['Entry', 'Referee A', 'Referee B', 'Official'].map(h => (
-              <div key={h} className="text-xs text-gray-500 font-medium uppercase tracking-wider">{h}</div>
-            ))}
-          </div>
-          {entries.map(item => (
-            <div key={item.entryId} className="grid grid-cols-4 gap-2 items-center py-2 border-b border-white/5 last:border-0">
-              <div className="text-sm font-semibold text-white truncate">{item.horseName || `Entry #${item.entryId}`}</div>
-              {[item.referee1Position, item.referee2Position].map((pos, i) => (
-                <div key={i} className="text-center">
-                  <span className={`inline-block px-3 py-1 rounded text-sm font-bold font-mono ${item.isMatch ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>{pos ?? '—'}</span>
-                </div>
-              ))}
-              <div className="text-center">
-                <select value={decisions[item.entryId] ?? 1} onChange={e => setPosition(item.entryId, e.target.value)}
-                  className="w-full bg-surface-container-lowest border border-yellow-400/30 rounded-lg px-2 py-1.5 text-sm font-mono text-white focus:outline-none focus:border-yellow-400/60 text-center">
-                  {entries.map((_, n) => <option key={n + 1} value={n + 1}>{n + 1}</option>)}
-                  <option value="-1">DNF</option>
-                  <option value="-2">DQ</option>
-                </select>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="px-6 pb-4">
-          <label className="block text-xs text-gray-400 font-medium mb-1.5 uppercase tracking-wider">
-            Override Reason <span className="text-red-400">*</span>
-          </label>
-          <textarea value={overrideReason} onChange={e => setOverrideReason(e.target.value)}
-            placeholder="Describe the reason for choosing this result (e.g. After reviewing the finish line video)"
-            rows={3} className="w-full bg-surface-container-lowest border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-yellow-400/50 transition-all resize-none" />
-        </div>
-
-        <div className="px-6 py-4 border-t border-white/10 flex items-center justify-between gap-3">
-          {error
-            ? <p className="text-xs text-red-400 flex items-center gap-1.5"><AlertCircle size={12} />{error}</p>
-            : <div />}
-          <div className="flex items-center gap-2">
-            <button onClick={onClose} className="px-4 py-2 rounded-lg border border-white/20 text-sm text-gray-300 hover:bg-white/10 transition-all">Cancel</button>
-            <button onClick={handleOverride} disabled={submitting}
-              className="flex items-center gap-1.5 px-5 py-2 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-black text-sm font-bold transition-all disabled:opacity-50">
-              {submitting ? <><Loader2 size={14} className="animate-spin" /> Processing...</> : <><CheckCircle2 size={14} /> Confirm Override</>}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ─── Leg Status Chip ──────────────────────────────────────────────────────────
 
 function LegStatusChip({ status }) {
@@ -212,7 +82,8 @@ function LegStatusChip({ status }) {
 
 // ─── Race List Card ───────────────────────────────────────────────────────────
 
-function RaceListCard({ race, onViewEntries, onMonitor, onStartRace }) {
+function RaceListCard({ race, onViewEntries, onMonitor, onStartRace, onViewConflict, pendingViolationCount = 0 }) {
+  const navigate = useNavigate()
   const isScheduled  = race.status === 'Scheduled'
   const isInProgress = race.status === 'InProgress'
   const isPaused     = race.status === 'Paused'
@@ -239,6 +110,14 @@ function RaceListCard({ race, onViewEntries, onMonitor, onStartRace }) {
             </div>
             <h3 className="font-serif text-xl font-bold text-on-surface">{race.name}</h3>
             <p className="text-xs text-on-surface-variant mt-0.5">{race.tournamentName || race.tournamentId}</p>
+            {isPending && pendingViolationCount > 0 && (
+              <button
+                onClick={e => { e.stopPropagation(); navigate(`/admin/violations?raceId=${race.raceId}`) }}
+                className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 mt-1.5 underline decoration-dotted underline-offset-2"
+              >
+                <AlertTriangle size={11} /> {pendingViolationCount} pending violation{pendingViolationCount > 1 ? 's' : ''}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -270,7 +149,7 @@ function RaceListCard({ race, onViewEntries, onMonitor, onStartRace }) {
           </button>
         )}
         {isPaused && (
-          <button onClick={() => onMonitor(race)}
+          <button onClick={() => onViewConflict(race)}
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-orange-500/30 text-xs text-orange-400 hover:bg-orange-500/10 transition-all">
             <AlertTriangle size={13} /> View Conflict
           </button>
@@ -334,6 +213,10 @@ function ErrorBanner({ msg, onDismiss }) {
 
 export default function AdminRaceExecutionPage() {
   const isMountedRef = useRef(true)
+  const navigate = useNavigate()
+  // Deep link from Race Management's "Monitor" button — jumps straight to that race instead of the full list.
+  const [searchParams] = useSearchParams()
+  const deepLinkRaceId = searchParams.get('raceId')
 
   // ── View state ─────────────────────────────────────────────────────────────
   const [view, setView] = useState('list') // 'list' | 'entries' | 'monitor'
@@ -343,6 +226,10 @@ export default function AdminRaceExecutionPage() {
   const [selectedRace, setSelectedRace] = useState(null)
   const [loading,      setLoading]      = useState(true)
   const [error,        setError]        = useState('')
+  // raceId → count of unresolved (Pending) violation reports — badges PendingResult cards.
+  const [pendingViolationCountByRace, setPendingViolationCountByRace] = useState({})
+  const [listPage, setListPage] = useState(1)
+  const LIST_PAGE_SIZE = 10
 
   // ── Entries view ───────────────────────────────────────────────────────────
   const [entries,          setEntries]          = useState([])
@@ -359,20 +246,28 @@ export default function AdminRaceExecutionPage() {
   // ── Monitor view ───────────────────────────────────────────────────────────
   const [execution,  setExecution]  = useState(null)
   const [standings,  setStandings]  = useState([])
-  const [pauseInfo,  setPauseInfo]  = useState(null)
-  const [showOverride, setShowOverride] = useState(false)
+  // Approved violations for the race being monitored — cross-referenced against
+  // execution.legs to show WHY an entry's point total is what it is, not just the number.
+  const [raceViolations, setRaceViolations] = useState([])
+  const [pendingViolationCount, setPendingViolationCount] = useState(0)
+  const [publishing, setPublishing] = useState(false)
   const pollRef = useRef(null)
-  // Ref to track modal state - avoids polling from updating pauseInfo while the modal is open
-  const modalOpenRef = useRef(false)
 
   // ── Load races ─────────────────────────────────────────────────────────────
   const loadRaces = useCallback(async () => {
     try {
-      const races = await getRaces()
+      const [races, violationsRes] = await Promise.all([
+        getRaces(),
+        getAllViolations({ status: 'Pending', pageSize: 200 }).catch(() => null),
+      ])
       if (!isMountedRef.current) return
       setAllRaces(races.filter(r =>
         ['Scheduled', 'InProgress', 'Paused', 'PendingResult'].includes(r.status),
       ))
+      const violationItems = Array.isArray(violationsRes?.items) ? violationsRes.items : []
+      const counts = {}
+      violationItems.forEach(v => { counts[v.raceId] = (counts[v.raceId] ?? 0) + 1 })
+      setPendingViolationCountByRace(counts)
     } catch (err) {
       if (isMountedRef.current) setError(err?.message || 'Failed to load race list.')
     } finally {
@@ -418,12 +313,6 @@ export default function AdminRaceExecutionPage() {
       if (!isMountedRef.current) return
       setExecution(exec)
       setStandings(standingsData)
-      if (exec?.status === 'Paused') {
-        const pause = await getRacePauseInfo(raceId).catch(() => null)
-        if (isMountedRef.current) setPauseInfo(pause)
-      } else {
-        if (isMountedRef.current) setPauseInfo(null)
-      }
     } catch { /* silent */ }
   }, [])
 
@@ -432,11 +321,23 @@ export default function AdminRaceExecutionPage() {
     let active = true
     ;(async () => {
       try {
-        const races = await getRaces()
+        const [races, violationsRes] = await Promise.all([
+          getRaces(),
+          getAllViolations({ status: 'Pending', pageSize: 200 }).catch(() => null),
+        ])
         if (!active) return
-        setAllRaces(races.filter(r =>
+        const filtered = races.filter(r =>
           ['Scheduled', 'InProgress', 'Paused', 'PendingResult'].includes(r.status),
-        ))
+        )
+        setAllRaces(filtered)
+        const violationItems = Array.isArray(violationsRes?.items) ? violationsRes.items : []
+        const counts = {}
+        violationItems.forEach(v => { counts[v.raceId] = (counts[v.raceId] ?? 0) + 1 })
+        setPendingViolationCountByRace(counts)
+        if (deepLinkRaceId) {
+          const target = filtered.find(r => String(r.raceId) === String(deepLinkRaceId))
+          if (target) openMonitor(target)
+        }
       } catch (err) {
         if (active) setError(err?.message || 'Failed to load race list.')
       } finally {
@@ -444,7 +345,7 @@ export default function AdminRaceExecutionPage() {
       }
     })()
     return () => { active = false; isMountedRef.current = false }
-  }, [])
+  }, [deepLinkRaceId])
 
   // Auto-poll when monitoring
   useEffect(() => {
@@ -454,20 +355,25 @@ export default function AdminRaceExecutionPage() {
 
     async function fetchExecution() {
       try {
-        const [exec, standingsData] = await Promise.all([
+        const [exec, standingsData, allViolations] = await Promise.all([
           getRaceExecutionStatus(raceId).catch(() => null),
           getRaceStandings(raceId).catch(() => []),
+          getViolationsWithEntryDetail().catch(() => []),
         ])
         if (!active) return
         setExecution(exec)
         setStandings(standingsData)
-        // Only update pauseInfo when the modal is NOT open
-        // to avoid a race condition that reloads the modal while admin is viewing the conflict
-        if (exec?.status === 'Paused' && !modalOpenRef.current) {
-          const pause = await getRacePauseInfo(raceId).catch(() => null)
-          if (active) setPauseInfo(pause)
-        } else if (exec?.status !== 'Paused') {
-          if (active) setPauseInfo(null)
+        setRaceViolations(allViolations.filter(v => v.raceId === raceId && v.status === 'Approved'))
+
+        // Re-checked every poll tick (not just once) — a referee/admin could file a new
+        // violation report while this screen is already open, which must re-lock Publish.
+        if (exec?.status === 'PendingResult') {
+          const violationsRes = await getAllViolations({ status: 'Pending', pageSize: 200 }).catch(() => null)
+          if (!active) return
+          const items = Array.isArray(violationsRes?.items) ? violationsRes.items : []
+          setPendingViolationCount(items.filter(v => v.raceId === raceId).length)
+        } else {
+          setPendingViolationCount(0)
         }
       } catch { /* silent */ }
     }
@@ -488,8 +394,12 @@ export default function AdminRaceExecutionPage() {
   function openMonitor(race) {
     clearInterval(pollRef.current)
     setSelectedRace(race)
-    setExecution(null); setPauseInfo(null)
+    setExecution(null)
     setView('monitor')
+  }
+
+  function viewConflict(race) {
+    navigate(`/admin/races/${race.raceId}/conflict`)
   }
 
   function backToList() {
@@ -521,6 +431,20 @@ export default function AdminRaceExecutionPage() {
       setError(err?.response?.data?.detail ?? err?.message ?? 'Failed to start race')
     } finally {
       setRegLoading(false)
+    }
+  }
+
+  const handlePublishRace = async () => {
+    setPublishing(true); setError('')
+    try {
+      await publishRace(selectedRace.raceId)
+      setSelectedRace(prev => ({ ...prev, status: 'Finished' }))
+      await loadExecution(selectedRace.raceId)
+      await loadRaces()
+    } catch (err) {
+      setError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Failed to publish race')
+    } finally {
+      setPublishing(false)
     }
   }
 
@@ -592,19 +516,49 @@ export default function AdminRaceExecutionPage() {
             <h3 className="text-lg font-bold text-on-surface mb-2">No races need action</h3>
             <p className="text-sm text-on-surface-variant">Races will appear here when they have a status requiring action.</p>
           </div>
-        ) : (
-          <div className="space-y-3">
-            {allRaces.map(race => (
-              <RaceListCard
-                key={race.raceId}
-                race={race}
-                onViewEntries={openEntries}
-                onMonitor={openMonitor}
-                onStartRace={handleStartRace}
-              />
-            ))}
-          </div>
-        )}
+        ) : (() => {
+          const totalPages = Math.max(1, Math.ceil(allRaces.length / LIST_PAGE_SIZE))
+          const pageSafe = Math.min(listPage, totalPages)
+          const paginated = allRaces.slice((pageSafe - 1) * LIST_PAGE_SIZE, pageSafe * LIST_PAGE_SIZE)
+          return (
+            <>
+              <div className="space-y-3">
+                {paginated.map(race => (
+                  <RaceListCard
+                    key={race.raceId}
+                    race={race}
+                    onViewEntries={openEntries}
+                    onMonitor={openMonitor}
+                    onStartRace={handleStartRace}
+                    onViewConflict={viewConflict}
+                    pendingViolationCount={pendingViolationCountByRace[race.raceId] ?? 0}
+                  />
+                ))}
+              </div>
+
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4">
+                  <p className="text-xs text-on-surface-variant">
+                    Showing {(pageSafe - 1) * LIST_PAGE_SIZE + 1}–{Math.min(pageSafe * LIST_PAGE_SIZE, allRaces.length)} of {allRaces.length} races
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => setListPage(p => Math.max(1, p - 1))} disabled={pageSafe === 1}
+                      className="w-7 h-7 rounded-lg border border-white/10 hover:bg-white/5 disabled:opacity-40 flex items-center justify-center transition-all">
+                      <ChevronLeft className="w-3.5 h-3.5 text-on-surface" />
+                    </button>
+                    <span className="text-xs text-on-surface font-mono px-2">
+                      {pageSafe} / {totalPages}
+                    </span>
+                    <button onClick={() => setListPage(p => Math.min(totalPages, p + 1))} disabled={pageSafe === totalPages}
+                      className="w-7 h-7 rounded-lg border border-white/10 hover:bg-white/5 disabled:opacity-40 flex items-center justify-center transition-all">
+                      <ChevronRight className="w-3.5 h-3.5 text-on-surface" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )
+        })()}
       </div>
     )
   }
@@ -656,10 +610,7 @@ export default function AdminRaceExecutionPage() {
                 {selectedRace.status === 'Paused' && (
                   <div className="flex items-center gap-2 mt-2">
                     <button
-                      onClick={async () => {
-                        const pause = await getRacePauseInfo(selectedRace.raceId).catch(() => null)
-                        setPauseInfo(pause)
-                      }}
+                      onClick={() => viewConflict(selectedRace)}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-orange-500/30 text-xs text-orange-400 hover:bg-orange-500/10 transition-all"
                     >
                       <AlertTriangle size={12} /> View Conflict
@@ -908,10 +859,7 @@ export default function AdminRaceExecutionPage() {
 
               {selectedRace?.status === 'Paused' && (
                 <div className="flex items-center gap-2">
-                  <button onClick={() => {
-                    modalOpenRef.current = true
-                    setShowOverride(true)
-                  }}
+                  <button onClick={() => viewConflict(selectedRace)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-orange-500/30 text-xs text-orange-400 hover:bg-orange-500/10 transition-all">
                     <AlertTriangle size={12} /> View Conflict
                   </button>
@@ -925,6 +873,29 @@ export default function AdminRaceExecutionPage() {
                   }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold transition-all">
                     <ChevronRight size={12} /> Resume Race
                   </button>
+                </div>
+              )}
+
+              {selectedRace?.status === 'PendingResult' && (
+                <div className="flex flex-col items-end gap-1.5">
+                  <button
+                    onClick={handlePublishRace}
+                    disabled={publishing || pendingViolationCount > 0}
+                    title={pendingViolationCount > 0
+                      ? `${pendingViolationCount} unresolved violation report${pendingViolationCount > 1 ? 's' : ''} for this race — review them in Violations before publishing.`
+                      : ''}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                    {publishing ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                    Publish Results
+                  </button>
+                  {pendingViolationCount > 0 && (
+                    <button
+                      onClick={() => navigate(`/admin/violations?raceId=${selectedRace.raceId}`)}
+                      className="text-[10px] text-amber-400 hover:text-amber-300 flex items-center gap-1 underline decoration-dotted underline-offset-2"
+                    >
+                      <AlertTriangle size={10} /> {pendingViolationCount} pending violation{pendingViolationCount > 1 ? 's' : ''}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -971,41 +942,20 @@ export default function AdminRaceExecutionPage() {
             </div>
           </div>
 
-          {/* Conflict + override */}
-          {selectedRace?.status === 'Paused' && pauseInfo && (
+          {/* Conflict banner — resolution happens on the dedicated Conflict Resolution page */}
+          {selectedRace?.status === 'Paused' && hasConflict && (
             <div className="gs-card border-orange-500/30">
-              <div className="px-5 py-4 border-b border-orange-500/20 bg-orange-500/5 flex items-start gap-3">
+              <div className="px-5 py-4 flex items-start gap-3">
                 <AlertTriangle size={18} className="text-orange-400 shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <p className="font-bold text-orange-400 text-sm">Discrepancy detected — Race paused</p>
-                  <p className="text-xs text-gray-400 mt-0.5">Side-by-side comparison below. Admin confirms the official result.</p>
+                  <p className="font-bold text-orange-400 text-sm">Conflict detected — Race paused</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    The two referees submitted different results for Leg {(execution.legs.findIndex(l => l.status === 'Conflicted') ?? -1) + 1}.
+                  </p>
                 </div>
-              </div>
-              <div className="px-5 py-4">
-                <div className="grid grid-cols-4 gap-2 mb-2 text-center text-[10px] text-gray-500 uppercase tracking-wider">
-                  {['Entry', 'Referee A', 'Referee B', 'Match'].map(h => <div key={h}>{h}</div>)}
-                </div>
-                {pauseInfo.conflictedLeg?.comparison?.map(item => (
-                  <div key={item.entryId} className="grid grid-cols-4 gap-2 items-center py-2 border-b border-white/5 last:border-0">
-                    <div className="text-sm font-semibold text-white truncate">{item.horseName || `Entry #${item.entryId}`}</div>
-                    {[item.referee1Position, item.referee2Position].map((pos, i) => (
-                      <div key={i} className="text-center">
-                        <span className={`inline-block px-3 py-1 rounded text-sm font-bold font-mono ${item.referee1Position === item.referee2Position ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>{pos ?? '—'}</span>
-                      </div>
-                    ))}
-                    <div className="text-center font-mono text-sm text-yellow-400">
-                      {item.referee1Position === item.referee2Position ? `${getLegPoints(item.referee1Position)}p` : '⚠ conflict'}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="px-5 pb-5">
-                <button onClick={() => {
-                  modalOpenRef.current = true
-                  setShowOverride(true)
-                }}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-black text-sm font-bold transition-all">
-                  <Shield size={14} /> Override & Confirm Leg Result
+                <button onClick={() => viewConflict(selectedRace)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-black text-sm font-bold transition-all shrink-0">
+                  <Shield size={14} /> Resolve Conflict
                 </button>
               </div>
             </div>
@@ -1019,45 +969,38 @@ export default function AdminRaceExecutionPage() {
                 <p className="text-[10px] text-gray-500 mt-0.5">{standings.length} entries · auto refresh</p>
               </div>
               <div className="divide-y divide-white/5">
-                {standings.map((s, i) => (
-                  <div key={s.entryId} className="px-5 py-3 flex items-center gap-4">
-                    <span className={`w-6 text-center font-bold text-lg ${
-                      i === 0 ? 'text-yellow-400' : i === 1 ? 'text-gray-300' : i === 2 ? 'text-orange-400' : 'text-gray-600'
-                    }`}>{i + 1}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-on-surface truncate">{s.horseName || `Entry #${s.entryId}`}</p>
-                      {s.currentPosition && <p className="text-[10px] text-gray-500">Current pos: {s.currentPosition}</p>}
+                {standings.map((s, i) => {
+                  const { lines, isRaceDQ, hasPenalty } = buildScoreBreakdown(s.entryId, execution, raceViolations)
+                  const tooltip = lines.length > 0
+                    ? `${lines.join('\n')}${isRaceDQ ? '\nRace DQ — 0 points regardless of leg results.' : ''}`
+                    : 'No confirmed legs yet.'
+                  return (
+                    <div key={s.entryId} className="px-5 py-3 flex items-center gap-4">
+                      <span className={`w-6 text-center font-bold text-lg ${
+                        i === 0 ? 'text-yellow-400' : i === 1 ? 'text-gray-300' : i === 2 ? 'text-orange-400' : 'text-gray-600'
+                      }`}>{i + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-on-surface truncate">{s.horseName || `Entry #${s.entryId}`}</p>
+                        {s.position && <p className="text-[10px] text-gray-500">Current pos: {s.position}</p>}
+                      </div>
+                      <div className="text-right shrink-0" title={tooltip}>
+                        <p className="text-sm font-bold text-yellow-400 font-mono flex items-center gap-1 justify-end cursor-help">
+                          {hasPenalty && (
+                            <AlertTriangle size={11} className={isRaceDQ ? 'text-red-400' : 'text-amber-400'} />
+                          )}
+                          {s.totalPoints}p
+                        </p>
+                        {isRaceDQ && <span className="text-[10px] text-red-400 ml-1">DQ</span>}
+                      </div>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-bold text-yellow-400 font-mono">{s.totalPoints}p</p>
-                      {s.isRaceDQ && <span className="text-[10px] text-red-400 ml-1">DQ</span>}
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}
         </div>
       )}
 
-      {/* Override modal */}
-      {showOverride && pauseInfo && (
-        <OverrideModal
-          race={selectedRace}
-          legIndex={pauseInfo.conflictedLeg?.legIndex ?? 0}
-          pauseInfo={pauseInfo}
-          onClose={() => {
-            setShowOverride(false)
-            modalOpenRef.current = false
-          }}
-          onResolved={() => {
-            setShowOverride(false)
-            modalOpenRef.current = false
-            loadExecution(selectedRace.raceId)
-            loadRaces()
-          }}
-        />
-      )}
     </div>
   )
 }

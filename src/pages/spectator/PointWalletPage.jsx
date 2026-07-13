@@ -7,14 +7,19 @@ import { getMyWallet, getMyPredictions, getWalletTransactions } from '../../api/
 
 const PAGE_SIZE = 10
 
+// Keys must match WalletTransaction.Type strings the BE actually writes (see PublishRaceResult,
+// UnpublishRaceResult, CreatePrediction/DeletePrediction, LockUser, RunWeeklyTopUp, AdjustPoints).
 const TX_TYPE_META = {
-  BetWon:         { label: 'Bet Won',          cls: 'bg-primary/15 text-primary border border-primary/25' },
   BetPlaced:      { label: 'Bet Placed',        cls: 'bg-error/15 text-error border border-error/25' },
-  TopUp:          { label: 'Top-Up',            cls: 'bg-primary/15 text-primary border border-primary/25' },
+  Payout:         { label: 'Bet Won',           cls: 'bg-primary/15 text-primary border border-primary/25' },
+  PayoutRollback: { label: 'Payout Reversed',   cls: 'bg-error/20 text-error border border-error/30' },
+  BetRefunded:    { label: 'Bet Refunded',      cls: 'bg-secondary/15 text-secondary border border-secondary/25' },
+  BetRefund:      { label: 'Bet Refunded',      cls: 'bg-secondary/15 text-secondary border border-secondary/25' },
   WeeklyTopUp:    { label: 'Weekly Top-Up',     cls: 'bg-surface-container-high text-on-surface-variant border border-outline-variant/50' },
-  AdminDeduction: { label: 'Admin Deduction',   cls: 'bg-error/20 text-error border border-error/30' },
-  Refund:         { label: 'Refund',            cls: 'bg-secondary/15 text-secondary border border-secondary/25' },
-  PrizePayout:    { label: 'Prize Payout',      cls: 'bg-secondary/15 text-secondary border border-secondary/25' },
+  Credit:         { label: 'Credit',            cls: 'bg-primary/15 text-primary border border-primary/25' },
+  Bonus:          { label: 'Bonus',             cls: 'bg-primary/15 text-primary border border-primary/25' },
+  Debit:          { label: 'Debit',             cls: 'bg-error/15 text-error border border-error/25' },
+  Fine:           { label: 'Fine',              cls: 'bg-error/20 text-error border border-error/30' },
 }
 
 function getTxMeta(type) {
@@ -36,7 +41,7 @@ function fmtTxDesc(tx) {
   if (tx.reason) return tx.reason
   switch (tx.type) {
     case 'BetPlaced':   return `Prediction #${tx.predictionId ?? '—'}`
-    case 'BetWon':      return `Winning payout — Prediction #${tx.predictionId ?? '—'}`
+    case 'Payout':      return `Winning payout — Prediction #${tx.predictionId ?? '—'}`
     case 'WeeklyTopUp': return 'Standard Weekly Allowance'
     case 'TopUp':       return 'Manual Top-Up'
     default:            return tx.type

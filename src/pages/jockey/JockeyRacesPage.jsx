@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Calendar, ChevronRight, CircleCheck, Flag } from "lucide-react";
-import { getRaces } from "../../api/jockey";
+import { getRaces, getEntries, getRaceResults } from "../../api/jockey";
+import { useAuth } from "../../context/AuthContext";
 
 const TABS = ["Upcoming", "Completed"];
 
@@ -28,6 +29,18 @@ function isTomorrow(d) {
   return Math.round((new Date(d) - new Date()) / 86400000) === 1;
 }
 
+// Position/DQ label from a published RaceResult row (null while the race hasn't been published yet).
+function positionLabel(result) {
+  if (!result) return null;
+  if (result.isRaceDQ) return "DQ";
+  switch (result.finalPosition) {
+    case 1: return "1ST PLACE";
+    case 2: return "2ND PLACE";
+    case 3: return "3RD PLACE";
+    default: return result.finalPosition ? `#${result.finalPosition}` : null;
+  }
+}
+
 // ── Featured card (large left) ───────────────────────────────────────────────
 function FeaturedRaceCard({ race }) {
   const tomorrow = isTomorrow(race.scheduledAt);
@@ -36,18 +49,16 @@ function FeaturedRaceCard({ race }) {
       {/* Top row */}
       <div className="flex items-start justify-between gap-3">
         <div>
-          {race.raceType && (
+          {race.roundType && (
             <span className="text-[10px] px-2.5 py-1 rounded border border-white/15 text-gray-400 font-semibold uppercase tracking-widest">
-              {race.raceType}
+              {race.roundType}
             </span>
           )}
           <h2 className="text-white font-bold text-2xl leading-tight mt-2">
             {race.name ?? `Race #${race.raceId}`}
           </h2>
           <p className="text-gray-500 text-xs mt-1">
-            {[race.surface, race.distance, race.class]
-              .filter(Boolean)
-              .join(" • ") || "—"}
+            {race.tournamentName ?? "—"}
           </p>
         </div>
 
@@ -86,7 +97,7 @@ function FeaturedRaceCard({ race }) {
               Mount
             </p>
             <p className="text-white text-sm font-bold">
-              {race.horseName ?? "—"}
+              {race.entry?.horseName ?? "—"}
             </p>
           </div>
         </div>
@@ -105,16 +116,16 @@ function SmallRaceCard({ race }) {
       {/* Top */}
       <div className="flex items-start justify-between gap-2">
         <div>
-          {race.raceType && (
+          {race.roundType && (
             <span className="text-[10px] px-2 py-0.5 rounded border border-yellow-500/30 text-yellow-400 bg-yellow-500/10 font-semibold uppercase tracking-widest">
-              {race.raceType}
+              {race.roundType}
             </span>
           )}
           <h3 className="text-white font-bold text-base leading-snug mt-2">
             {race.name ?? `Race #${race.raceId}`}
           </h3>
           <p className="text-gray-500 text-xs mt-0.5">
-            {[race.surface, race.distance].filter(Boolean).join(" • ") || "—"}
+            {race.tournamentName ?? "—"}
           </p>
         </div>
         <Calendar size={15} className="text-gray-600 flex-shrink-0 mt-1" />
@@ -136,7 +147,7 @@ function SmallRaceCard({ race }) {
             Mount
           </p>
           <p className="text-white text-xs font-bold mt-0.5">
-            {race.horseName ?? "—"}
+            {race.entry?.horseName ?? "—"}
           </p>
         </div>
       </div>
@@ -146,7 +157,8 @@ function SmallRaceCard({ race }) {
 
 // ── Completed card ────────────────────────────────────────────────────────────
 function CompletedRaceCard({ race }) {
-  const placement = race.placement; // e.g. "2ND PLACE"
+  const placement = positionLabel(race.result);
+  const isDq = race.result?.isRaceDQ;
   return (
     <div className="bg-[#141c2e] border border-white/10 rounded-2xl p-5 flex flex-col justify-between min-h-[180px] opacity-90">
       {/* Top */}
@@ -158,7 +170,11 @@ function CompletedRaceCard({ race }) {
           </h3>
         </div>
         {placement && (
-          <span className="text-[10px] px-2 py-0.5 rounded border border-yellow-500/40 text-yellow-400 bg-yellow-500/10 font-bold uppercase tracking-wider whitespace-nowrap flex-shrink-0">
+          <span className={`text-[10px] px-2 py-0.5 rounded border font-bold uppercase tracking-wider whitespace-nowrap flex-shrink-0 ${
+            isDq
+              ? "border-red-500/40 text-red-400 bg-red-500/10"
+              : "border-yellow-500/40 text-yellow-400 bg-yellow-500/10"
+          }`}>
             {placement}
           </span>
         )}
@@ -171,15 +187,15 @@ function CompletedRaceCard({ race }) {
             Mount
           </p>
           <p className="text-gray-400 text-xs font-semibold mt-0.5">
-            {race.horseName ?? "—"}
+            {race.entry?.horseName ?? "—"}
           </p>
         </div>
         <div className="flex items-center justify-between pt-2 border-t border-white/5">
           <p className="text-gray-600 text-[10px] uppercase tracking-wider">
-            Prize
+            Points
           </p>
           <p className="text-yellow-400 text-sm font-bold">
-            {race.prize ? `${race.prize.toLocaleString()} GS` : "—"}
+            {race.result ? `${race.result.totalPoints} pts` : "—"}
           </p>
         </div>
       </div>
@@ -189,25 +205,45 @@ function CompletedRaceCard({ race }) {
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 export default function JockeyRacesPage() {
+  const { user } = useAuth();
+  const userId = user?.userId ?? user?.id;
+
   const [races, setRaces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("Upcoming");
 
   useEffect(() => {
-    getRaces()
-      .then((data) => {
-        const list = Array.isArray(data) ? data : (data?.data ?? []);
-        setRaces(list);
-      })
-      .catch((err) => console.error("getRaces failed:", err))
-      .finally(() => setLoading(false));
-  }, []);
+    Promise.all([getRaces(), getEntries(), getRaceResults()])
+      .then(([racesData, entriesData, resultsData]) => {
+        const raceList = Array.isArray(racesData) ? racesData : (racesData?.data ?? []);
+        const entryList = Array.isArray(entriesData) ? entriesData : [];
+        const resultList = Array.isArray(resultsData) ? resultsData : [];
 
-  const upcoming = races.filter(
-    (r) => r.status === "Scheduled" || r.status === "Upcoming",
-  );
+        const resultMap = {};
+        resultList.forEach((r) => { resultMap[r.entryId] = r; });
+
+        // JOCKEY entries aren't scoped server-side, so filter to this jockey's confirmed mounts.
+        const myEntries = entryList.filter(
+          (e) => e.jockeyId === userId && e.status === "Approved",
+        );
+
+        const myRaces = myEntries
+          .map((entry) => {
+            const race = raceList.find((r) => r.raceId === entry.raceId);
+            if (!race) return null;
+            return { ...race, entry, result: resultMap[entry.entryId] ?? null };
+          })
+          .filter(Boolean);
+
+        setRaces(myRaces);
+      })
+      .catch((err) => console.error("Failed to load jockey races:", err))
+      .finally(() => setLoading(false));
+  }, [userId]);
+
+  const upcoming = races.filter((r) => r.status === "Scheduled");
   const completed = races.filter(
-    (r) => r.status === "Completed" || r.status === "Cancelled",
+    (r) => r.status === "Finished" || r.status === "Cancelled",
   );
   const filtered = activeTab === "Upcoming" ? upcoming : completed;
   const [featured, ...rest] = filtered;

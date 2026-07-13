@@ -71,7 +71,8 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
 
   const balance      = Number(wallet?.balance ?? 0)
   const alreadyBet   = myPredictions.some(p => p.raceId === race.raceId && p.status !== 'Cancelled')
-  const canBet       = race.status === 'Scheduled' && !alreadyBet
+  const oddsLocked   = !!race.oddsComputedAt
+  const canBet       = race.status === 'Scheduled' && oddsLocked && !alreadyBet
   const amount       = Number(betAmount) || 0
   const selectedEntry = entries.find(e => e.entryId === Number(selectedEntryId))
   const selectedOdds  = selectedEntry?.currentOdds ?? 1.0
@@ -172,7 +173,13 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
           </div>
         )}
 
-        {!alreadyBet && !betSuccess && (
+        {!alreadyBet && !oddsLocked && !betSuccess && (
+          <div className="mb-3 p-3 rounded-lg bg-surface-container border border-outline-variant/40 text-on-surface-variant text-sm">
+            Betting isn't open yet — registration hasn't closed, so odds haven't been locked in. Check back once the admin closes registration for this race.
+          </div>
+        )}
+
+        {!alreadyBet && oddsLocked && !betSuccess && (
           <>
             {betError && (
               <div className="mb-3 p-3 rounded-lg bg-error/10 border border-error/25 text-error text-sm flex items-center gap-2">
@@ -190,7 +197,7 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
                   className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all"
                 >
                   <option value="">Select Entry...</option>
-                  {entries.filter(e => e.status === 'Approved').map(e => (
+                  {entries.map(e => (
                     <option key={e.entryId} value={e.entryId}>
                       {horseMap[e.horseId]?.name ?? `Entry #${e.entryId}`}
                     </option>
@@ -322,7 +329,9 @@ export default function RacesBettingPage() {
 
   const selectedRace   = allRaces.find(r => r.raceId === selectedId) ?? filteredRaces[0] ?? null
   const selectedDetail = selectedRace ? raceDetails[selectedRace.raceId] : null
-  const selectedEntries = selectedRace ? allEntries.filter(e => e.raceId === selectedRace.raceId) : []
+  const selectedEntries = selectedRace
+    ? allEntries.filter(e => e.raceId === selectedRace.raceId && e.status === 'Approved')
+    : []
 
   return (
     <div className="min-h-screen p-8">

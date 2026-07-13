@@ -286,35 +286,6 @@ export async function finishRace(id) {
   return res.data
 }
 
-// ─── Discrepancies ─────────────────────────────────────────────────────────────
-
-export async function getAllDiscrepancies({ page = 1, pageSize = 10, search = "", sort = "createdAt", sortDirection = "desc", status = "" } = {}) {
-  const params = { page, pageSize, search, sort, sortDirection }
-  if (status) params.status = status
-  const res = await api.get('/api/admin/discrepancies', { params })
-  return res.data
-}
-
-export async function getDiscrepancyById(id) {
-  const res = await api.get(`/api/admin/discrepancies/${id}`)
-  return res.data
-}
-
-export async function createDiscrepancy(data) {
-  const res = await api.post('/api/admin/discrepancies', data)
-  return res.data
-}
-
-export async function resolveDiscrepancy(id, resolution) {
-  const res = await api.post(`/api/admin/discrepancies/${id}/resolve`, resolution)
-  return res.data
-}
-
-export async function deleteDiscrepancy(id) {
-  const res = await api.delete(`/api/admin/discrepancies/${id}`)
-  return res.data
-}
-
 // ─── Violations ────────────────────────────────────────────────────────────────
 
 // GET /api/admin/violations?status=&page=&pageSize=
@@ -338,23 +309,20 @@ export async function getAllViolations({
   return res.data;
 }
 
-export async function getViolationById(id) {
-  const res = await api.get(`/api/admin/violations/${id}`)
-  return res.data
+// GET /api/violations — generic list (REFEREE/ADMIN), unpaginated, includes EntryId/LegNumber
+// (unlike GET /api/admin/violations, which is paginated/admin-formatted and omits those fields).
+// Used to cross-reference approved penalties to specific entries/legs for score-breakdown UI.
+export async function getViolationsWithEntryDetail() {
+  const res = await api.get("/api/violations");
+  return Array.isArray(res.data) ? res.data : [];
 }
 
-export async function createViolation(data) {
-  const res = await api.post('/api/admin/violations', data)
-  return res.data
-}
-
+// NOTE: update lives on the generic ViolationsController (`/api/violations/{id}`,
+// [Authorize(Roles="REFEREE,ADMIN")]), NOT under /api/admin/violations — AdminController
+// only exposes GET/approve/reject for violations, no PUT route. Calling the /api/admin/...
+// path 404s.
 export async function updateViolation(id, data) {
-  const res = await api.put(`/api/admin/violations/${id}`, data)
-  return res.data
-}
-
-export async function deleteViolation(id) {
-  const res = await api.delete(`/api/admin/violations/${id}`)
+  const res = await api.put(`/api/violations/${id}`, data)
   return res.data
 }
 
@@ -464,8 +432,13 @@ export async function publishRace(raceId) {
   return res.data
 }
 
-export async function unpublishRace(raceId) {
-  const res = await api.post(`/api/races/${raceId}/unpublish`)
+// `reason` is required client-side (see AdminRacesPage's UnpublishConfirmModal) for
+// transparency/audit purposes. NOTE: as of 2026-07-13, UnpublishRaceResultCommand on BE
+// does not yet accept or persist a reason — this is a pending BE change (see
+// FE_REQUESTS_FOR_BE report). Sending it now is harmless (BE ignores unknown JSON
+// fields) and means FE is ready the moment BE adds support.
+export async function unpublishRace(raceId, reason) {
+  const res = await api.post(`/api/races/${raceId}/unpublish`, { reason })
   return res.data
 }
 

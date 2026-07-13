@@ -11,7 +11,7 @@ import {
   TrendingDown,
   Coins,
   User,
-  Eye,
+  Lock,
   X,
   CheckCircle,
   XCircle,
@@ -159,7 +159,7 @@ function AdjustPointsModal({ onClose }) {
                         </div>
                       </div>
                       <span className="text-sm font-mono font-bold text-blue-400">
-                        {b.currentBalance.toLocaleString("en-US")}
+                        {b.balance.toLocaleString("en-US")}
                       </span>
                     </button>
                   ))
@@ -174,7 +174,7 @@ function AdjustPointsModal({ onClose }) {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-on-surface">{selectedUser.userName}</p>
-                  <p className="text-xs text-on-surface-variant">Balance: {selectedUser.currentBalance.toLocaleString("en-US")} pts</p>
+                  <p className="text-xs text-on-surface-variant">Balance: {selectedUser.balance.toLocaleString("en-US")} pts</p>
                 </div>
               </div>
               <button onClick={() => setSelectedUser(null)} className="text-xs text-red-400 hover:text-red-300 underline">
@@ -332,11 +332,10 @@ export default function AdminPointManagementPage() {
   }, [searchQuery, transactionTypeFilter]);
 
   const handleExportBalances = () => {
-    const headers = ["ID", "Name", "Email", "Current Balance", "Total Earned", "Total Spent", "Last Activity"];
+    const headers = ["ID", "Name", "Email", "Balance", "Frozen"];
     const rows = balances.map((b) => [
       b.userId, b.userName || "", b.userEmail || "",
-      b.currentBalance, b.totalEarned, b.totalSpent,
-      formatDate(b.lastTransactionAt),
+      b.balance, b.isFrozen ? "Yes" : "No",
     ]);
     const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
@@ -360,9 +359,8 @@ export default function AdminPointManagementPage() {
     a.click(); URL.revokeObjectURL(url);
   };
 
-  const totalPoints = balances.reduce((s, b) => s + (b.currentBalance || 0), 0);
-  const totalEarned = balances.reduce((s, b) => s + (b.totalEarned || 0), 0);
-  const totalSpent = balances.reduce((s, b) => s + (b.totalSpent || 0), 0);
+  const totalPoints = balances.reduce((s, b) => s + (b.balance || 0), 0);
+  const frozenCount = balances.filter((b) => b.isFrozen).length;
 
   const totalPagesBal = Math.max(1, Math.ceil(totalBalances / PAGE_SIZE_BALANCES));
   const paginatedBalances = balances;
@@ -394,7 +392,7 @@ export default function AdminPointManagementPage() {
       </div>
 
       {/* Summary stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8">
         <div className="gs-card p-4 flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
             <Coins className="w-4 h-4 text-blue-400" />
@@ -405,21 +403,12 @@ export default function AdminPointManagementPage() {
           </div>
         </div>
         <div className="gs-card p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-            <TrendingUp className="w-4 h-4 text-emerald-400" />
-          </div>
-          <div>
-            <p className="text-lg font-bold text-emerald-400 font-mono">{totalEarned.toLocaleString("en-US")}</p>
-            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Total Earned</p>
-          </div>
-        </div>
-        <div className="gs-card p-4 flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center shrink-0">
-            <TrendingDown className="w-4 h-4 text-red-400" />
+            <Lock className="w-4 h-4 text-red-400" />
           </div>
           <div>
-            <p className="text-lg font-bold text-red-400 font-mono">{totalSpent.toLocaleString("en-US")}</p>
-            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Total Spent</p>
+            <p className="text-lg font-bold text-red-400 font-mono">{frozenCount.toLocaleString("en-US")}</p>
+            <p className="text-[11px] text-on-surface-variant uppercase tracking-wider">Frozen Wallets</p>
           </div>
         </div>
         <div className="gs-card p-4 flex items-center gap-3">
@@ -471,6 +460,14 @@ export default function AdminPointManagementPage() {
       {/* ── BALANCES TAB ── */}
       {activeTab === "Balances" && (
         <>
+          <div className="flex justify-end mb-3">
+            <button onClick={handleExportBalances} disabled={balances.length === 0}
+              className="gs-btn gs-btn-ghost gs-btn-sm shrink-0 flex items-center gap-1.5">
+              <Download className="w-3.5 h-3.5" />
+              Export CSV
+            </button>
+          </div>
+
           {errorBalances && (
             <div className="mb-4 auth-alert auth-alert--error flex items-start gap-3">
               <XCircle className="w-5 h-5 shrink-0 mt-0.5" />
@@ -503,12 +500,10 @@ export default function AdminPointManagementPage() {
                 <table className="admin-table">
                   <thead>
                     <tr>
-                      <th style={{ width: "25%" }}>User</th>
-                      <th style={{ width: "20%" }}>Email</th>
-                      <th style={{ width: "14%" }}>Balance</th>
-                      <th style={{ width: "13%" }}>Total Earned</th>
-                      <th style={{ width: "13%" }}>Total Spent</th>
-                      <th style={{ width: "15%" }}>Last Activity</th>
+                      <th style={{ width: "32%" }}>User</th>
+                      <th style={{ width: "28%" }}>Email</th>
+                      <th style={{ width: "20%" }}>Balance</th>
+                      <th style={{ width: "20%" }}>Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -525,17 +520,17 @@ export default function AdminPointManagementPage() {
                         <td className="text-sm text-on-surface-variant truncate">{b.userEmail || "—"}</td>
                         <td>
                           <span className="text-sm font-bold font-mono text-blue-400">
-                            {b.currentBalance.toLocaleString("en-US")}
+                            {b.balance.toLocaleString("en-US")}
                           </span>
                         </td>
-                        <td className="text-sm text-emerald-400 font-mono">
-                          {b.totalEarned.toLocaleString("en-US")}
-                        </td>
-                        <td className="text-sm text-red-400 font-mono">
-                          {b.totalSpent.toLocaleString("en-US")}
-                        </td>
-                        <td className="text-on-surface-variant font-mono text-xs">
-                          {formatDate(b.lastTransactionAt)}
+                        <td>
+                          {b.isFrozen ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-500/10 text-red-400">
+                              <Lock className="w-3 h-3" /> Frozen
+                            </span>
+                          ) : (
+                            <span className="text-xs text-on-surface-variant">Active</span>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -655,7 +650,7 @@ export default function AdminPointManagementPage() {
                               </div>
                               <div className="min-w-0">
                                 <p className="text-sm text-on-surface truncate">{t.userName || "—"}</p>
-                                <p className="text-xs text-on-surface-variant truncate">{t.userRole || ""}</p>
+                                <p className="text-xs text-on-surface-variant truncate">{t.userEmail || ""}</p>
                               </div>
                             </div>
                           </td>
@@ -677,11 +672,6 @@ export default function AdminPointManagementPage() {
                             <p className="text-sm text-on-surface truncate" title={t.reason || ""}>
                               {t.reason || "—"}
                             </p>
-                            {t.referenceId && (
-                              <p className="text-xs text-on-surface-variant/60 font-mono truncate">
-                                ref: {t.referenceId}
-                              </p>
-                            )}
                           </td>
                           <td className="text-on-surface-variant font-mono text-xs">
                             {formatDate(t.createdAt)}

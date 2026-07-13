@@ -18,9 +18,12 @@ const menuItems = [
   { path: "/admin/users", label: "Users", icon: Users },
   { path: "/admin/horses", label: "Horses", icon: List },
   { path: "/admin/tournaments", label: "Tournaments", icon: Trophy },
-  { path: "/admin/races", label: "Races", icon: Flag },
+  // end: true — without it, NavLink treats /admin/races as a prefix match, so it'd stay
+  // "active" on nested routes like /admin/races/:id/conflict (Race Conflicts' own page),
+  // which is misleading since that page isn't part of Races management.
+  { path: "/admin/races", label: "Races", icon: Flag, end: true },
   { path: "/admin/race-execution", label: "Race Execution", icon: Zap },
-  { path: "/admin/discrepancies", label: "Discrepancies", icon: AlertTriangle },
+  { path: "/admin/discrepancies", label: "Race Conflicts", icon: AlertTriangle },
   { path: "/admin/violations", label: "Violations", icon: Shield },
   { path: "/admin/point-management", label: "Point Management", icon: Layers },
 ];

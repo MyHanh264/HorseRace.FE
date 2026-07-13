@@ -96,10 +96,29 @@ export function useAdminNotifications() {
             id: `race-paused-${r.raceId}`,
             type: "error",
             msg: `Race "${r.name}" is paused — the 2 referees reported mismatched results, needs immediate attention.`,
-            path: "/admin/race-execution",
+            path: `/admin/races/${r.raceId}/conflict`,
             ts: now,
           });
         });
+
+        // Races ready to publish but still blocked by an unresolved violation report —
+        // surfaced here so Admin doesn't discover this only after opening Monitor.
+        const violationCountByRace = {};
+        pendingViolations.forEach((v) => {
+          violationCountByRace[v.raceId] = (violationCountByRace[v.raceId] ?? 0) + 1;
+        });
+        races
+          .filter((r) => r.status === "PendingResult" && violationCountByRace[r.raceId] > 0)
+          .forEach((r) => {
+            const count = violationCountByRace[r.raceId];
+            list.push({
+              id: `race-blocked-${r.raceId}`,
+              type: "warn",
+              msg: `Race "${r.name}" is ready to publish but has ${count} unresolved violation report${count > 1 ? "s" : ""}.`,
+              path: `/admin/race-execution?raceId=${r.raceId}`,
+              ts: now,
+            });
+          });
 
         withdrawnEntries.forEach((e) => {
           const race = raceById.get(e.raceId);

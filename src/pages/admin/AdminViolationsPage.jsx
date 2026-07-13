@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Search,
   RefreshCw,
@@ -22,6 +23,7 @@ import {
   approveViolation,
   rejectViolation,
   updateViolation,
+  getRaces,
 } from "../../api/admin";
 
 // ─── Domain-aligned enums (Flow 6 — Violation Handling) ──────────────────────
@@ -32,6 +34,13 @@ import {
 //   Pending   → "Pending"  (not yet processed)
 //   Approved  → "Resolved" (approved, penalty applied)
 //   Rejected  → "Dismissed" (rejected)
+
+// UI label → domain value (BE's UpdateViolationCommandHandler only accepts the domain strings).
+const STATUS_UI_TO_DOMAIN = {
+  Pending: "Pending",
+  Resolved: "Approved",
+  Dismissed: "Rejected",
+};
 
 const PENALTY_CONFIG = {
   None: {
@@ -478,7 +487,7 @@ function EditViolationModal({ item, onClose, onSaved }) {
         ViolationType:       item.violationType,
         Description:         item.description || null,
         Penalty:             penalty,
-        Status:              status,
+        Status:              STATUS_UI_TO_DOMAIN[status] ?? status,
         ReviewedByAdminId:   item.reviewedByAdminId || null,
         AdminNote:           adminNote.trim() || null,
       });
@@ -620,10 +629,16 @@ function EditViolationModal({ item, onClose, onSaved }) {
 }
 
 export default function AdminViolationsPage() {
+  // Deep link from Race Execution's "N pending violations" badge — jumps straight to
+  // that race's reports instead of the full list.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const raceIdFilter = searchParams.get("raceId");
+
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState("All");
+  // Deep-linked with a raceId → jump straight to Pending, since that's the actionable tab.
+  const [activeTab, setActiveTab] = useState(() => (raceIdFilter ? "Pending" : "All"));
   const [searchQuery, setSearchQuery] = useState("");
   const [selected, setSelected] = useState(null);
   const [page, setPage] = useState(1);
@@ -631,6 +646,10 @@ export default function AdminViolationsPage() {
   const [pendingCount, setPendingCount] = useState(0);
   const [resolvedCount, setResolvedCount] = useState(0);
   const [dismissedCount, setDismissedCount] = useState(0);
+  // raceId → status — once a race is Finished (published), its RaceResult is already
+  // frozen; approving/rejecting/editing a violation after that would silently diverge
+  // from what's shown to other roles, so those actions are disabled for those rows.
+  const [raceStatusMap, setRaceStatusMap] = useState({});
 
   // Action targets (single-item modal at a time).
   const [approveTarget, setApproveTarget] = useState(null);
@@ -671,6 +690,16 @@ export default function AdminViolationsPage() {
     setPage(1);
   }, [activeTab, searchQuery]);
 
+  useEffect(() => {
+    getRaces()
+      .then(races => {
+        const map = {};
+        (Array.isArray(races) ? races : []).forEach(r => { map[r.raceId] = r.status; });
+        setRaceStatusMap(map);
+      })
+      .catch(() => {});
+  }, []);
+
   const handleActionDone = (msg) => {
     setApproveTarget(null);
     setRejectTarget(null);
@@ -706,6 +735,7 @@ export default function AdminViolationsPage() {
   };
 
   const filtered = items.filter((v) => {
+    if (raceIdFilter && String(v.raceId) !== String(raceIdFilter)) return false;
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -715,6 +745,16 @@ export default function AdminViolationsPage() {
       (v.description || "").toLowerCase().includes(q)
     );
   });
+
+  const raceFilterName = raceIdFilter
+    ? items.find((v) => String(v.raceId) === String(raceIdFilter))?.raceName
+    : null;
+
+  const clearRaceFilter = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("raceId");
+    setSearchParams(next);
+  };
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -800,6 +840,19 @@ export default function AdminViolationsPage() {
             <span>{error}</span>
             <button onClick={() => setError("")} className="ml-3 text-xs underline hover:no-underline">Close</button>
           </div>
+        </div>
+      )}
+
+      {/* Deep-link filter chip */}
+      {raceIdFilter && (
+        <div className="mb-4 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-secondary/10 border border-secondary/25 text-sm text-on-surface">
+          <ShieldAlert className="w-4 h-4 text-secondary shrink-0" />
+          <span>
+            Showing reports for race <strong>{raceFilterName || `#${raceIdFilter}`}</strong> only.
+          </span>
+          <button onClick={clearRaceFilter} className="ml-auto text-xs underline hover:no-underline text-secondary">
+            Clear filter
+          </button>
         </div>
       )}
 
@@ -892,6 +945,7 @@ export default function AdminViolationsPage() {
                   const isPending   = v.status === "Pending";
                   const isResolved  = v.status === "Resolved";
                   const isDismissed = v.status === "Dismissed";
+                  const isRaceFinished = raceStatusMap[v.raceId] === "Finished";
                   return (
                     <tr key={v.violationId}>
                       <td className="text-on-surface-variant font-mono text-xs whitespace-nowrap">#{v.violationId}</td>
@@ -953,9 +1007,9 @@ export default function AdminViolationsPage() {
                               <button
                                 type="button"
                                 onClick={() => setApproveTarget(v)}
-                                disabled={approveTarget !== null || rejectTarget !== null || editTarget !== null}
+                                disabled={isRaceFinished || approveTarget !== null || rejectTarget !== null || editTarget !== null}
                                 className="h-7 px-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 flex items-center gap-1 text-xs font-semibold text-emerald-400 disabled:opacity-40 transition-all"
-                                title="Approve violation"
+                                title={isRaceFinished ? "Race already published — unpublish it first to process violations." : "Approve violation"}
                                 aria-label="Approve violation"
                               >
                                 <CheckCircle className="w-3.5 h-3.5 shrink-0" />
@@ -964,9 +1018,9 @@ export default function AdminViolationsPage() {
                               <button
                                 type="button"
                                 onClick={() => setRejectTarget(v)}
-                                disabled={approveTarget !== null || rejectTarget !== null || editTarget !== null}
+                                disabled={isRaceFinished || approveTarget !== null || rejectTarget !== null || editTarget !== null}
                                 className="h-7 px-2 rounded-lg bg-zinc-500/10 border border-zinc-500/30 hover:bg-zinc-500/20 flex items-center gap-1 text-xs font-semibold text-zinc-300 disabled:opacity-40 transition-all"
-                                title="Reject violation"
+                                title={isRaceFinished ? "Race already published — unpublish it first to process violations." : "Reject violation"}
                                 aria-label="Reject violation"
                               >
                                 <XCircle className="w-3.5 h-3.5 shrink-0" />
@@ -977,9 +1031,9 @@ export default function AdminViolationsPage() {
                             <button
                               type="button"
                               onClick={() => setEditTarget(v)}
-                              disabled={approveTarget !== null || rejectTarget !== null || editTarget !== null}
+                              disabled={isRaceFinished || approveTarget !== null || rejectTarget !== null || editTarget !== null}
                               className="h-7 px-2 rounded-lg bg-blue-500/10 border border-blue-500/30 hover:bg-blue-500/20 flex items-center gap-1 text-xs font-semibold text-blue-300 disabled:opacity-40 transition-all"
-                              title="Edit report"
+                              title={isRaceFinished ? "Race already published — unpublish it first to edit violations." : "Edit report"}
                               aria-label="Edit report"
                             >
                               <Edit3 className="w-3.5 h-3.5 shrink-0" />
