@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Flag, Lock, AlertCircle, X,
-  CheckCircle, XCircle, Users, UserCheck,
+  CheckCircle, XCircle, Users, UserCheck, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import {
   getRaceDetail, getRaces, getAllTournaments, getAllUser,
@@ -19,6 +19,8 @@ const ENTRY_STATUS_META = {
   Rejected:  { label: 'Rejected', cls: 'bg-error/15 text-error border border-error/25',               dot: 'bg-error' },
   Withdrawn: { label: 'Withdrawn', cls: 'bg-surface-container-high text-on-surface-variant border border-outline-variant/50', dot: 'bg-on-surface-variant' },
 }
+
+const PAGE_SIZE = 10
 
 // pastel avatar colors cycling
 const AVATAR_COLORS = [
@@ -66,6 +68,7 @@ export default function AdminRaceEntriesPage() {
   const [rejectingEntryId,   setRejectingEntryId]    = useState(null)
   const [rejectReason,       setRejectReason]        = useState('')
   const [tick,               setTick]                = useState(0)
+  const [page,               setPage]                = useState(1)
 
   const refresh = () => setTick(t => t + 1)
 
@@ -120,6 +123,10 @@ export default function AdminRaceEntriesPage() {
 
   const ref1 = race?.referee1Id ? userMap[race.referee1Id] : null
   const ref2 = race?.referee2Id ? userMap[race.referee2Id] : null
+
+  const totalPages = Math.max(1, Math.ceil(entries.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const paginatedEntries = entries.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   const handleOpenReg = async () => {
@@ -345,7 +352,7 @@ export default function AdminRaceEntriesPage() {
                 </tr>
               </thead>
               <tbody>
-                {entries.map((entry, i) => {
+                {paginatedEntries.map((entry, i) => {
                   const meta     = ENTRY_STATUS_META[entry.status] ?? ENTRY_STATUS_META.Pending
                   const isActing = entryAction?.id === entry.entryId
                   const isFav    = isRegClosed && entry.currentOdds && entry.currentOdds === minOdds
@@ -464,6 +471,23 @@ export default function AdminRaceEntriesPage() {
               <p className="text-center text-xs text-on-surface-variant py-3 border-t border-outline-variant/30">
                 Odds calculated based on historical win rates. Locked at {fmtDate(regInfo.registrationCloseAt)}.
               </p>
+            )}
+
+            {entries.length > PAGE_SIZE && (
+              <div className="flex items-center justify-between px-5 py-3 border-t border-outline-variant/30">
+                <span className="text-xs text-on-surface-variant">
+                  Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, entries.length)} of {entries.length}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="gs-btn gs-btn-ghost gs-btn-sm px-2">
+                    <ChevronLeft size={16} />
+                  </button>
+                  <span className="text-xs text-on-surface-variant px-2 font-mono">{currentPage} / {totalPages}</span>
+                  <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="gs-btn gs-btn-ghost gs-btn-sm px-2">
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         )}

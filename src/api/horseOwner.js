@@ -5,6 +5,13 @@ export async function getRaceResults() {
   return Array.isArray(res.data) ? res.data : [];
 }
 
+// Standings has HorseName/JockeyName embedded — needed because /api/entries only returns
+// this owner's own rows for HORSE_OWNER (BE scopes it), so it can't be used to see competitors.
+export async function getRaceStandings(raceId) {
+  const res = await api.get(`/api/races/${raceId}/standings`);
+  return Array.isArray(res.data) ? res.data : [];
+}
+
 export async function getMyHorses() {
   const res = await api.get("/api/horses");
   return res.data;

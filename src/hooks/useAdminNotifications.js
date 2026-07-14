@@ -10,6 +10,8 @@ import {
 
 const POLL_MS = 45_000;
 const STARTING_SOON_MS = 45 * 60 * 1000; // warn inside the last 45 minutes before scheduled start
+const LOW_TURNOUT_WARNING_MS = 48 * 60 * 60 * 1000; // warn inside the last 48h before start if turnout is low
+const MIN_APPROVED_ENTRIES = 2; // CloseRegistration/StartRace both hard-require >=2 Approved entries
 
 function fmtTime(dt) {
   return new Date(dt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
@@ -51,8 +53,14 @@ export function useAdminNotifications() {
         const pendingViolations = toArray(violationsRes);
         const races = toArray(racesRes);
         const pausedRaces = races.filter((r) => r.status === "Paused");
-        const withdrawnEntries = toArray(allEntriesRes).filter((e) => e.status === "Withdrawn");
+        const allEntries = toArray(allEntriesRes);
+        const withdrawnEntries = allEntries.filter((e) => e.status === "Withdrawn");
         const raceById = new Map(races.map((r) => [r.raceId, r]));
+
+        const approvedCountByRace = {};
+        allEntries.forEach((e) => {
+          if (e.status === "Approved") approvedCountByRace[e.raceId] = (approvedCountByRace[e.raceId] ?? 0) + 1;
+        });
 
         // Live queue/urgent items are re-evaluated fresh every poll, so pin them to "now"
         // — they should always outrank historical items like a withdrawn-entry notice.
@@ -148,6 +156,27 @@ export function useAdminNotifications() {
                 ts: now,
               });
             }
+          });
+
+        // Low-turnout risk: registration still open, race starts soon, but not enough
+        // approved entries yet — CloseRegistration/StartRace both hard-require ≥2 Approved,
+        // so anything below that will block the race entirely if nobody notices in time.
+        // Purely informational — Admin decides whether to chase more entries, wait, or
+        // cancel manually; nothing here auto-extends or auto-cancels the race.
+        races
+          .filter((r) => r.status === "Scheduled" && !r.registrationCloseAt && r.scheduledAt)
+          .forEach((r) => {
+            const msUntilStart = new Date(r.scheduledAt).getTime() - now;
+            if (msUntilStart <= 0 || msUntilStart > LOW_TURNOUT_WARNING_MS) return;
+            const approved = approvedCountByRace[r.raceId] ?? 0;
+            if (approved >= MIN_APPROVED_ENTRIES) return;
+            list.push({
+              id: `race-low-turnout-${r.raceId}`,
+              type: "warn",
+              msg: `Race "${r.name}" starts soon (${fmtTime(r.scheduledAt)}) with only ${approved} approved entr${approved === 1 ? "y" : "ies"} — needs ${MIN_APPROVED_ENTRIES} to close registration/start. Chase more entries or cancel manually.`,
+              path: "/admin/races",
+              ts: now,
+            });
           });
 
         withdrawnEntries.forEach((e) => {

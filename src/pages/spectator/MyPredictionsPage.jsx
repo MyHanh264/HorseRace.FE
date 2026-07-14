@@ -1,7 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { BookOpen, AlertCircle, X, XCircle, CheckCircle, Clock, TrendingUp } from 'lucide-react'
+import { BookOpen, AlertCircle, X, XCircle, CheckCircle, Clock, TrendingUp, Trophy } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import { getMyPredictions, cancelPrediction, getAllRaces, getAllTournaments, getMyWallet } from '../../api/spectator'
+import {
+  getMyPredictions, cancelPrediction, getAllRaces, getAllTournaments, getMyWallet,
+  getPredictionDetail, getAllEntries, getAllHorses, getRaceStandings, getRaceResults,
+} from '../../api/spectator'
+import RaceResultsModal from '../../components/RaceResultsModal'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -33,27 +37,47 @@ export default function MyPredictionsPage() {
   const [predictions,  setPredictions]  = useState([])
   const [races,        setRaces]        = useState([])
   const [tournaments,  setTournaments]  = useState([])
+  const [horseMap,     setHorseMap]     = useState({})
+  const [entryMap,     setEntryMap]     = useState({})
   const [wallet,       setWallet]       = useState(null)
   const [loading,      setLoading]      = useState(true)
   const [error,        setError]        = useState('')
   const [activeTab,    setActiveTab]    = useState('Active')
   const [cancelling,   setCancelling]   = useState(null)
   const [cancelError,  setCancelError]  = useState('')
+  const [resultsRace,  setResultsRace]  = useState(null) // race object shown in RaceResultsModal
 
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      const [preds, r, t, w] = await Promise.all([
+      const [predsBasic, r, t, w, entries, horses] = await Promise.all([
         getMyPredictions(user?.userId),
         getAllRaces(),
         getAllTournaments(),
         getMyWallet(user?.userId),
+        getAllEntries(),
+        getAllHorses(),
       ])
-      setPredictions(Array.isArray(preds) ? preds : [])
+
+      // The list endpoint doesn't include FirstEntryId/OddsLocked1 — fetch per-prediction detail.
+      const details = await Promise.all(
+        (Array.isArray(predsBasic) ? predsBasic : []).map(p =>
+          getPredictionDetail(p.predictionId).catch(() => null)
+        )
+      )
+      const preds = (Array.isArray(predsBasic) ? predsBasic : []).map((p, i) => ({
+        ...p,
+        firstEntryId: details[i]?.firstEntryId,
+        oddsLocked1:  details[i]?.oddsLocked1,
+      }))
+
+      setPredictions(preds)
       setRaces(Array.isArray(r) ? r : [])
       setTournaments(Array.isArray(t) ? t : [])
       setWallet(w)
+      setEntryMap(Object.fromEntries((entries ?? []).map(e => [e.entryId, e])))
+      setHorseMap(Object.fromEntries((horses ?? []).map(h => [h.horseId, h])))
     } catch (err) {
       setError(err?.message || 'Failed to load data')
     } finally {
@@ -222,7 +246,7 @@ export default function MyPredictionsPage() {
                         {/* Picks */}
                         <td>
                           <span className="text-sm text-primary font-medium">
-                            Entry #{pred.firstEntryId}
+                            {horseMap[entryMap[pred.firstEntryId]?.horseId]?.name ?? (pred.firstEntryId ? `Entry #${pred.firstEntryId}` : '—')}
                           </span>
                           <div className="text-xs text-on-surface-variant">Win</div>
                         </td>
@@ -248,7 +272,7 @@ export default function MyPredictionsPage() {
                         {/* Est. Payout */}
                         <td className="font-mono text-sm">
                           {pred.status === 'Won'
-                            ? <span className="text-secondary font-bold">{fmtBalance(pred.betAmount * 2)} pts</span>
+                            ? <span className="text-secondary font-bold">{fmtBalance(pred.betAmount * (pred.oddsLocked1 ?? 1))} pts</span>
                             : <span className="text-on-surface-variant">—</span>
                           }
                         </td>
@@ -267,6 +291,13 @@ export default function MyPredictionsPage() {
                               }
                               Cancel
                             </button>
+                          ) : race?.status === 'Finished' ? (
+                            <button
+                              onClick={() => setResultsRace(race)}
+                              className="flex items-center gap-1.5 text-xs font-bold text-yellow-400 hover:text-yellow-300 transition-colors"
+                            >
+                              <Trophy size={13} /> Results
+                            </button>
                           ) : (
                             <span className="text-xs text-on-surface-variant">—</span>
                           )}
@@ -280,6 +311,16 @@ export default function MyPredictionsPage() {
           )}
         </div>
       </div>
+
+      {resultsRace && (
+        <RaceResultsModal
+          raceId={resultsRace.raceId}
+          raceName={resultsRace.name}
+          onClose={() => setResultsRace(null)}
+          fetchStandings={getRaceStandings}
+          fetchResults={getRaceResults}
+        />
+      )}
     </div>
   )
 }

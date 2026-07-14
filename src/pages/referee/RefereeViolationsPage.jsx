@@ -34,6 +34,15 @@ const VIOLATION_TYPE_LABELS = {
   Khac:              'Other',
 }
 
+// FR-VIO-01 (SRS): the reporting referee must propose a sanction — Admin can still
+// re-select a different one when approving (BE `ApproveViolation` takes its own Penalty).
+const PROPOSED_PENALTIES = ['Warning', 'Demote', 'DQ']
+const PROPOSED_PENALTY_LABELS = {
+  Warning: 'Warning',
+  Demote:  'Position Demotion (tụt 1 hạng)',
+  DQ:      'Race Disqualification (DQ)',
+}
+
 const STATUS_META = {
   Pending:             { label: 'Pending',                cls: 'bg-yellow-400/10 text-yellow-400 border border-yellow-400/25' },
   Approved:            { label: 'Approved',                cls: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' },
@@ -84,6 +93,7 @@ function ReportViolationModal({ assignedRaces, raceEntries, horseMap, onClose, o
   const [raceId,    setRaceId]    = useState('')
   const [entryId,   setEntryId]   = useState('')
   const [type,      setType]      = useState('')
+  const [penalty,   setPenalty]   = useState('Warning')
   const [desc,      setDesc]      = useState('')
   const [saving,    setSaving]    = useState(false)
   const [err,       setErr]       = useState('')
@@ -109,6 +119,7 @@ function ReportViolationModal({ assignedRaces, raceEntries, horseMap, onClose, o
         entryId:       Number(entryId),
         violationType: type,
         description:   desc.trim(),
+        penalty,
       })
       onReported()
     } catch (e) {
@@ -195,6 +206,21 @@ function ReportViolationModal({ assignedRaces, raceEntries, horseMap, onClose, o
                 <option key={t} value={t}>{VIOLATION_TYPE_LABELS[t]}</option>
               ))}
             </select>
+          </div>
+
+          {/* Proposed Penalty */}
+          <div>
+            <label className="text-xs font-bold text-on-surface-variant uppercase tracking-widest block mb-1.5">Proposed Sanction</label>
+            <select
+              value={penalty}
+              onChange={e => setPenalty(e.target.value)}
+              className="w-full bg-surface-container-lowest border border-outline-variant/50 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-yellow-400/60 transition-all"
+            >
+              {PROPOSED_PENALTIES.map(p => (
+                <option key={p} value={p}>{PROPOSED_PENALTY_LABELS[p]}</option>
+              ))}
+            </select>
+            <p className="text-xs text-on-surface-variant mt-1.5">Admin makes the final call and may choose a different sanction on Approve.</p>
           </div>
 
           {/* Description */}

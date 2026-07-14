@@ -189,7 +189,7 @@ function HorseRow({ horse, onClick }) {
 
 // ─── InvitationRow ────────────────────────────────────────────────────────────
 
-function InvitationRow({ inv }) {
+function InvitationRow({ inv, onReview }) {
   const name = inv.jockeyName ?? `Jockey #${inv.jockeyId}`;
   const color = avatarColor(name);
   const abbr = initials(name);
@@ -213,7 +213,10 @@ function InvitationRow({ inv }) {
         {fmtDate(inv.sentAt)}
       </span>
 
-      <button className="border border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
+      <button
+        onClick={onReview}
+        className="border border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+      >
         Review
       </button>
     </div>
@@ -329,6 +332,9 @@ export default function HorseOwnerDashboard() {
   const finishedEntries = entries.filter(
     (e) => e.status === "Approved" && finishedRaceIds.has(e.raceId)
   );
+  const upcomingRaces = races
+    .filter((r) => r.status === "Scheduled")
+    .sort((a, b) => new Date(a.scheduledAt ?? a.scheduledStartTime) - new Date(b.scheduledAt ?? b.scheduledStartTime));
 
   const notifications = [];
   if (!loading) {
@@ -438,8 +444,8 @@ export default function HorseOwnerDashboard() {
           id="races"
           label="Upcoming Races"
           icon={<Calendar size={18} />}
-          value={races.length}
-          sub="This Week"
+          value={upcomingRaces.length}
+          sub="Scheduled"
         />
       </div>
 
@@ -506,7 +512,7 @@ export default function HorseOwnerDashboard() {
                   <span>Action</span>
                 </div>
                 {pendingInvitations.slice(0, 3).map((inv) => (
-                  <InvitationRow key={inv.invitationId} inv={inv} />
+                  <InvitationRow key={inv.invitationId} inv={inv} onReview={() => navigate("/horse-owner/invitations")} />
                 ))}
               </>
             )}
@@ -519,14 +525,14 @@ export default function HorseOwnerDashboard() {
             <h2 className="text-white font-bold text-base">Upcoming Races</h2>
           </div>
 
-          {races.length === 0 ? (
+          {upcomingRaces.length === 0 ? (
             <div className="flex flex-col items-center justify-center flex-1 py-12 gap-3">
               <Clock size={32} className="text-gray-700" />
               <p className="text-gray-500 text-sm">No upcoming races.</p>
             </div>
           ) : (
             <div className="flex flex-col gap-3 flex-1">
-              {races.slice(0, 4).map((race) => (
+              {upcomingRaces.slice(0, 4).map((race) => (
                 <RaceCard key={race.raceId} race={race} />
               ))}
             </div>

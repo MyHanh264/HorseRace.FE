@@ -137,9 +137,11 @@ export async function getAllTournaments() {
   return Array.isArray(res.data) ? res.data : []
 }
 
+// GET /api/users returns a paged object ({items, total, page, pageSize}, default pageSize=10),
+// not a flat array — request a large page so this "get everyone" helper actually gets everyone.
 export async function getAllUsers() {
-  const res = await api.get('/api/users')
-  return Array.isArray(res.data) ? res.data : []
+  const res = await api.get('/api/users', { params: { pageSize: 1000 } })
+  return Array.isArray(res.data?.items) ? res.data.items : []
 }
 
 export async function getAllEntries() {

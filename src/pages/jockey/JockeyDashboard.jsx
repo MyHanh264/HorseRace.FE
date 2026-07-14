@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Mail,
   Flag,
@@ -135,6 +136,7 @@ function InvitationCard({ inv, onAccept, onDecline, accepting, declining }) {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function JockeyDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const userId = user?.userId ?? user?.id;
   const firstName = user?.fullName?.split(" ")[0] ?? "there";
 
@@ -211,7 +213,7 @@ export default function JockeyDashboard() {
   const upcomingRaces = races.filter(
     (r) => acceptedRaceIds.has(r.raceId) && ["Scheduled", "InProgress"].includes(r.status)
   );
-  const prizePoints = profile?.totalPrizePoints ?? profile?.prizePoints ?? profile?.points ?? null;
+  const prizePoints = profile?.careerPrizePoints ?? null;
 
   const notifications = [];
   if (!loading) {
@@ -296,7 +298,10 @@ export default function JockeyDashboard() {
                 <h2 className="text-white font-bold text-base">
                   Invitation Inbox
                 </h2>
-                <button className="text-yellow-400 hover:text-yellow-300 text-sm flex items-center gap-1 transition-colors">
+                <button
+                  onClick={() => navigate("/jockey/invitations")}
+                  className="text-yellow-400 hover:text-yellow-300 text-sm flex items-center gap-1 transition-colors"
+                >
                   View All <ChevronRight size={14} />
                 </button>
               </div>
@@ -369,20 +374,6 @@ export default function JockeyDashboard() {
                     ))}
                   </div>
                 )}
-              </div>
-
-              {/* Jockey Masterclass card */}
-              <div className="bg-emerald-950/60 border border-emerald-500/25 rounded-xl p-5">
-                <h3 className="text-emerald-400 font-bold text-sm mb-1">
-                  Jockey Masterclass
-                </h3>
-                <p className="text-gray-400 text-xs leading-relaxed mb-4">
-                  Review recent race telemetry and improve your gate break
-                  timing.
-                </p>
-                <button className="text-xs px-4 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-semibold transition-colors">
-                  View Analysis
-                </button>
               </div>
             </div>
           </div>

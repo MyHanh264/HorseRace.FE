@@ -1,13 +1,15 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useLocation } from 'react-router-dom'
 import {
-  Flag, Search, Clock, AlertCircle, X, CheckCircle, ChevronRight,
+  Flag, Search, Clock, AlertCircle, X, CheckCircle, ChevronRight, Trophy,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import {
   getAllRaces, getRaceDetail, getAllEntries, getAllHorses,
   getAllTournaments, getMyWallet, getMyPredictions, placePrediction,
+  getRaceStandings, getRaceResults,
 } from '../../api/spectator'
+import RaceResultsModal from '../../components/RaceResultsModal'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -68,6 +70,7 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
   const [submitting, setSubmitting]           = useState(false)
   const [betError, setBetError]               = useState('')
   const [betSuccess, setBetSuccess]           = useState(false)
+  const [showResults, setShowResults]         = useState(false)
 
   const balance      = Number(wallet?.balance ?? 0)
   const alreadyBet   = myPredictions.some(p => p.raceId === race.raceId && p.status !== 'Cancelled')
@@ -123,11 +126,29 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
           {race.status === 'Scheduled' && raceDetail?.scheduledStartTime && (
             <Countdown target={raceDetail.scheduledStartTime} />
           )}
+          {race.status === 'Finished' && (
+            <button
+              onClick={() => setShowResults(true)}
+              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-yellow-400/10 text-yellow-400 border border-yellow-400/25 hover:bg-yellow-400/20 transition-all"
+            >
+              <Trophy size={13} /> View Results
+            </button>
+          )}
         </div>
         <p className="text-xs text-on-surface-variant">
           {raceDetail?.numberOfLegs ?? '—'} Legs · {raceDetail?.roundType ?? '—'} · Max {raceDetail?.maxHorses ?? '—'} horses
         </p>
       </div>
+
+      {showResults && (
+        <RaceResultsModal
+          raceId={race.raceId}
+          raceName={race.name}
+          onClose={() => setShowResults(false)}
+          fetchStandings={getRaceStandings}
+          fetchResults={getRaceResults}
+        />
+      )}
 
       {/* Contenders */}
       {entries.length > 0 && (

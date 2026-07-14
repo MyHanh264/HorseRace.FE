@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { getMyEntries, getRaces, withdrawEntry, getRaceResults } from "../../api/horseOwner";
-import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from "lucide-react";
+import { getMyEntries, getRaces, withdrawEntry, getRaceResults, getRaceStandings } from "../../api/horseOwner";
+import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Trophy } from "lucide-react";
+import RaceResultsModal from "../../components/RaceResultsModal";
 
 const PAGE_SIZE = 10;
 
@@ -37,6 +38,7 @@ export default function MyEntriesPage() {
   const [confirmWithdrawId, setConfirmWithdrawId] = useState(null);
   const [withdrawing, setWithdrawing] = useState(false);
   const [withdrawError, setWithdrawError] = useState("");
+  const [resultsRace, setResultsRace] = useState(null); // race object shown in RaceResultsModal
 
   const handleWithdraw = async (entryId) => {
     setWithdrawing(true);
@@ -331,6 +333,14 @@ export default function MyEntriesPage() {
                         Withdraw Entry
                       </button>
                     )}
+                    {isFinished && (
+                      <button
+                        onClick={() => setResultsRace(race)}
+                        className="flex items-center gap-1.5 text-xs font-bold text-yellow-400 hover:text-yellow-300 transition-colors whitespace-nowrap"
+                      >
+                        <Trophy size={13} /> Full Results
+                      </button>
+                    )}
                     <button
                       onClick={() =>
                         setExpandedId(
@@ -524,6 +534,16 @@ export default function MyEntriesPage() {
           </div>
         );
       })()}
+
+      {resultsRace && (
+        <RaceResultsModal
+          raceId={resultsRace.raceId}
+          raceName={resultsRace.name}
+          onClose={() => setResultsRace(null)}
+          fetchStandings={getRaceStandings}
+          fetchResults={getRaceResults}
+        />
+      )}
     </div>
   );
 }

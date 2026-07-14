@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import {
-  Trophy, Calendar, ChevronLeft, Search, Flag, Users,
+  Trophy, Calendar, ChevronLeft, ChevronRight, Search, Flag, Users,
 } from "lucide-react";
 import { getTournaments, getRaces, getMyEntries, getInvitations } from "../../api/horseOwner";
 import { useAuth } from "../../context/AuthContext";
@@ -57,6 +57,8 @@ function derivedStatus(tournament) {
 
 // Display priority: registration open/in progress first, finished last.
 const STATUS_PRIORITY = { Open: 0, Ongoing: 0, Draft: 1, Finished: 2, Cancelled: 2 };
+
+const PAGE_SIZE = 10;
 
 const FILTER_TABS = [
   { key: "All", label: "All" },
@@ -490,6 +492,7 @@ export default function HorseOwnerTournamentsPage() {
   const [registerRace, setRegisterRace] = useState(null);
   const [confirmInv, setConfirmInv]     = useState(null);
   const [filterTab, setFilterTab]       = useState("All");
+  const [page, setPage]                 = useState(1);
 
   const refreshData = () =>
     Promise.all([getMyEntries(), getInvitations()])
@@ -539,6 +542,13 @@ export default function HorseOwnerTournamentsPage() {
   const filteredTournaments = useMemo(
     () => sortedTournaments.filter((t) => matchesFilterTab(derivedStatus(t), filterTab)),
     [sortedTournaments, filterTab],
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filteredTournaments.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedTournaments = filteredTournaments.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
   );
 
   const entryByRace = useMemo(() => {
@@ -631,7 +641,7 @@ export default function HorseOwnerTournamentsPage() {
           return (
             <button
               key={key}
-              onClick={() => setFilterTab(key)}
+              onClick={() => { setFilterTab(key); setPage(1); }}
               className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-2 shrink-0
                 ${filterTab === key
                   ? "bg-yellow-500 text-black"
@@ -655,16 +665,46 @@ export default function HorseOwnerTournamentsPage() {
           <p className="text-gray-500 text-sm">No tournaments in this group.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4">
-          {filteredTournaments.map((t) => (
-            <TournamentListCard
-              key={t.tournamentId}
-              tournament={t}
-              racesCount={racesByTournament[t.tournamentId]?.length ?? 0}
-              onSelect={setSelected}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-2 gap-4">
+            {paginatedTournaments.map((t) => (
+              <TournamentListCard
+                key={t.tournamentId}
+                tournament={t}
+                racesCount={racesByTournament[t.tournamentId]?.length ?? 0}
+                onSelect={setSelected}
+              />
+            ))}
+          </div>
+
+          {filteredTournaments.length > PAGE_SIZE && (
+            <div className="flex items-center justify-between mt-6">
+              <span className="text-xs text-gray-500">
+                Showing {(currentPage - 1) * PAGE_SIZE + 1}–
+                {Math.min(currentPage * PAGE_SIZE, filteredTournaments.length)} of {filteredTournaments.length}
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-gray-300 transition-colors"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="text-xs text-gray-400 px-2 font-mono">
+                  {currentPage} / {totalPages}
+                </span>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-gray-300 transition-colors"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

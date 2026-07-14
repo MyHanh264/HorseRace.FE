@@ -131,11 +131,17 @@ export function useHorseOwnerNotifications() {
         });
 
         // Registration-deadline risk: races the owner engaged with (sent invitations for)
-        // that close soon without a confirmed entry yet.
+        // whose start time is approaching without a confirmed entry yet. BE has no
+        // pre-set registration deadline — `registrationCloseAt` is only ever written
+        // retroactively, at the exact moment Admin closes it (CloseRegistration.cs),
+        // so it's always null or already in the past and can't be used as a countdown.
+        // `scheduledAt` (race start) is the only forward-looking timestamp available,
+        // and registration must close before start, so it's the best proxy deadline.
+        // Once registrationCloseAt is set, registration is already closed — too late to act.
         const now = Date.now();
         races.forEach((race) => {
-          if (race.status !== "Scheduled" || !race.registrationCloseAt) return;
-          const msLeft = new Date(race.registrationCloseAt).getTime() - now;
+          if (race.status !== "Scheduled" || race.registrationCloseAt || !race.scheduledAt) return;
+          const msLeft = new Date(race.scheduledAt).getTime() - now;
           if (msLeft <= 0 || msLeft > DEADLINE_WARNING_MS) return;
 
           const raceInvitations = invitations.filter((inv) => inv.raceId === race.raceId);
@@ -155,14 +161,14 @@ export function useHorseOwnerNotifications() {
               ? {
                   id: `deadline-risk-${race.raceId}`,
                   type: "warn",
-                  msg: `Registration for "${race.name}" closes soon and you don't have a confirmed entry yet.`,
+                  msg: `"${race.name}" starts soon (${fmtTime(race.scheduledAt)}) and you don't have a confirmed entry yet — registration could close at any time.`,
                   path: "/horse-owner/invitations",
                   ts: now,
                 }
               : {
                   id: `deadline-risk-${race.raceId}`,
                   type: "error",
-                  msg: `All jockeys declined your invitations for "${race.name}" and registration closes soon — invite another jockey now.`,
+                  msg: `All jockeys declined your invitations for "${race.name}" and it starts soon (${fmtTime(race.scheduledAt)}) — invite another jockey now.`,
                   path: "/horse-owner/invitations",
                   ts: now,
                 },

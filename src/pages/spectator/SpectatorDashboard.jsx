@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Trophy, TrendingUp, Clock, ChevronRight, Wallet, Flag, AlertCircle, CheckCircle2, XCircle, Bell } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import { getMyWallet, getMyPredictions, getAllRaces, getAllTournaments } from '../../api/spectator'
+import { getMyWallet, getMyPredictions, getAllRaces, getAllTournaments, getPredictionDetail } from '../../api/spectator'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -119,7 +119,19 @@ export default function SpectatorDashboard() {
         ])
         if (!active) return
         setWallet(w)
-        setPredictions(Array.isArray(p) ? p : [])
+
+        // The list endpoint doesn't return OddsLocked1 — fetch detail for Won predictions
+        // only (needed to compute the real payout = betAmount * oddsLocked1).
+        const predsBasic = Array.isArray(p) ? p : []
+        const wonPreds = predsBasic.filter(x => x.status === 'Won')
+        const details = await Promise.all(
+          wonPreds.map(x => getPredictionDetail(x.predictionId).catch(() => null)),
+        )
+        const oddsByPredictionId = Object.fromEntries(
+          wonPreds.map((x, i) => [x.predictionId, details[i]?.oddsLocked1]),
+        )
+        if (!active) return
+        setPredictions(predsBasic.map(x => ({ ...x, oddsLocked1: oddsByPredictionId[x.predictionId] })))
         setRaces(Array.isArray(r) ? r : [])
         setTournaments(Array.isArray(t) ? t : [])
       } catch (err) {
@@ -149,7 +161,7 @@ export default function SpectatorDashboard() {
   const pendingSettle  = predictions.filter(p => p.status === 'Pending').length
   const totalWinnings  = predictions
     .filter(p => p.status === 'Won')
-    .reduce((sum, p) => sum + (p.pointsWon ?? p.payout ?? p.pointsBet ?? 0), 0)
+    .reduce((sum, p) => sum + Number(p.betAmount ?? 0) * Number(p.oddsLocked1 ?? 1), 0)
 
   const notifications = []
   if (!loading) {
