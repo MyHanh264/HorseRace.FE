@@ -9,6 +9,11 @@ import {
 } from "../api/admin";
 
 const POLL_MS = 45_000;
+const STARTING_SOON_MS = 45 * 60 * 1000; // warn inside the last 45 minutes before scheduled start
+
+function fmtTime(dt) {
+  return new Date(dt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+}
 
 function toArray(d) {
   return Array.isArray(d) ? d : (d?.data ?? d?.items ?? []);
@@ -118,6 +123,31 @@ export function useAdminNotifications() {
               path: `/admin/race-execution?raceId=${r.raceId}`,
               ts: now,
             });
+          });
+
+        races
+          .filter((r) => r.status === "Scheduled" && r.scheduledAt)
+          .forEach((r) => {
+            const msUntilStart = new Date(r.scheduledAt).getTime() - now;
+            if (msUntilStart > 0 && msUntilStart <= STARTING_SOON_MS) {
+              list.push({
+                id: `race-starting-soon-${r.raceId}`,
+                type: "info",
+                msg: `Race "${r.name}" starts soon, at ${fmtTime(r.scheduledAt)}.`,
+                path: "/admin/races",
+                ts: now,
+              });
+            } else if (msUntilStart <= 0) {
+              // Past its scheduled time but still Scheduled — either nobody's started it yet,
+              // or it's missing a precondition (referees/odds/entries) that's blocking start.
+              list.push({
+                id: `race-overdue-${r.raceId}`,
+                type: "error",
+                msg: `Race "${r.name}" was scheduled for ${fmtTime(r.scheduledAt)} but hasn't started yet.`,
+                path: "/admin/races",
+                ts: now,
+              });
+            }
           });
 
         withdrawnEntries.forEach((e) => {

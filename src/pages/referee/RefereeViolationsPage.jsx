@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import {
   AlertTriangle, AlertCircle, CheckCircle2, X, Plus,
   ChevronLeft, ChevronRight, SlidersHorizontal, Shield,
@@ -6,6 +7,7 @@ import {
 import { useAuth } from '../../context/AuthContext'
 import {
   getAllRaces, getRaceDetail, getAllEntries, getAllHorses, getViolations, reportViolation,
+  getAllTournaments,
 } from '../../api/referee'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -42,6 +44,19 @@ function getStatusMeta(s) {
   return STATUS_META[s] ?? { label: s ?? '—', cls: 'bg-surface-container-high text-on-surface-variant border border-outline-variant/40' }
 }
 
+// What actually happened to the entry's score as a result of this report — shown so the
+// reporting referee can see whether/how many points were deducted, not just Approved/Rejected.
+const PENALTY_META = {
+  None:    { label: 'No Penalty', cls: 'bg-zinc-500/10 text-zinc-400 border border-zinc-500/20' },
+  Warning: { label: 'Warning',     cls: 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20' },
+  Demote:  { label: 'Demoted',     cls: 'bg-orange-500/10 text-orange-400 border border-orange-500/20' },
+  DQ:      { label: 'Disqualified',cls: 'bg-red-500/10 text-red-400 border border-red-500/20' },
+}
+
+function getPenaltyMeta(p) {
+  return PENALTY_META[p] ?? null
+}
+
 function fmtIncidentId(v) {
   // BE GetViolationList doesn't return createdAt — fall back to violationId.
   return `#V-${String(v.violationId).padStart(3, '0')}`
@@ -59,6 +74,12 @@ function getInitials(name) {
 
 // ─── Report Modal ─────────────────────────────────────────────────────────────
 
+// Only races that have actually started have Legs — CreateViolationCommandHandler throws
+// "Cuộc đua chưa bắt đầu" otherwise. Finished/Cancelled races are already settled/closed
+// and shouldn't collect new reports, so only these 3 in-flight statuses are reportable.
+const REPORTABLE_STATUSES = ['Paused', 'InProgress', 'PendingResult']
+const REPORTABLE_STATUS_LABEL = { Paused: 'Paused', InProgress: 'In Progress', PendingResult: 'Pending Result' }
+
 function ReportViolationModal({ assignedRaces, raceEntries, horseMap, onClose, onReported }) {
   const [raceId,    setRaceId]    = useState('')
   const [entryId,   setEntryId]   = useState('')
@@ -67,7 +88,15 @@ function ReportViolationModal({ assignedRaces, raceEntries, horseMap, onClose, o
   const [saving,    setSaving]    = useState(false)
   const [err,       setErr]       = useState('')
 
-  const availableEntries = raceId ? (raceEntries[Number(raceId)] ?? []) : []
+  const reportableRaces = useMemo(() => assignedRaces
+    .filter(r => REPORTABLE_STATUSES.includes(r.status))
+    .sort((a, b) => REPORTABLE_STATUSES.indexOf(a.status) - REPORTABLE_STATUSES.indexOf(b.status)
+      || new Date(b.scheduledStartTime || b.scheduledAt || 0) - new Date(a.scheduledStartTime || a.scheduledAt || 0)),
+    [assignedRaces])
+
+  const availableEntries = raceId
+    ? (raceEntries[Number(raceId)] ?? []).filter(e => e.status === 'Approved')
+    : []
 
   const canSubmit = raceId && entryId && type && desc.trim()
 
@@ -120,10 +149,15 @@ function ReportViolationModal({ assignedRaces, raceEntries, horseMap, onClose, o
               className="w-full bg-surface-container-lowest border border-outline-variant/50 rounded-xl px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-yellow-400/60 transition-all"
             >
               <option value="">-- Select a race --</option>
-              {assignedRaces.map(r => (
-                <option key={r.raceId} value={r.raceId}>{r.name}</option>
+              {reportableRaces.map(r => (
+                <option key={r.raceId} value={r.raceId}>{r.name} ({REPORTABLE_STATUS_LABEL[r.status]})</option>
               ))}
             </select>
+            {reportableRaces.length === 0 && (
+              <p className="text-xs text-on-surface-variant mt-1.5">
+                No in-progress or unpublished race is currently assigned to you — a race must be started before a violation can be filed against it.
+              </p>
+            )}
           </div>
 
           {/* Entry */}
@@ -143,6 +177,9 @@ function ReportViolationModal({ assignedRaces, raceEntries, horseMap, onClose, o
                 </option>
               ))}
             </select>
+            {raceId && availableEntries.length === 0 && (
+              <p className="text-xs text-on-surface-variant mt-1.5">No approved entry found for this race.</p>
+            )}
           </div>
 
           {/* Type */}
@@ -201,6 +238,7 @@ export default function RefereeViolationsPage() {
   const [assignedRaces,setAssignedRaces] = useState([])
   const [raceEntries,  setRaceEntries] = useState({})  // {raceId: [entries]}
   const [raceMap,      setRaceMap]     = useState({})
+  const [tourneyMap,   setTourneyMap]  = useState({})
   const [horseMap,     setHorseMap]    = useState({})
   const [loading,      setLoading]     = useState(true)
   const [error,        setError]       = useState('')
@@ -212,11 +250,12 @@ export default function RefereeViolationsPage() {
     setLoading(true)
     setError('')
     try {
-      const [allV, allR, allE, allH] = await Promise.all([
+      const [allV, allR, allE, allH, allT] = await Promise.all([
         getViolations(),
         getAllRaces(),
         getAllEntries(),
         getAllHorses(),
+        getAllTournaments(),
       ])
 
       const details = await Promise.allSettled(allR.map(r => getRaceDetail(r.raceId)))
@@ -226,6 +265,7 @@ export default function RefereeViolationsPage() {
         .filter(r => r.referee1Id === userId || r.referee2Id === userId)
 
       const rMap = Object.fromEntries(myRaces.map(r => [r.raceId, r]))
+      const tMap = Object.fromEntries(allT.map(t => [t.tournamentId, t]))
       const hMap = Object.fromEntries(allH.map(h => [h.horseId, h]))
 
       // Group entries by raceId
@@ -238,6 +278,7 @@ export default function RefereeViolationsPage() {
       setViolations(allV)
       setAssignedRaces(myRaces)
       setRaceMap(rMap)
+      setTourneyMap(tMap)
       setRaceEntries(eByRace)
       setHorseMap(hMap)
     } catch (err) {
@@ -264,9 +305,9 @@ export default function RefereeViolationsPage() {
   const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const STATS = [
-    { label: 'Pending',     value: activeCount,   Icon: Shield,       sub: 'Reported by referee, awaiting admin',  cls: 'text-yellow-400', bg: 'bg-yellow-400/10 border border-yellow-400/25' },
-    { label: 'Approved',       value: approvedCount, Icon: AlertTriangle, sub: 'Penalty applied to race',     cls: 'text-emerald-400', bg: 'bg-emerald-500/10 border border-emerald-500/30' },
-    { label: 'Rejected',     value: rejectedCount, Icon: CheckCircle2,  sub: 'Current season',               cls: 'text-zinc-400',  bg: 'bg-zinc-500/10 border border-zinc-500/30' },
+    { label: 'Pending',  value: activeCount,   Icon: Shield,       sub: 'Reported by referee, awaiting admin', cls: 'text-yellow-400',  bg: 'bg-yellow-400/10 border border-yellow-400/25' },
+    { label: 'Approved', value: approvedCount, Icon: CheckCircle2, sub: 'Penalty applied to race',             cls: 'text-emerald-400', bg: 'bg-emerald-500/10 border border-emerald-500/30' },
+    { label: 'Rejected', value: rejectedCount, Icon: X,            sub: 'No penalty applied',                  cls: 'text-zinc-400',   bg: 'bg-zinc-500/10 border border-zinc-500/30' },
   ]
 
   return (
@@ -364,15 +405,18 @@ export default function RefereeViolationsPage() {
                     <th>Violation Type</th>
                     <th>Date &amp; Race</th>
                     <th>Status</th>
+                    <th>Penalty</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginated.map((v, i) => {
-                    const race    = raceMap[v.raceId]
+                    const race       = raceMap[v.raceId]
+                    const tournament = race ? tourneyMap[race.tournamentId] : null
                     const entries = raceEntries[v.raceId] ?? []
                     const entry   = entries.find(e => e.entryId === v.entryId)
                     const horse   = horseMap[entry?.horseId]
                     const meta    = getStatusMeta(v.status)
+                    const penaltyMeta = getPenaltyMeta(v.penalty)
 
                     return (
                       <tr
@@ -404,7 +448,20 @@ export default function RefereeViolationsPage() {
                         </td>
                         <td className="text-sm text-on-surface-variant">
                           <p>{fmtDate(v.createdAt)}</p>
-                          {race && <p className="text-xs mt-0.5">{race.name}</p>}
+                          {race ? (
+                            <Link
+                              to={`/referee/races/${race.raceId}`}
+                              className="text-xs mt-0.5 text-yellow-400 hover:text-yellow-300 hover:underline inline-block"
+                              title="Open race dashboard — points, status, published state"
+                            >
+                              {race.name}
+                            </Link>
+                          ) : (
+                            <p className="text-xs mt-0.5">Race #{v.raceId}</p>
+                          )}
+                          {tournament?.name && (
+                            <p className="text-[10px] mt-0.5 text-on-surface-variant/70">{tournament.name}</p>
+                          )}
                         </td>
                         <td>
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold ${meta.cls}`}>
@@ -412,6 +469,20 @@ export default function RefereeViolationsPage() {
                             {v.status === 'Rejected'  && <X size={11} />}
                             {meta.label}
                           </span>
+                        </td>
+                        <td>
+                          {v.status === 'Pending' ? (
+                            <span className="text-xs text-on-surface-variant">—</span>
+                          ) : penaltyMeta ? (
+                            <span
+                              className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold ${penaltyMeta.cls}`}
+                              title={v.adminNote || ''}
+                            >
+                              {penaltyMeta.label}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-on-surface-variant">—</span>
+                          )}
                         </td>
                       </tr>
                     )

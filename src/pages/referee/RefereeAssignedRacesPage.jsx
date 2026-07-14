@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { Fragment, useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ClipboardList, AlertCircle, SlidersHorizontal,
   ChevronLeft, ChevronRight, X, CheckSquare, Square,
-  Zap, Flag, Users,
+  Zap, Flag, Users, ArrowUpDown,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -16,11 +16,15 @@ import {
 const PAGE_SIZE = 10
 
 const STATUS_META = {
-  InProgress:  { label: 'In Progress', cls: 'bg-yellow-400/10 text-yellow-400 border border-yellow-400/25' },
-  Scheduled:   { label: 'Scheduled',   cls: 'bg-primary/10 text-primary border border-primary/20' },
-  Finished:    { label: 'Finished',    cls: 'bg-surface-container-high text-on-surface-variant border border-outline-variant/40' },
-  Cancelled:   { label: 'Cancelled',   cls: 'bg-error/10 text-error border border-error/20' },
+  InProgress:    { label: 'In Progress',    cls: 'bg-yellow-400/10 text-yellow-400 border border-yellow-400/25' },
+  Scheduled:     { label: 'Scheduled',      cls: 'bg-primary/10 text-primary border border-primary/20' },
+  Paused:        { label: 'Paused',         cls: 'bg-orange-500/10 text-orange-400 border border-orange-500/25' },
+  PendingResult: { label: 'Pending Result', cls: 'bg-blue-400/10 text-blue-400 border border-blue-400/25' },
+  Finished:      { label: 'Finished',       cls: 'bg-surface-container-high text-on-surface-variant border border-outline-variant/40' },
+  Cancelled:     { label: 'Cancelled',      cls: 'bg-error/10 text-error border border-error/20' },
 }
+
+const STATUS_FILTER_OPTIONS = Object.keys(STATUS_META)
 
 function getStatusMeta(s) {
   const key = s?.replace(/\s+/g, '')
@@ -236,6 +240,9 @@ export default function RefereeAssignedRacesPage() {
   const [error,       setError]       = useState('')
   const [page,        setPage]        = useState(1)
   const [search,      setSearch]      = useState('')
+  const [tourneyFilter, setTourneyFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [sortOrder,   setSortOrder]   = useState('asc') // 'asc' = soonest first, 'desc' = newest first
   const [modal,       setModal]       = useState(null) // race object for Race Control
 
   const load = useCallback(async () => {
@@ -274,13 +281,43 @@ export default function RefereeAssignedRacesPage() {
 
   useEffect(() => { load() }, [load])
 
+  const tournamentOptions = useMemo(() => {
+    const seen = new Map()
+    races.forEach(r => {
+      const t = tourneyMap[r.tournamentId]
+      if (t && !seen.has(t.tournamentId)) seen.set(t.tournamentId, t.name)
+    })
+    return [...seen.entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [races, tourneyMap])
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
-    return races.filter(r =>
-      r.name?.toLowerCase().includes(q) ||
-      tourneyMap[r.tournamentId]?.name?.toLowerCase().includes(q)
-    )
-  }, [races, search, tourneyMap])
+    return races
+      .filter(r =>
+        r.name?.toLowerCase().includes(q) ||
+        tourneyMap[r.tournamentId]?.name?.toLowerCase().includes(q)
+      )
+      .filter(r => tourneyFilter === 'all' || String(r.tournamentId) === tourneyFilter)
+      .filter(r => statusFilter === 'all' || r.status?.replace(/\s+/g, '') === statusFilter)
+      .sort((a, b) => {
+        const tA = tourneyMap[a.tournamentId]?.name ?? ''
+        const tB = tourneyMap[b.tournamentId]?.name ?? ''
+        if (tA !== tB) return tA.localeCompare(tB)
+        const dA = new Date(a.scheduledStartTime || a.scheduledAt || 0)
+        const dB = new Date(b.scheduledStartTime || b.scheduledAt || 0)
+        return sortOrder === 'asc' ? dA - dB : dB - dA
+      })
+  }, [races, search, tourneyFilter, statusFilter, sortOrder, tourneyMap])
+
+  // Race count per tournament, computed over the full filtered list (not just the visible page)
+  // so the group header count stays correct across pagination.
+  const tournamentCounts = useMemo(() => {
+    const counts = {}
+    filtered.forEach(r => { counts[r.tournamentId] = (counts[r.tournamentId] ?? 0) + 1 })
+    return counts
+  }, [filtered])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
@@ -291,15 +328,16 @@ export default function RefereeAssignedRacesPage() {
 
   function handleAction(race) {
     const s = race.status?.replace(/\s+/g, '')
-    if (s === 'InProgress')  navigate('/referee/result-entry', { state: { raceId: race.raceId } })
-    else if (s === 'Finished') navigate('/referee/result-entry', { state: { raceId: race.raceId, readOnly: true } })
+    if (['InProgress', 'Finished', 'Paused', 'PendingResult'].includes(s)) navigate(`/referee/races/${race.raceId}`)
     else setModal(race)
   }
 
   const actionLabel = (race) => {
     const s = race.status?.replace(/\s+/g, '')
-    if (s === 'InProgress') return 'Enter Results'
-    if (s === 'Finished')   return 'View Results'
+    if (s === 'InProgress')    return 'Enter Results'
+    if (s === 'Paused')        return 'View Conflict'
+    if (s === 'PendingResult') return 'View Standings'
+    if (s === 'Finished')      return 'View Results'
     return 'View Details'
   }
 
@@ -335,8 +373,39 @@ export default function RefereeAssignedRacesPage() {
               placeholder="Search races…"
               className="bg-surface-container-lowest border border-outline-variant/50 rounded-xl px-4 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-yellow-400/50 w-52 transition-all"
             />
-            <button className="gs-btn gs-btn-ghost flex items-center gap-2">
-              <SlidersHorizontal size={14} /> Filter
+            <div className="relative">
+              <select
+                value={tourneyFilter}
+                onChange={e => { setTourneyFilter(e.target.value); setPage(1) }}
+                className="appearance-none bg-surface-container-lowest border border-outline-variant/50 rounded-xl pl-4 pr-9 py-2 text-sm text-on-surface focus:outline-none focus:border-yellow-400/50 transition-all cursor-pointer"
+              >
+                <option value="all">All Tournaments</option>
+                {tournamentOptions.map(t => (
+                  <option key={t.id} value={String(t.id)}>{t.name}</option>
+                ))}
+              </select>
+              <SlidersHorizontal size={13} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/60" />
+            </div>
+            <div className="relative">
+              <select
+                value={statusFilter}
+                onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
+                className="appearance-none bg-surface-container-lowest border border-outline-variant/50 rounded-xl pl-4 pr-9 py-2 text-sm text-on-surface focus:outline-none focus:border-yellow-400/50 transition-all cursor-pointer"
+              >
+                <option value="all">All Statuses</option>
+                {STATUS_FILTER_OPTIONS.map(s => (
+                  <option key={s} value={s}>{STATUS_META[s].label}</option>
+                ))}
+              </select>
+              <SlidersHorizontal size={13} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/60" />
+            </div>
+            <button
+              onClick={() => setSortOrder(o => (o === 'asc' ? 'desc' : 'asc'))}
+              title={sortOrder === 'asc' ? 'Soonest first' : 'Newest first'}
+              className="gs-btn gs-btn-ghost flex items-center gap-2 shrink-0"
+            >
+              <ArrowUpDown size={14} />
+              {sortOrder === 'asc' ? 'Soonest first' : 'Newest first'}
             </button>
           </div>
         </div>
@@ -364,7 +433,6 @@ export default function RefereeAssignedRacesPage() {
                 <thead>
                   <tr>
                     <th>Race</th>
-                    <th>Tournament</th>
                     <th>Date &amp; Time</th>
                     <th>Distance</th>
                     <th>Co-Referee</th>
@@ -378,48 +446,66 @@ export default function RefereeAssignedRacesPage() {
                     const coRef     = userMap[coRefId]
                     const tournament = tourneyMap[race.tournamentId]
                     const meta       = getStatusMeta(race.status)
+                    const prevRace   = paginated[i - 1]
+                    const showGroupHeader = i === 0 || prevRace.tournamentId !== race.tournamentId
 
                     return (
-                      <tr
-                        key={race.raceId}
-                        className={`animate-fade-in-up delay-row-${(i % 4) + 1}`}
-                        style={{ opacity: 0, animationFillMode: 'forwards' }}
-                      >
-                        <td>
-                          <p className="font-bold text-on-surface text-sm">{race.name}</p>
-                          <p className="text-xs text-on-surface-variant mt-0.5">Race #{race.raceId}</p>
-                        </td>
-                        <td className="text-sm text-on-surface-variant">{tournament?.name ?? '—'}</td>
-                        <td className="text-sm text-on-surface-variant whitespace-nowrap">
-                          {fmtDateTime(race.scheduledStartTime || race.scheduledAt)}
-                        </td>
-                        <td className="text-sm text-on-surface-variant">—</td>
-                        <td>
-                          {coRef ? (
-                            <div className="flex items-center gap-2">
-                              <div className="w-7 h-7 rounded-full bg-secondary/10 border border-secondary/25 flex items-center justify-center text-[10px] font-bold text-secondary">
-                                {getInitials(coRef.fullName)}
+                      <Fragment key={race.raceId}>
+                        {showGroupHeader && (
+                          <tr key={`group-${race.tournamentId}-${i}`} className="!bg-surface-container-low/60">
+                            <td colSpan={6} className="!py-2">
+                              <div className="flex items-center gap-2">
+                                <div className="h-4 w-1 rounded-full bg-yellow-400/60" />
+                                <span className="text-xs font-bold text-yellow-400/90 uppercase tracking-wider">
+                                  {tournament?.name ?? 'Unassigned Tournament'}
+                                </span>
+                                <span className="text-[11px] text-on-surface-variant">
+                                  {tournamentCounts[race.tournamentId] ?? 1} race{(tournamentCounts[race.tournamentId] ?? 1) > 1 ? 's' : ''}
+                                </span>
                               </div>
-                              <span className="text-sm text-on-surface-variant">{coRef.fullName}</span>
-                            </div>
-                          ) : (
-                            <span className="text-sm text-on-surface-variant">—</span>
-                          )}
-                        </td>
-                        <td>
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold ${meta.cls}`}>
-                            {meta.label}
-                          </span>
-                        </td>
-                        <td>
-                          <button
-                            onClick={() => handleAction(race)}
-                            className={`px-4 py-1.5 rounded-lg text-sm transition-all ${actionCls(race)}`}
-                          >
-                            {actionLabel(race)}
-                          </button>
-                        </td>
-                      </tr>
+                            </td>
+                          </tr>
+                        )}
+                        <tr
+                          key={race.raceId}
+                          className={`animate-fade-in-up delay-row-${(i % 4) + 1}`}
+                          style={{ opacity: 0, animationFillMode: 'forwards' }}
+                        >
+                          <td>
+                            <p className="font-bold text-on-surface text-sm">{race.name}</p>
+                            <p className="text-xs text-on-surface-variant mt-0.5">Race #{race.raceId}</p>
+                          </td>
+                          <td className="text-sm text-on-surface-variant whitespace-nowrap">
+                            {fmtDateTime(race.scheduledStartTime || race.scheduledAt)}
+                          </td>
+                          <td className="text-sm text-on-surface-variant">—</td>
+                          <td>
+                            {coRef ? (
+                              <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-full bg-secondary/10 border border-secondary/25 flex items-center justify-center text-[10px] font-bold text-secondary">
+                                  {getInitials(coRef.fullName)}
+                                </div>
+                                <span className="text-sm text-on-surface-variant">{coRef.fullName}</span>
+                              </div>
+                            ) : (
+                              <span className="text-sm text-on-surface-variant">—</span>
+                            )}
+                          </td>
+                          <td>
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold ${meta.cls}`}>
+                              {meta.label}
+                            </span>
+                          </td>
+                          <td>
+                            <button
+                              onClick={() => handleAction(race)}
+                              className={`px-4 py-1.5 rounded-lg text-sm transition-all ${actionCls(race)}`}
+                            >
+                              {actionLabel(race)}
+                            </button>
+                          </td>
+                        </tr>
+                      </Fragment>
                     )
                   })}
                 </tbody>

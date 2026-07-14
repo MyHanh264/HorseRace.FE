@@ -3,11 +3,17 @@ import { getMyPredictions, getAllRaces } from "../api/spectator";
 import { useAuth } from "../context/AuthContext";
 
 const POLL_MS = 45_000;
+const STARTING_SOON_MS = 45 * 60 * 1000; // warn inside the last 45 minutes before scheduled start
+
+function fmtTime(dt) {
+  return new Date(dt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+}
 
 /**
- * Notification list for Spectator: Won/Lost predictions after a race is
- * published, and races currently in progress (bets locked) for
- * Pending/Locked predictions.
+ * Notification list for Spectator: a race they placed a prediction on is
+ * starting soon (still Scheduled — last chance before bets lock), Won/Lost
+ * predictions after a race is published, and races currently in progress
+ * (bets locked) for Pending/Locked predictions.
  */
 export function useSpectatorNotifications() {
   const { user } = useAuth();
@@ -28,9 +34,28 @@ export function useSpectatorNotifications() {
 
         const raceById = new Map(races.map((r) => [r.raceId, r]));
         const list = [];
+        const now = Date.now();
+        const startingSoonRaceIds = new Set();
 
         predictions.forEach((p) => {
           const race = raceById.get(p.raceId);
+          if (
+            race?.status === "Scheduled" && race.scheduledAt &&
+            ["Pending", "Locked"].includes(p.status) &&
+            !startingSoonRaceIds.has(race.raceId)
+          ) {
+            const msUntilStart = new Date(race.scheduledAt).getTime() - now;
+            if (msUntilStart > 0 && msUntilStart <= STARTING_SOON_MS) {
+              startingSoonRaceIds.add(race.raceId);
+              list.push({
+                id: `race-starting-soon-${race.raceId}`,
+                type: "warn",
+                msg: `Race "${race.name}" you predicted on starts soon, at ${fmtTime(race.scheduledAt)}.`,
+                path: "/spectator/predictions",
+                ts: now,
+              });
+            }
+          }
           if (p.status === "Won") {
             const payout = p.pointsWon ?? p.payout ?? null;
             list.push({

@@ -3,13 +3,19 @@ import { getMyHorses, getInvitations, getMyEntries, getRaces } from "../api/hors
 
 const POLL_MS = 45_000;
 const DEADLINE_WARNING_MS = 48 * 60 * 60 * 1000; // warn inside the last 48h before registration closes
+const STARTING_SOON_MS = 45 * 60 * 1000; // warn inside the last 45 minutes before scheduled start
+
+function fmtTime(dt) {
+  return new Date(dt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+}
 
 /**
  * Notification list (individual items, not grouped) for Horse Owner:
  * horse Approved/Rejected, jockey Accepts/Declines an invitation, entry
- * Approved/Rejected, a race has published results for an entry they entered,
- * and a registration-deadline risk warning when a race they engaged with is
- * about to close registration with no confirmed entry yet.
+ * Approved/Rejected, a race with an approved entry starting soon, a race has
+ * published results for an entry they entered, and a registration-deadline
+ * risk warning when a race they engaged with is about to close registration
+ * with no confirmed entry yet.
  */
 export function useHorseOwnerNotifications() {
   const [items, setItems] = useState([]);
@@ -94,6 +100,8 @@ export function useHorseOwnerNotifications() {
         });
 
         const finishedRaceIds = new Set();
+        const startingSoonRaceIds = new Set();
+        const nowForRaces = Date.now();
         entries.forEach((e) => {
           if (e.status !== "Approved") return;
           const race = raceById.get(e.raceId);
@@ -106,6 +114,19 @@ export function useHorseOwnerNotifications() {
               path: "/horse-owner/entries",
               ts: race.scheduledAt,
             });
+          }
+          if (race?.status === "Scheduled" && race.scheduledAt && !startingSoonRaceIds.has(race.raceId)) {
+            const msUntilStart = new Date(race.scheduledAt).getTime() - nowForRaces;
+            if (msUntilStart > 0 && msUntilStart <= STARTING_SOON_MS) {
+              startingSoonRaceIds.add(race.raceId);
+              list.push({
+                id: `race-starting-soon-${race.raceId}`,
+                type: "warn",
+                msg: `Race "${race.name}" — your horse "${e.horseName ?? `#${e.horseId}`}" — starts soon, at ${fmtTime(race.scheduledAt)}.`,
+                path: "/horse-owner/entries",
+                ts: nowForRaces,
+              });
+            }
           }
         });
 

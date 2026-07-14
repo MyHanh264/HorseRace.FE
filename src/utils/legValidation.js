@@ -1,7 +1,6 @@
 /**
- * Shared validation for referee leg position entry.
- * Applied to both LegSubmissionPage and RefereeResultEntryPage
- * to keep the rules consistent (including DNF/DQ).
+ * Shared validation for referee leg position entry (LegSubmissionPage),
+ * keeping the rules consistent (including DNF/DQ).
  */
 
 /**

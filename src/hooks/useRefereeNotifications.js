@@ -3,11 +3,17 @@ import { getAllRaces, getViolations } from "../api/referee";
 import { useAuth } from "../context/AuthContext";
 
 const POLL_MS = 45_000;
+const STARTING_SOON_MS = 45 * 60 * 1000; // warn inside the last 45 minutes before scheduled start
+
+function fmtTime(dt) {
+  return new Date(dt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+}
 
 /**
- * Notification list for Referee: assigned race is Paused (mismatch needs
- * Admin to resolve), race has Finished, and violation reports they filed
- * that Admin approved/rejected.
+ * Notification list for Referee: an assigned race starting soon (still
+ * Scheduled), assigned race is Paused (mismatch needs Admin to resolve),
+ * race has Finished, and violation reports they filed that Admin
+ * approved/rejected.
  */
 export function useRefereeNotifications() {
   const { user } = useAuth();
@@ -27,11 +33,24 @@ export function useRefereeNotifications() {
         if (!active) return;
 
         const list = [];
+        const now = Date.now();
 
         const assignedRaces = races.filter(
           (r) => r.referee1Id === userId || r.referee2Id === userId,
         );
         assignedRaces.forEach((r) => {
+          if (r.status === "Scheduled" && r.scheduledAt) {
+            const msUntilStart = new Date(r.scheduledAt).getTime() - now;
+            if (msUntilStart > 0 && msUntilStart <= STARTING_SOON_MS) {
+              list.push({
+                id: `race-starting-soon-${r.raceId}`,
+                type: "warn",
+                msg: `Race "${r.name}" you're assigned to starts soon, at ${fmtTime(r.scheduledAt)}.`,
+                path: "/referee",
+                ts: now,
+              });
+            }
+          }
           if (r.status === "Paused") {
             list.push({
               id: `race-paused-${r.raceId}`,

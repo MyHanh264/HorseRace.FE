@@ -1,13 +1,12 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { ClipboardList, Flag, AlertTriangle, User, LogOut, Zap } from 'lucide-react'
+import { ClipboardList, AlertTriangle, User, LogOut, Zap } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import NotificationBell from '../NotificationBell'
 import { useRefereeNotifications } from '../../hooks/useRefereeNotifications'
 import { useNotificationRead } from '../../hooks/useNotificationRead'
 
 const navItems = [
-  { to: '/referee',              label: 'My Assigned Races', icon: ClipboardList, end: true },
-  { to: '/referee/result-entry', label: 'Quick Entry',      icon: Flag },
+  { to: '/referee',             label: 'My Assigned Races', icon: ClipboardList, end: true },
   { to: '/referee/violations',  label: 'Violations',        icon: AlertTriangle },
   { to: '/referee/profile',     label: 'Profile',           icon: User },
 ]

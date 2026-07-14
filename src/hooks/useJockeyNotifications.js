@@ -2,11 +2,16 @@ import { useEffect, useState } from "react";
 import { getJockeyInvitations, getRaces } from "../api/jockey";
 
 const POLL_MS = 45_000;
+const STARTING_SOON_MS = 45 * 60 * 1000; // warn inside the last 45 minutes before scheduled start
+
+function fmtTime(dt) {
+  return new Date(dt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+}
 
 /**
  * Notification list for Jockey: new invitations, horse owner
- * Confirms/Cancels an invitation, a race they're competing in starts or
- * has results.
+ * Confirms/Cancels an invitation, a race they're competing in starting soon,
+ * is in progress, or has results.
  */
 export function useJockeyNotifications() {
   const [items, setItems] = useState([]);
@@ -60,9 +65,23 @@ export function useJockeyNotifications() {
           invitations.filter((i) => ["Accepted", "Confirmed"].includes(i.status)).map((i) => i.raceId),
         );
 
+        const now = Date.now();
+
         acceptedRaceIds.forEach((raceId) => {
           const race = raceById.get(raceId);
           if (!race) return;
+          if (race.status === "Scheduled" && race.scheduledAt) {
+            const msUntilStart = new Date(race.scheduledAt).getTime() - now;
+            if (msUntilStart > 0 && msUntilStart <= STARTING_SOON_MS) {
+              list.push({
+                id: `race-starting-soon-${race.raceId}`,
+                type: "warn",
+                msg: `Race "${race.name}" you're competing in starts soon, at ${fmtTime(race.scheduledAt)}.`,
+                path: "/jockey/races",
+                ts: now,
+              });
+            }
+          }
           if (race.status === "InProgress") {
             list.push({
               id: `race-live-${race.raceId}`,
