@@ -4,6 +4,7 @@ import {
   getMyHorses,
   getRaces,
   getJockeys,
+  getInvitations,
   sendInvitation,
 } from "../../api/horseOwner";
 import { useAuth } from "../../context/AuthContext";
@@ -132,7 +133,7 @@ function Step2({ horses, selected, onSelect, onClose, onBack, onNext, selectedRa
       {/* Header */}
       <div className="flex items-start justify-between px-6 pt-6 pb-4 flex-shrink-0">
         <div>
-          <h2 className="text-white font-bold text-xl">Đăng Ký Ngựa</h2>
+          <h2 className="text-white font-bold text-xl">Register Horse</h2>
           {selectedRace && (
             <p className="text-emerald-400 text-sm mt-0.5">{selectedRace.name}</p>
           )}
@@ -149,11 +150,11 @@ function Step2({ horses, selected, onSelect, onClose, onBack, onNext, selectedRa
             🏁
           </div>
           <div>
-            <p className="text-[11px] text-gray-500 uppercase tracking-wide">Chi tiết cuộc đua</p>
+            <p className="text-[11px] text-gray-500 uppercase tracking-wide">Race Details</p>
             <p className="text-white text-sm font-medium mt-0.5">
               {selectedRace.numberOfLegs} Legs
               {selectedRace.roundType ? ` • ${selectedRace.roundType}` : ""}
-              {selectedRace.maxHorses ? ` • ${selectedRace.maxHorses} chỗ` : ""}
+              {selectedRace.maxHorses ? ` • ${selectedRace.maxHorses} slots` : ""}
             </p>
           </div>
         </div>
@@ -162,20 +163,20 @@ function Step2({ horses, selected, onSelect, onClose, onBack, onNext, selectedRa
       {/* Horse list */}
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2.5">
         <p className="text-[11px] text-gray-500 uppercase tracking-widest font-semibold mb-1">
-          Chọn Chiến Mã Của Bạn
+          Choose Your Horse
         </p>
 
         {/* Warning */}
         <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-yellow-500/[0.08] border border-yellow-500/20">
           <span className="text-yellow-400 flex-shrink-0 leading-none mt-0.5">ⓘ</span>
           <p className="text-yellow-200/80 text-xs leading-relaxed">
-            Chỉ những ngựa đã được phê duyệt và không ở trạng thái treo mới có thể tham gia đăng ký giải đấu này.
+            Only horses that have been approved and are not on hold can register for this tournament.
           </p>
         </div>
 
         {/* Horses */}
         {horses.length === 0 ? (
-          <p className="text-center text-gray-600 text-sm py-8">Chưa có ngựa nào.</p>
+          <p className="text-center text-gray-600 text-sm py-8">No horses yet.</p>
         ) : (
           horses.map((horse) => {
             const isRegistered = registeredHorseIds.has(horse.horseId);
@@ -188,15 +189,15 @@ function Step2({ horses, selected, onSelect, onClose, onBack, onNext, selectedRa
             let avatarCls = "";
 
             if (isRegistered) {
-              subText = "Đã có lịch thi đấu trong thời gian này";
+              subText = "Already entered in a race during this period";
               avatarCls = "bg-white/5 border-white/10 text-gray-500";
               avatarContent = <CheckCheck size={15} />;
             } else if (horse.status === "Pending") {
-              subText = "Đang trong quá trình xét duyệt hồ sơ";
+              subText = "Currently under profile review";
               avatarCls = "bg-white/5 border-white/10 text-gray-500";
               avatarContent = <Lock size={15} />;
             } else if (horse.status === "Rejected") {
-              subText = horse.rejectionReason ?? "Chưa đạt yêu cầu về thể lực tối thiểu";
+              subText = horse.rejectionReason ?? "Does not meet the minimum fitness requirements";
               avatarCls = "bg-red-500/10 border-red-500/20 text-red-400";
               avatarContent = <XCircle size={15} />;
             } else {
@@ -214,7 +215,7 @@ function Step2({ horses, selected, onSelect, onClose, onBack, onNext, selectedRa
               : horse.status === "Rejected"
               ? "text-red-400 bg-red-500/10 border-red-500/20"
               : "text-gray-400 bg-gray-500/10 border-gray-500/20";
-            const badgeLabel = isRegistered ? "Đã đăng ký" : horse.status?.toUpperCase();
+            const badgeLabel = isRegistered ? "Registered" : horse.status?.toUpperCase();
 
             return (
               <button
@@ -238,7 +239,7 @@ function Step2({ horses, selected, onSelect, onClose, onBack, onNext, selectedRa
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className={`text-sm font-semibold ${selectable ? "text-white" : "text-gray-400"}`}>
-                      {horse.name ?? `Ngựa #${horse.horseId}`}
+                      {horse.name ?? `Horse #${horse.horseId}`}
                     </span>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${badgeCls}`}>
                       {badgeLabel}
@@ -265,7 +266,7 @@ function Step2({ horses, selected, onSelect, onClose, onBack, onNext, selectedRa
 
         {/* Footer note */}
         <p className="text-[11px] text-gray-600 pt-2 leading-relaxed">
-          <span className="text-yellow-500/70 font-semibold">Lưu ý:</span> Admin sẽ xem xét đăng ký của bạn dựa trên các tiêu chí kỹ thuật và lịch sử thi đấu của ngựa. Kết quả sẽ được thông báo trong vòng 24 giờ.
+          <span className="text-yellow-500/70 font-semibold">Note:</span> Admin will review your registration based on technical criteria and the horse's competition history. Results will be announced within 24 hours.
         </p>
       </div>
 
@@ -275,32 +276,34 @@ function Step2({ horses, selected, onSelect, onClose, onBack, onNext, selectedRa
           onClick={onBack}
           className="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 text-sm font-medium transition-colors"
         >
-          Hủy
+          Cancel
         </button>
         <button
           onClick={onNext}
           disabled={!selected}
           className="flex-1 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 disabled:opacity-40 disabled:cursor-not-allowed text-black font-bold text-sm transition-colors"
         >
-          Gửi Đăng Ký
+          Submit Registration
         </button>
       </div>
     </div>
   );
 }
 
-// ─── Step 3: Mời Jockey ────────────────────────────────────────────────────
+// ─── Step 3: Invite Jockey ──────────────────────────────────────────────────
 const AVATAR_COLORS = ["#7c3aed", "#b45309", "#0f766e", "#be123c", "#1d4ed8", "#047857", "#92400e"];
 
 const JOCKEY_FILTERS = [
-  { key: "winRate", label: "Tỷ lệ thắng 30%+" },
-  { key: "exp",    label: "Kinh nghiệm cao" },
-  { key: "avail",  label: "Đang rảnh" },
+  { key: "winRate", label: "Win Rate 30%+" },
+  { key: "exp",    label: "High Experience" },
+  { key: "avail",  label: "Available" },
 ];
 
-function Step3({ jockeys, search, onSearch, onClose, onInvite, selectedRace, selectedHorse }) {
+function Step3({ jockeys, search, onSearch, onClose, onInvite, selectedRace, selectedHorse, blockedJockeyIds = new Set(), preInvitedJockeyIds = new Set() }) {
   const [activeFilters, setActiveFilters] = useState([]);
-  const [invitedIds, setInvitedIds]       = useState(new Set());
+  // Nạp sẵn các jockey đã có Invitation active cho đúng cặp (ngựa, race) này —
+  // hiện luôn "Invited" thay vì để bấm lại rồi mới bị BE từ chối.
+  const [invitedIds, setInvitedIds]       = useState(() => new Set(preInvitedJockeyIds));
   const [sendingId, setSendingId]         = useState(null);
   const [errorMsg, setErrorMsg]           = useState("");
 
@@ -330,11 +333,11 @@ function Step3({ jockeys, search, onSearch, onClose, onInvite, selectedRace, sel
     } catch (err) {
       const status = err?.response?.status;
       const detail = err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? "";
-      if (status === 409) setErrorMsg("Bạn đã mời jockey này rồi.");
-      else if (status === 403) setErrorMsg("Không có quyền gửi lời mời này.");
+      if (status === 409) setErrorMsg("You have already invited this jockey.");
+      else if (status === 403) setErrorMsg("You don't have permission to send this invitation.");
       else if (status === 400 && detail.toLowerCase().includes("xác nhận"))
-        setErrorMsg("Jockey này đã được xác nhận cưỡi ngựa khác trong cuộc đua. Vui lòng chọn jockey khác.");
-      else setErrorMsg(`[${status ?? "?"}] ${detail || "Gửi lời mời thất bại."}`);
+        setErrorMsg("This jockey has already been confirmed to ride another horse in this race. Please choose a different jockey.");
+      else setErrorMsg(`[${status ?? "?"}] ${detail || "Failed to send invitation."}`);
     } finally {
       setSendingId(null);
     }
@@ -349,7 +352,7 @@ function Step3({ jockeys, search, onSearch, onClose, onInvite, selectedRace, sel
           <div className="w-7 h-7 rounded-lg bg-yellow-400/15 border border-yellow-400/20 flex items-center justify-center">
             <UserPlus size={13} className="text-yellow-400" />
           </div>
-          <h2 className="text-white font-bold text-[15px]">Mời Jockey</h2>
+          <h2 className="text-white font-bold text-[15px]">Invite Jockey</h2>
         </div>
         <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">
           <X size={17} />
@@ -360,7 +363,7 @@ function Step3({ jockeys, search, onSearch, onClose, onInvite, selectedRace, sel
       <div className="mx-5 mt-4 p-4 rounded-xl bg-[#0f1810] border-l-4 border-yellow-500/55 flex items-start justify-between gap-3 flex-shrink-0">
         <div className="min-w-0">
           <p className="text-[10px] text-yellow-500/65 uppercase tracking-widest font-bold mb-1.5">
-            Cuộc Đua Ưu Tiên
+            Target Race
           </p>
           <p className="text-white text-[13px] font-semibold leading-snug">
             {[selectedRace?.tournamentName, selectedRace?.name].filter(Boolean).join(", ")}
@@ -383,7 +386,7 @@ function Step3({ jockeys, search, onSearch, onClose, onInvite, selectedRace, sel
           <input
             value={search}
             onChange={(e) => onSearch(e.target.value)}
-            placeholder="Tìm kiếm theo tên hoặc số giấy phép..."
+            placeholder="Search by name or license number..."
             className="w-full bg-[#141b24] border border-white/10 text-white placeholder-gray-500 rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:border-yellow-500/40"
           />
         </div>
@@ -409,29 +412,31 @@ function Step3({ jockeys, search, onSearch, onClose, onInvite, selectedRace, sel
       {/* ── Jockey list ────────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto px-5 py-3 space-y-2">
         {filtered.length === 0 ? (
-          <p className="text-center text-gray-600 text-sm py-10">Không tìm thấy jockey phù hợp.</p>
+          <p className="text-center text-gray-600 text-sm py-10">No matching jockeys found.</p>
         ) : (
           filtered.map((jockey) => {
             const winRate  = jockey.totalRaces > 0 ? Math.round((jockey.totalWins / jockey.totalRaces) * 100) : 0;
             const invited  = invitedIds.has(jockey.userId);
+            const blocked  = blockedJockeyIds.has(jockey.userId);
             const sending  = sendingId === jockey.userId;
             const name     = jockey.fullName ?? `Jockey #${jockey.userId}`;
             const initials = name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
             const avatarBg = AVATAR_COLORS[jockey.userId % AVATAR_COLORS.length];
+            const dimmed   = invited || blocked;
 
             return (
               <div
                 key={jockey.userId}
                 className={`flex items-center gap-3.5 px-4 py-3.5 rounded-xl border transition-colors
-                  ${invited
-                    ? "bg-white/[0.015] border-white/5"
+                  ${dimmed
+                    ? "bg-white/[0.015] border-white/5 opacity-60"
                     : "bg-[#0f1318] border-white/7 hover:border-white/12"
                   }`}
               >
                 {/* Avatar */}
                 <div
                   className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-bold text-white overflow-hidden"
-                  style={{ background: invited ? "#374151" : avatarBg }}
+                  style={{ background: dimmed ? "#374151" : avatarBg }}
                 >
                   {jockey.avatarUrl
                     ? <img src={jockey.avatarUrl} alt={name} className="w-full h-full object-cover" />
@@ -440,19 +445,23 @@ function Step3({ jockeys, search, onSearch, onClose, onInvite, selectedRace, sel
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-bold truncate ${invited ? "text-gray-400" : "text-white"}`}>
+                  <p className={`text-sm font-bold truncate ${dimmed ? "text-gray-400" : "text-white"}`}>
                     {name}
                   </p>
                   <p className="text-gray-500 text-xs mt-0.5">
                     Win Rate: {winRate}%
-                    {jockey.totalRaces > 0 && ` • Exp: ${jockey.totalRaces} kỳ đua`}
+                    {jockey.totalRaces > 0 && ` • Exp: ${jockey.totalRaces} races`}
                   </p>
                 </div>
 
                 {/* Action */}
-                {invited ? (
+                {blocked ? (
+                  <span className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-500/10 border border-red-500/20 text-red-400">
+                    Already in entry
+                  </span>
+                ) : invited ? (
                   <span className="flex-shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-white/6 border border-white/10 text-gray-400 flex items-center gap-1.5">
-                    Đã mời <Check size={11} strokeWidth={3} />
+                    Invited <Check size={11} strokeWidth={3} />
                   </span>
                 ) : (
                   <button
@@ -460,7 +469,7 @@ function Step3({ jockeys, search, onSearch, onClose, onInvite, selectedRace, sel
                     disabled={sending}
                     className="flex-shrink-0 px-4 py-1.5 rounded-xl text-xs font-bold bg-yellow-400 hover:bg-yellow-300 text-black disabled:opacity-50 transition-colors"
                   >
-                    {sending ? "..." : "Mời"}
+                    {sending ? "..." : "Invite"}
                   </button>
                 )}
               </div>
@@ -480,7 +489,7 @@ function Step3({ jockeys, search, onSearch, onClose, onInvite, selectedRace, sel
       <div className="mx-5 mt-3 flex items-start gap-2.5 p-3.5 bg-emerald-500/8 border border-emerald-500/20 rounded-xl flex-shrink-0">
         <span className="text-emerald-400 flex-shrink-0 text-sm leading-none mt-0.5">ⓘ</span>
         <p className="text-emerald-300/80 text-xs leading-relaxed">
-          <span className="text-emerald-400 font-semibold">Lưu ý:</span> Bạn có thể mời nhiều Jockey. Sau khi họ chấp nhận, bạn sẽ chọn 1 người.
+          <span className="text-emerald-400 font-semibold">Note:</span> You can invite multiple jockeys. Once they accept, you'll choose one.
         </p>
       </div>
 
@@ -490,7 +499,7 @@ function Step3({ jockeys, search, onSearch, onClose, onInvite, selectedRace, sel
           onClick={onClose}
           className="px-6 py-2.5 rounded-xl bg-[#1c2430] hover:bg-white/10 text-white text-sm font-semibold border border-white/10 transition-colors"
         >
-          Đóng
+          Close
         </button>
       </div>
     </div>
@@ -504,18 +513,41 @@ export default function SendInvitationModal({ onClose, onSuccess, initialRace = 
   const [races, setRaces] = useState([]);
   const [horses, setHorses] = useState([]);
   const [jockeys, setJockeys] = useState([]);
+  const [invitations, setInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError] = useState("");
 
   const [selectedRace, setSelectedRace] = useState(initialRace);
   const [selectedHorse, setSelectedHorse] = useState(null);
 
-  // Horse IDs already registered for the currently-selected race
-  const registeredHorseIds = new Set(
-    existingEntries
-      .filter((e) => selectedRace && e.raceId === selectedRace.raceId)
-      .map((e) => e.horseId)
+  const activeEntriesForRace = existingEntries.filter((e) =>
+    selectedRace &&
+    e.raceId === selectedRace.raceId &&
+    (e.status === "Pending" || e.status === "Approved")
   );
+
+  // Horse IDs already registered for the currently-selected race
+  const registeredHorseIds = new Set(activeEntriesForRace.map((e) => e.horseId));
+
+  // Jockey IDs already committed in an active entry for this race (cannot be invited again)
+  const blockedJockeyIds = new Set(activeEntriesForRace.map((e) => e.jockeyId));
+
+  // Invitations still active (not yet turned into an Entry, not Declined/Cancelled) for this race —
+  // BE blocks a duplicate invitation for the exact same (horse, jockey, race) triple, so we need to
+  // know this BEFORE Step 3 lets the owner click "Invite" again, not find out only after it fails.
+  const activeInvitationsForRace = invitations.filter((inv) =>
+    selectedRace &&
+    inv.raceId === selectedRace.raceId &&
+    ["Pending", "Accepted", "Confirmed"].includes(inv.status)
+  );
+  const preInvitedJockeyIds = new Set(
+    selectedHorse
+      ? activeInvitationsForRace
+          .filter((inv) => inv.horseId === selectedHorse.horseId)
+          .map((inv) => inv.jockeyId)
+      : []
+  );
+
   const [raceSearch, setRaceSearch] = useState("");
   const [jockeySearch, setJockeySearch] = useState("");
 
@@ -524,11 +556,13 @@ export default function SendInvitationModal({ onClose, onSuccess, initialRace = 
       getRaces().catch(() => []),
       getMyHorses().catch(() => []),
       getJockeys().catch(() => []),
+      getInvitations().catch(() => []),
     ])
-      .then(([r, h, j]) => {
+      .then(([r, h, j, inv]) => {
         setRaces(Array.isArray(r) ? r : (r?.data ?? []));
         setHorses(Array.isArray(h) ? h : (h?.data ?? []));
         setJockeys(Array.isArray(j) ? j : (j?.data ?? []));
+        setInvitations(Array.isArray(inv) ? inv : (inv?.data ?? inv?.invitations ?? []));
       })
       .finally(() => setLoading(false));
   }, []);
@@ -550,7 +584,7 @@ export default function SendInvitationModal({ onClose, onSuccess, initialRace = 
       `${r.name ?? ""} ${r.tournamentName ?? ""}`.toLowerCase().includes(raceSearch.toLowerCase())
     );
 
-  // onInvite chỉ gọi API và throw lỗi — Step3 tự quản lý UI state
+  // onInvite only calls the API and throws errors — Step3 manages its own UI state
   const handleInvite = async (jockey) => {
     await sendInvitation({
       horseOwnerId: user.userId,
@@ -559,11 +593,11 @@ export default function SendInvitationModal({ onClose, onSuccess, initialRace = 
       raceId: selectedRace.raceId,
       message: null,
     });
-    onSuccess(); // báo parent refresh list, nhưng KHÔNG đóng modal
+    onSuccess(); // tell parent to refresh the list, but do NOT close the modal
   };
 
-  // onSuccess từ parent chỉ refresh list, không đóng modal
-  // Done button trong Step3 gọi onClose trực tiếp
+  // onSuccess from parent only refreshes the list, doesn't close the modal
+  // The Done button in Step3 calls onClose directly
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
@@ -608,6 +642,8 @@ export default function SendInvitationModal({ onClose, onSuccess, initialRace = 
                 onInvite={handleInvite}
                 selectedRace={selectedRace}
                 selectedHorse={selectedHorse}
+                blockedJockeyIds={blockedJockeyIds}
+                preInvitedJockeyIds={preInvitedJockeyIds}
               />
             )}
           </>

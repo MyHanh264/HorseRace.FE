@@ -5,8 +5,6 @@ import {
   Clock,
   History,
   Calendar,
-  Ruler,
-  Trophy,
 } from "lucide-react";
 import { getJockeyInvitations, updateJockeyInvitation } from "../../api/jockey";
 
@@ -21,7 +19,7 @@ function fmtDate(d) {
   });
 }
 
-// Avatar màu hash theo string
+// Avatar color hashed from string
 const AVATAR_COLORS = [
   "bg-indigo-600",
   "bg-emerald-600",
@@ -44,12 +42,13 @@ function initials(str = "") {
     .toUpperCase();
 }
 
-function InvitationCard({ inv, onAccept, onDecline, actioning }) {
-  const isPending = inv.status === "Pending";
-  const isAccepted = inv.status === "Accepted";
-  const isDeclined = inv.status === "Declined";
+function InvitationCard({ inv, onAccept, onDeclineClick, actioning }) {
+  const isPending   = inv.status === "Pending";
+  const isAccepted  = inv.status === "Accepted" || inv.status === "Confirmed";
+  const isDeclined  = inv.status === "Declined";
+  const isCancelled = inv.status === "Cancelled";
 
-  const ownerLabel = `Owner #${inv.horseOwnerId}`;
+  const ownerLabel = inv.horseOwnerName || `Owner #${inv.horseOwnerId}`;
   const color = avatarColor(ownerLabel);
   const abbr = initials(ownerLabel);
 
@@ -57,9 +56,10 @@ function InvitationCard({ inv, onAccept, onDecline, actioning }) {
     <div
       className={`bg-[#0f1628] rounded-xl overflow-hidden flex
       border border-white/8
-      ${isPending ? "border-l-[3px] border-l-yellow-500" : ""}
-      ${isAccepted ? "border-l-[3px] border-l-emerald-500" : ""}
-      ${isDeclined ? "border-l-[3px] border-l-red-500 opacity-70" : ""}
+      ${isPending   ? "border-l-[3px] border-l-yellow-500" : ""}
+      ${isAccepted  ? "border-l-[3px] border-l-emerald-500" : ""}
+      ${isDeclined  ? "border-l-[3px] border-l-red-500 opacity-70" : ""}
+      ${isCancelled ? "border-l-[3px] border-l-gray-500 opacity-60" : ""}
     `}
     >
       {/* ── FROM ── */}
@@ -88,16 +88,6 @@ function InvitationCard({ inv, onAccept, onDecline, actioning }) {
           <p className="text-white font-bold text-sm">
             {inv.horseName ?? `Horse #${inv.horseId}`}
           </p>
-          <p className="text-gray-500 text-xs mt-0.5">— • —</p>
-          {/* Stats badges */}
-          <div className="flex gap-1.5 mt-2 flex-wrap">
-            <span className="flex items-center gap-1 text-[10px] px-2 py-1 bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 rounded-md font-semibold">
-              — <span className="text-emerald-300/60">Win Rate</span>
-            </span>
-            <span className="flex items-center gap-1 text-[10px] px-2 py-1 bg-white/8 text-gray-400 border border-white/10 rounded-md font-semibold">
-              — <span className="text-gray-600">Avg Pos</span>
-            </span>
-          </div>
         </div>
       </div>
 
@@ -106,19 +96,13 @@ function InvitationCard({ inv, onAccept, onDecline, actioning }) {
         <p className="text-gray-500 text-[10px] uppercase tracking-widest mb-1.5">
           Race Details
         </p>
-        <p className="text-white font-bold text-sm leading-snug">—</p>
+        <p className="text-white font-bold text-sm leading-snug">
+          {inv.raceName || `Race #${inv.raceId}`}
+        </p>
         <div className="flex flex-col gap-1.5 mt-2.5">
           <div className="flex items-center gap-2 text-gray-400 text-xs">
             <Calendar size={11} className="text-gray-600 flex-shrink-0" />
             <span>{fmtDate(inv.sentAt)}</span>
-          </div>
-          <div className="flex items-center gap-2 text-gray-400 text-xs">
-            <Ruler size={11} className="text-gray-600 flex-shrink-0" />
-            <span>—</span>
-          </div>
-          <div className="flex items-center gap-2 text-gray-400 text-xs">
-            <Trophy size={11} className="text-gray-600 flex-shrink-0" />
-            <span>—</span>
           </div>
         </div>
       </div>
@@ -136,17 +120,23 @@ function InvitationCard({ inv, onAccept, onDecline, actioning }) {
               Accept
             </button>
             <button
-              onClick={() => onDecline(inv.invitationId)}
+              onClick={() => onDeclineClick(inv)}
               disabled={actioning === inv.invitationId}
               className="flex items-center justify-center gap-1.5 px-3 py-2 bg-transparent hover:bg-red-500/10 border border-red-500/50 text-red-400 hover:text-red-300 text-xs font-semibold rounded-lg transition-colors disabled:opacity-50"
             >
               <XCircle size={13} />
               Decline
             </button>
-            <button className="text-gray-600 hover:text-gray-400 text-xs text-center transition-colors py-1">
-              Add Reason
-            </button>
           </>
+        ) : isCancelled ? (
+          <div className="text-center">
+            <span className="text-xs px-2.5 py-1 rounded-md border font-medium bg-gray-500/15 text-gray-400 border-gray-500/30">
+              Cancelled
+            </span>
+            <p className="text-gray-500 text-[10px] mt-2 leading-tight">
+              Horse owner has<br />chosen another jockey
+            </p>
+          </div>
         ) : (
           <span
             className={`text-xs px-2.5 py-1 rounded-md border font-medium uppercase tracking-wide text-center
@@ -167,6 +157,9 @@ export default function JockeyInvitationsPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("Pending");
   const [actioning, setActioning] = useState(null);
+  const [declineInv, setDeclineInv] = useState(null);
+  const [declineReason, setDeclineReason] = useState("");
+  const [declineError, setDeclineError] = useState("");
 
   useEffect(() => {
     getJockeyInvitations()
@@ -194,17 +187,22 @@ export default function JockeyInvitationsPage() {
     }
   };
 
-  const handleDecline = async (invitationId) => {
+  const handleDeclineConfirm = async () => {
+    const invitationId = declineInv.invitationId;
     setActioning(invitationId);
+    setDeclineError("");
     try {
-      await updateJockeyInvitation(invitationId, "Declined");
+      await updateJockeyInvitation(invitationId, "Declined", declineReason.trim() || null);
       setInvitations((prev) =>
         prev.map((i) =>
           i.invitationId === invitationId ? { ...i, status: "Declined" } : i,
         ),
       );
+      setDeclineInv(null);
+      setDeclineReason("");
     } catch (err) {
-      console.error("Decline failed:", err);
+      const detail = err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message;
+      setDeclineError(detail ?? "Failed to decline invitation.");
     } finally {
       setActioning(null);
     }
@@ -275,10 +273,62 @@ export default function JockeyInvitationsPage() {
               key={inv.invitationId}
               inv={inv}
               onAccept={handleAccept}
-              onDecline={handleDecline}
+              onDeclineClick={(i) => { setDeclineInv(i); setDeclineReason(""); setDeclineError(""); }}
               actioning={actioning}
             />
           ))}
+        </div>
+      )}
+
+      {/* Decline reason modal */}
+      {declineInv && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-[#111827] border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl p-6">
+            <h2 className="text-white font-bold text-lg mb-2">Decline Invitation?</h2>
+            <p className="text-gray-400 text-sm leading-relaxed mb-4">
+              Let{" "}
+              <span className="text-white font-semibold">
+                {declineInv.horseOwnerName || `Owner #${declineInv.horseOwnerId}`}
+              </span>
+              {" know why you're declining "}
+              <span className="text-white font-semibold">
+                {declineInv.horseName ?? `Horse #${declineInv.horseId}`}
+              </span>
+              {" (optional)."}
+            </p>
+
+            <textarea
+              value={declineReason}
+              onChange={(e) => setDeclineReason(e.target.value)}
+              placeholder="e.g. Already booked for another race that day"
+              rows={3}
+              maxLength={300}
+              className="w-full bg-[#0f1628] border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-red-500/50 resize-none mb-4"
+            />
+
+            {declineError && (
+              <p className="text-red-400 text-xs bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2 mb-4">
+                {declineError}
+              </p>
+            )}
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => { setDeclineInv(null); setDeclineError(""); }}
+                disabled={actioning === declineInv.invitationId}
+                className="flex-1 py-2.5 rounded-xl border border-white/15 text-gray-300 hover:bg-white/5 text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeclineConfirm}
+                disabled={actioning === declineInv.invitationId}
+                className="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white font-bold text-sm transition-colors"
+              >
+                {actioning === declineInv.invitationId ? "Declining…" : "Decline"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

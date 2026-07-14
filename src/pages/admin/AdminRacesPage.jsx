@@ -1,15 +1,17 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
-  Flag, Plus, ChevronDown, Edit2, Trash2, X, AlertCircle,
+  Flag, Plus, ChevronDown, ChevronLeft, ChevronRight, Edit2, Trash2, X, AlertCircle,
   Users, CheckCircle, XCircle, ArrowLeft, UserCheck, Eye,
-  LockOpen, Lock,
+  LockOpen, Lock, RotateCcw, MoreVertical,
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
-  getTournaments, getRaces, getRaceDetail, createRace, updateRace, deleteRace,
-  getUsers, approveEntry, rejectEntry, openRegistration, closeRegistration, startRace,
+  getAllTournaments, getRaces, getRaceDetail, createRace, updateRace, deleteRace,
+  getAllUser, approveEntry, rejectEntry, openRegistration, closeRegistration, startRace,
+  unpublishRace, getRoleMap, getRoleCodeById, getAllViolations,
 } from '../../api/admin'
 import api from '../../services/api'
+import { validateOverrideReason } from '../../utils/validation'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -51,6 +53,11 @@ function toDatetimeLocal(dt) {
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+// Two [start,end) windows overlap iff each starts before the other ends — touching edges are OK.
+function rangesOverlap(s1, e1, s2, e2) {
+  return s1 < e2 && s2 < e1
+}
+
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
 function StatCard({ icon: Icon, iconCls, label, value, sub }) {
@@ -76,6 +83,7 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
     tournamentId:       race?.tournamentId       ?? selectedTournamentId ?? '',
     name:               race?.name               ?? '',
     scheduledStartTime: toDatetimeLocal(race?.scheduledStartTime),
+    scheduledEndTime:   toDatetimeLocal(race?.scheduledEndTime),
     numberOfLegs:       race?.numberOfLegs       ?? 3,
     maxHorses:          race?.maxHorses          ?? 14,
     roundType:          race?.roundType          ?? 'Regular',
@@ -84,16 +92,21 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
   })
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
   const setNum = k => e => setForm(f => ({ ...f, [k]: Number(e.target.value) }))
+  const refereeUsers = users.filter(u => (u.roleCode || getRoleCodeById(u.roleId)) === 'REFEREE')
 
   const handleSubmit = e => {
     e.preventDefault()
     if (form.referee1Id && form.referee2Id && form.referee1Id === form.referee2Id) {
       return
     }
+    if (dateOutOfRange || endBeforeStart || tournamentOverlap || refereeConflict) {
+      return
+    }
     onSubmit({
       tournamentId:       Number(form.tournamentId),
       name:               form.name.trim(),
       scheduledStartTime: new Date(form.scheduledStartTime).toISOString(),
+      scheduledEndTime:   new Date(form.scheduledEndTime).toISOString(),
       numberOfLegs:       Number(form.numberOfLegs),
       maxHorses:          Number(form.maxHorses),
       roundType:          form.roundType,
@@ -102,33 +115,67 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
     })
   }
 
+  const selectedTournament = tournaments.find(t => String(t.tournamentId) === String(form.tournamentId))
+
+  // Ngày Race phải nằm trong khoảng ngày của Tournament — không được sớm hơn hôm nay
+  // lẫn không được ngoài [Tournament.startDate, Tournament.endDate].
+  const todayStr = new Date().toISOString().split('T')[0]
+  const minDate = selectedTournament?.startDate
+    ? (selectedTournament.startDate > todayStr ? selectedTournament.startDate : todayStr)
+    : todayStr
+  const maxDate = selectedTournament?.endDate
+
+  const dateOutOfRange = !!(
+    selectedTournament &&
+    form.scheduledStartTime &&
+    (() => {
+      const d = form.scheduledStartTime.split('T')[0]
+      return d < minDate || (maxDate && d > maxDate)
+    })()
+  )
+
   const refereeMismatch = form.referee1Id && form.referee2Id && form.referee1Id === form.referee2Id
 
-  const refereeConflict = useMemo(() => {
-    if (!form.scheduledStartTime || (!form.referee1Id && !form.referee2Id)) return null
+  const endBeforeStart = !!(
+    form.scheduledStartTime && form.scheduledEndTime &&
+    new Date(form.scheduledEndTime) <= new Date(form.scheduledStartTime)
+  )
+
+  // Same tournament, overlapping time slot — BE hard-blocks this, so pre-check for immediate feedback.
+  const tournamentOverlap = useMemo(() => {
+    if (!form.scheduledStartTime || !form.scheduledEndTime) return null
+    const s = new Date(form.scheduledStartTime)
+    const e = new Date(form.scheduledEndTime)
+    if (e <= s) return null
     const currentTourId = Number(form.tournamentId)
-    const st = new Date(form.scheduledStartTime)
-    const sameTime = (dt) => {
-      if (!dt) return false
-      const d = new Date(dt)
-      return d.getFullYear() === st.getFullYear() &&
-        d.getMonth()    === st.getMonth()    &&
-        d.getDate()     === st.getDate()     &&
-        d.getHours()    === st.getHours()    &&
-        d.getMinutes()  === st.getMinutes()
-    }
+    return allRaces.find(r => {
+      if (r.raceId === race?.raceId)   return false
+      if (r.tournamentId !== currentTourId) return false
+      if (!r.scheduledStartTime || !r.scheduledEndTime) return false
+      return rangesOverlap(s, e, new Date(r.scheduledStartTime), new Date(r.scheduledEndTime))
+    }) ?? null
+  }, [form.scheduledStartTime, form.scheduledEndTime, form.tournamentId, allRaces, race])
+
+  // Same referee double-booked on an overlapping time slot in a different tournament — also hard-blocked by BE.
+  const refereeConflict = useMemo(() => {
+    if (!form.scheduledStartTime || !form.scheduledEndTime || (!form.referee1Id && !form.referee2Id)) return null
+    const s = new Date(form.scheduledStartTime)
+    const e = new Date(form.scheduledEndTime)
+    if (e <= s) return null
+    const currentTourId = Number(form.tournamentId)
     const ref1 = String(form.referee1Id)
     const ref2 = String(form.referee2Id)
     return allRaces.find(r => {
       if (r.tournamentId === currentTourId) return false
       if (r.raceId === race?.raceId)        return false
-      if (!sameTime(r.scheduledStartTime))  return false
+      if (!r.scheduledStartTime || !r.scheduledEndTime) return false
+      if (!rangesOverlap(s, e, new Date(r.scheduledStartTime), new Date(r.scheduledEndTime))) return false
       return (
         (ref1 && (String(r.referee1Id) === ref1 || String(r.referee2Id) === ref1)) ||
         (ref2 && (String(r.referee1Id) === ref2 || String(r.referee2Id) === ref2))
       )
     }) ?? null
-  }, [form.referee1Id, form.referee2Id, form.scheduledStartTime, form.tournamentId, allRaces, race])
+  }, [form.scheduledStartTime, form.scheduledEndTime, form.referee1Id, form.referee2Id, form.tournamentId, allRaces, race])
 
   const inputCls = 'w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40'
 
@@ -158,14 +205,22 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
           )}
           {refereeMismatch && (
             <div className="p-3 rounded-lg bg-error/10 border border-error/25 text-error text-sm flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />Referee 1 và Referee 2 phải khác nhau
+              <AlertCircle className="w-4 h-4 shrink-0" />Referee 1 and Referee 2 must be different
             </div>
           )}
-          {refereeConflict && (
-            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-400 text-sm flex items-start gap-2">
+          {tournamentOverlap && (
+            <div className="p-3 rounded-lg bg-error/10 border border-error/25 text-error text-sm flex items-start gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
               <span>
-                Trọng tài đã được assign vào race <strong>"{refereeConflict.name}"</strong> (tournament khác) cùng khung giờ này. Bạn vẫn có thể tiếp tục.
+                This time slot overlaps race <strong>"{tournamentOverlap.name}"</strong> in the same tournament. Two races in the same tournament cannot run at the same time.
+              </span>
+            </div>
+          )}
+          {!tournamentOverlap && refereeConflict && (
+            <div className="p-3 rounded-lg bg-error/10 border border-error/25 text-error text-sm flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>
+                An assigned referee is already officiating race <strong>"{refereeConflict.name}"</strong> during this time slot (in a different tournament).
               </span>
             </div>
           )}
@@ -192,37 +247,76 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
               placeholder="e.g. Al Maktoum Challenge" className={inputCls} />
           </div>
 
-          {/* Scheduled time — split into date + time pickers */}
+          {/* Race date — shared by start & end time */}
           <div>
             <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
-              Scheduled Start Time <span className="text-error">*</span>
+              Race Date <span className="text-error">*</span>
             </label>
-            <div className="grid grid-cols-2 gap-3">
-              {/* Date picker — opens calendar */}
-              <input
-                required
-                type="date"
-                value={form.scheduledStartTime?.split('T')[0] ?? ''}
-                min={new Date().toISOString().split('T')[0]}
-                onChange={e => {
-                  const time = form.scheduledStartTime?.split('T')[1] ?? '08:00';
-                  setForm(f => ({ ...f, scheduledStartTime: `${e.target.value}T${time}` }));
-                }}
-                className={inputCls}
-              />
-              {/* Time picker */}
+            <input
+              required
+              type="date"
+              value={form.scheduledStartTime?.split('T')[0] ?? form.scheduledEndTime?.split('T')[0] ?? ''}
+              min={minDate}
+              max={maxDate}
+              onChange={e => {
+                const newDate = e.target.value
+                setForm(f => ({
+                  ...f,
+                  scheduledStartTime: `${newDate}T${f.scheduledStartTime?.split('T')[1] ?? '08:00'}`,
+                  scheduledEndTime:   `${newDate}T${f.scheduledEndTime?.split('T')[1]   ?? '09:00'}`,
+                }))
+              }}
+              className={inputCls}
+            />
+            {selectedTournament ? (
+              <p className={`text-xs mt-1.5 ${dateOutOfRange ? 'text-error' : 'text-on-surface-variant'}`}>
+                {dateOutOfRange
+                  ? `Must be within the tournament's schedule: ${minDate} – ${maxDate ?? 'no end date'}`
+                  : `Tournament runs ${selectedTournament.startDate} – ${selectedTournament.endDate}`}
+              </p>
+            ) : (
+              <p className="text-xs mt-1.5 text-on-surface-variant">
+                Select a tournament first to see its valid date range.
+              </p>
+            )}
+          </div>
+
+          {/* Start / End time */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
+                Start Time <span className="text-error">*</span>
+              </label>
               <input
                 required
                 type="time"
                 value={form.scheduledStartTime?.split('T')[1]?.slice(0, 5) ?? ''}
                 onChange={e => {
-                  const date = form.scheduledStartTime?.split('T')[0] ?? '';
+                  const date = form.scheduledStartTime?.split('T')[0] ?? form.scheduledEndTime?.split('T')[0] ?? '';
                   setForm(f => ({ ...f, scheduledStartTime: `${date}T${e.target.value}` }));
                 }}
                 className={inputCls}
               />
             </div>
+            <div>
+              <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
+                End Time <span className="text-error">*</span>
+              </label>
+              <input
+                required
+                type="time"
+                value={form.scheduledEndTime?.split('T')[1]?.slice(0, 5) ?? ''}
+                onChange={e => {
+                  const date = form.scheduledEndTime?.split('T')[0] ?? form.scheduledStartTime?.split('T')[0] ?? '';
+                  setForm(f => ({ ...f, scheduledEndTime: `${date}T${e.target.value}` }));
+                }}
+                className={inputCls}
+              />
+            </div>
           </div>
+          {endBeforeStart && (
+            <p className="text-xs text-error -mt-2">End time must be after start time.</p>
+          )}
 
           {/* Legs + Max Horses */}
           <div className="grid grid-cols-2 gap-3">
@@ -260,7 +354,7 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
               </label>
               <select required value={form.referee1Id} onChange={set('referee1Id')} className={inputCls}>
                 <option value="">-- Select --</option>
-                {users.map(u => (
+                {refereeUsers.map(u => (
                   <option key={u.userId} value={u.userId}>{u.fullName}</option>
                 ))}
               </select>
@@ -271,16 +365,19 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
               </label>
               <select required value={form.referee2Id} onChange={set('referee2Id')} className={inputCls}>
                 <option value="">-- Select --</option>
-                {users.filter(u => String(u.userId) !== String(form.referee1Id)).map(u => (
+                {refereeUsers.filter(u => String(u.userId) !== String(form.referee1Id)).map(u => (
                   <option key={u.userId} value={u.userId}>{u.fullName}</option>
                 ))}
               </select>
             </div>
           </div>
+          {refereeUsers.length === 0 && (
+            <p className="text-xs text-error -mt-2">No referee accounts found. Create a REFEREE account first.</p>
+          )}
 
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="gs-btn gs-btn-ghost">Cancel</button>
-            <button type="submit" disabled={submitting || refereeMismatch}
+            <button type="submit" disabled={submitting || refereeMismatch || dateOutOfRange || endBeforeStart || !!tournamentOverlap || !!refereeConflict}
               className="gs-btn gs-btn-primary flex items-center gap-2">
               {submitting && <div className="w-3 h-3 border-2 border-on-primary/30 border-t-on-primary rounded-full animate-spin" />}
               {isEdit ? 'Save Changes' : 'Create Race'}
@@ -292,22 +389,98 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
   )
 }
 
+// ─── Unpublish Confirm Modal ───────────────────────────────────────────────────
+// Requires a reason so unpublishing a race is a deliberate, explainable action rather
+// than a silent one-click toggle — closes the transparency gap around Publish/Unpublish.
+
+function UnpublishConfirmModal({ race, onClose, onConfirm, submitting, error }) {
+  const [reason, setReason] = useState('')
+  const validation = validateOverrideReason(reason)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+         style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}>
+      <div className="gs-card w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/40">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-error/10 border border-error/20 flex items-center justify-center">
+              <RotateCcw className="w-4 h-4 text-error" />
+            </div>
+            <h2 className="font-serif font-bold text-on-surface">Unpublish Race</h2>
+          </div>
+          <button onClick={onClose} className="text-on-surface-variant hover:text-on-surface transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          <p className="text-sm text-on-surface-variant">
+            This reverses payouts, Prize Points, and career stats for{' '}
+            <strong className="text-on-surface">"{race.name}"</strong>, and returns it to
+            Pending Result for correction. This action is logged.
+          </p>
+
+          {error && (
+            <div className="p-3 rounded-lg bg-error/10 border border-error/25 text-error text-sm flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />{error}
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
+              Reason <span className="text-error">*</span>
+            </label>
+            <textarea
+              required
+              value={reason}
+              onChange={e => setReason(e.target.value)}
+              placeholder="Why is this race being unpublished? (e.g. Missed approving a violation report before publishing)"
+              rows={3}
+              className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40 resize-none"
+            />
+            {reason && !validation.valid && (
+              <p className="text-xs text-error mt-1.5">{validation.error}</p>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={onClose} className="gs-btn gs-btn-ghost">Cancel</button>
+            <button
+              onClick={() => onConfirm(reason.trim())}
+              disabled={submitting || !validation.valid}
+              className="gs-btn gs-btn-danger flex items-center gap-2">
+              {submitting && <div className="w-3 h-3 border-2 border-error/30 border-t-error rounded-full animate-spin" />}
+              Unpublish
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AdminRacesPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   // ── Data ──
   const [tournaments, setTournaments] = useState([])
   const [raceDetails, setRaceDetails] = useState([])   // full detail of all races
   const [entries, setEntries]         = useState([])   // all entries
   const [users, setUsers]             = useState([])   // for referee name lookup
+  const [pendingViolations, setPendingViolations] = useState([])   // unresolved violation reports — gates Publish
 
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState('')
 
-  // ── Filters ──
-  const [selectedTournamentId, setSelectedTournamentId] = useState('')
+  // ── Filters ── (reads ?tournamentId= from URL — navigated here from Tournament Management)
+  const [selectedTournamentId, setSelectedTournamentId] = useState(() => searchParams.get('tournamentId') || '')
+
+  // ── Pagination (races table) ──
+  const [racesPage, setRacesPage] = useState(1)
+  const RACES_PAGE_SIZE = 10
 
   // ── View: 'races' | 'entries' ──
   const [view, setView]         = useState('races')
@@ -319,6 +492,9 @@ export default function AdminRacesPage() {
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError]   = useState('')
   const [deletingId, setDeletingId] = useState(null)
+  const [openMenuId, setOpenMenuId] = useState(null)
+  const [unpublishTarget, setUnpublishTarget] = useState(null)
+  const [unpublishError, setUnpublishError] = useState('')
 
   // ── Entry approve/reject ──
   const [entryAction, setEntryAction]   = useState(null) // { id, type }
@@ -327,8 +503,8 @@ export default function AdminRacesPage() {
   const [rejectReason, setRejectReason] = useState('')
 
   // ── Registration open/close ──
-  const [regLoading, setRegLoading] = useState(null) // raceId đang xử lý
-  // raceId → { registrationOpenAt, registrationCloseAt } từ list endpoint (detail endpoint thiếu 2 field này)
+  const [regLoading, setRegLoading] = useState(null) // raceId currently being processed
+  // raceId → { registrationOpenAt, registrationCloseAt } from the list endpoint (detail endpoint is missing these 2 fields)
   const [raceRegMap, setRaceRegMap] = useState({})
 
   const buildRegMap = (raceList) => {
@@ -345,16 +521,19 @@ export default function AdminRacesPage() {
   // ── Load all data ──────────────────────────────────────────────────────────
   const loadAll = useCallback(async () => {
     try {
-      const [tournamentsData, racesBasic, entriesData, usersData] = await Promise.all([
-        getTournaments(),
+      const [tournamentsData, racesBasic, entriesData, usersData, , violationsData] = await Promise.all([
+        getAllTournaments(),
         getRaces(),
         api.get('/api/entries').then(r => r.data),
-        getUsers(),
+        getAllUser({ page: 1, pageSize: 1000 }),
+        getRoleMap(),
+        getAllViolations({ status: 'Pending', pageSize: 200 }),
       ])
 
       setTournaments(Array.isArray(tournamentsData) ? tournamentsData : [])
       setEntries(Array.isArray(entriesData) ? entriesData : [])
-      setUsers(Array.isArray(usersData) ? usersData : [])
+      setUsers(Array.isArray(usersData?.items ?? usersData) ? (usersData?.items ?? usersData) : [])
+      setPendingViolations(Array.isArray(violationsData?.items) ? violationsData.items : [])
       setError('')
 
       const raceList = Array.isArray(racesBasic) ? racesBasic : []
@@ -367,7 +546,7 @@ export default function AdminRacesPage() {
         setRaceDetails([])
       }
     } catch (err) {
-      setError(err?.message || 'Không tải được dữ liệu')
+      setError(err?.message || 'Failed to load data')
     } finally {
       setLoading(false)
     }
@@ -375,15 +554,19 @@ export default function AdminRacesPage() {
 
   useEffect(() => {
     Promise.all([
-      getTournaments(),
+      getAllTournaments(),
       getRaces(),
       api.get('/api/entries').then(r => r.data),
-      getUsers(),
+      getAllUser({ page: 1, pageSize: 1000 }),
+      getRoleMap(),
+      getAllViolations({ status: 'Pending', pageSize: 200 }),
     ])
-      .then(([tournamentsData, racesBasic, entriesData, usersData]) => {
+      .then(([tournamentsData, racesBasic, entriesData, usersData, , violationsData]) => {
+        const userList = usersData?.items ?? usersData
         setTournaments(Array.isArray(tournamentsData) ? tournamentsData : [])
         setEntries(Array.isArray(entriesData) ? entriesData : [])
-        setUsers(Array.isArray(usersData) ? usersData : [])
+        setUsers(Array.isArray(userList) ? userList : [])
+        setPendingViolations(Array.isArray(violationsData?.items) ? violationsData.items : [])
         const raceList = Array.isArray(racesBasic) ? racesBasic : []
         setRaceRegMap(buildRegMap(raceList))
         if (raceList.length > 0) {
@@ -392,19 +575,44 @@ export default function AdminRacesPage() {
         }
         setRaceDetails([])
       })
-      .catch(err => setError(err?.message || 'Không tải được dữ liệu'))
+      .catch(err => setError(err?.message || 'Failed to load data'))
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    if (!openMenuId) return
+    const close = () => setOpenMenuId(null)
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [openMenuId])
 
   // ── Derived data ──────────────────────────────────────────────────────────
   const userMap       = useMemo(() => Object.fromEntries(users.map(u => [u.userId, u])),             [users])
   const tournamentMap = useMemo(() => Object.fromEntries(tournaments.map(t => [t.tournamentId, t.name])), [tournaments])
+  // raceId → count of unresolved (Pending) violation reports — gates the Publish action below.
+  const pendingViolationCountByRace = useMemo(() => {
+    const counts = {}
+    pendingViolations.forEach(v => { counts[v.raceId] = (counts[v.raceId] ?? 0) + 1 })
+    return counts
+  }, [pendingViolations])
 
   const filteredRaces = useMemo(() =>
     selectedTournamentId
       ? raceDetails.filter(r => String(r.tournamentId) === String(selectedTournamentId))
       : raceDetails,
   [raceDetails, selectedTournamentId])
+
+  // Reset to page 1 whenever the visible set changes shape (tournament filter).
+  useEffect(() => {
+    setRacesPage(1)
+  }, [selectedTournamentId])
+
+  const racesTotalPages = Math.max(1, Math.ceil(filteredRaces.length / RACES_PAGE_SIZE))
+  const racesPageSafe = Math.min(racesPage, racesTotalPages)
+  const paginatedRaces = filteredRaces.slice(
+    (racesPageSafe - 1) * RACES_PAGE_SIZE,
+    racesPageSafe * RACES_PAGE_SIZE,
+  )
 
   // Stats for race list view
   const statsRaces = useMemo(() => {
@@ -441,7 +649,7 @@ export default function AdminRacesPage() {
       setDeletingId(null)
       await loadAll()
     } catch (err) {
-      setError(err?.message || 'Xóa race thất bại')
+      setError(err?.message || 'Failed to delete race')
       setDeletingId(null)
     }
   }
@@ -458,7 +666,7 @@ export default function AdminRacesPage() {
       setShowModal(false)
       await loadAll()
     } catch (err) {
-      setFormError(err?.message || 'Lưu race thất bại')
+      setFormError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Failed to save race')
     } finally {
       setSubmitting(false)
     }
@@ -477,7 +685,7 @@ export default function AdminRacesPage() {
       await openRegistration(raceId)
       await loadAll()
     } catch (err) {
-      setError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Mở đăng ký thất bại')
+      setError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Failed to open registration')
     } finally {
       setRegLoading(null)
     }
@@ -490,7 +698,7 @@ export default function AdminRacesPage() {
       await closeRegistration(raceId)
       await loadAll()
     } catch (err) {
-      setError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Đóng đăng ký thất bại')
+      setError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Failed to close registration')
     } finally {
       setRegLoading(null)
     }
@@ -505,7 +713,21 @@ export default function AdminRacesPage() {
       setView('races')
       setActiveRace(null)
     } catch (err) {
-      setEntryError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Bắt đầu race thất bại')
+      setEntryError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Failed to start race')
+    } finally {
+      setRegLoading(null)
+    }
+  }
+
+  const handleUnpublishRace = async (raceId, reason) => {
+    setRegLoading(raceId)
+    setUnpublishError('')
+    try {
+      await unpublishRace(raceId, reason)
+      setUnpublishTarget(null)
+      await loadAll()
+    } catch (err) {
+      setUnpublishError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Failed to unpublish race')
     } finally {
       setRegLoading(null)
     }
@@ -518,7 +740,7 @@ export default function AdminRacesPage() {
       await approveEntry(entryId)
       await loadAll()
     } catch (err) {
-      setEntryError(err?.message || 'Duyệt entry thất bại')
+      setEntryError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Failed to approve entry')
     } finally {
       setEntryAction(null)
     }
@@ -528,12 +750,12 @@ export default function AdminRacesPage() {
     setEntryAction({ id: entryId, type: 'Rejected' })
     setEntryError('')
     try {
-      await rejectEntry(entryId, rejectReason.trim() || null)
+      await rejectEntry(entryId, rejectReason.trim())
       setRejectingEntryId(null)
       setRejectReason('')
       await loadAll()
     } catch (err) {
-      setEntryError(err?.message || 'Từ chối entry thất bại')
+      setEntryError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Failed to reject entry')
     } finally {
       setEntryAction(null)
     }
@@ -637,15 +859,21 @@ export default function AdminRacesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRaces.map((race, i) => {
+                  {paginatedRaces.map((race, i) => {
                     const dt = fmtDateTime(race.scheduledStartTime)
                     const raceEntryList = entries.filter(e => e.raceId === race.raceId)
+                    const approvedEntryCount = raceEntryList.filter(e => e.status === 'Approved').length
                     const meta = RACE_STATUS_META[race.status] ?? { label: race.status, cls: 'bg-surface-container-high text-on-surface-variant border border-outline-variant/50' }
                     const ref1 = race.referee1Id ? userMap[race.referee1Id] : null
                     const ref2 = race.referee2Id ? userMap[race.referee2Id] : null
 
                     return (
-                      <tr key={race.raceId} className={`animate-fade-in-up delay-row-${(i % 4)+1}`} style={{ opacity: 0, animationFillMode: 'forwards' }}>
+                      <tr
+                        key={race.raceId}
+                        onClick={() => openEntriesView(race)}
+                        className={`animate-fade-in-up delay-row-${(i % 4)+1} cursor-pointer hover:bg-surface-container/60`}
+                        style={{ opacity: 0, animationFillMode: 'forwards' }}
+                      >
 
                         {/* Name */}
                         <td>
@@ -664,7 +892,9 @@ export default function AdminRacesPage() {
                         {/* Date/Time */}
                         <td>
                           <div className="text-sm text-on-surface">{dt.date}</div>
-                          <div className="text-xs text-on-surface-variant">{dt.time}</div>
+                          <div className="text-xs text-on-surface-variant">
+                            {dt.time}{race.scheduledEndTime ? ` – ${fmtDateTime(race.scheduledEndTime).time}` : ''}
+                          </div>
                         </td>
 
                         {/* Legs / Round type */}
@@ -696,7 +926,7 @@ export default function AdminRacesPage() {
                               {ref2 && <span className="text-xs text-on-surface-variant">{ref2.fullName}</span>}
                             </div>
                           ) : (
-                            <button onClick={() => openEdit(race)}
+                            <button onClick={e => { e.stopPropagation(); openEdit(race) }}
                               className="text-xs text-secondary hover:text-secondary/80 flex items-center gap-1 transition-colors">
                               <Plus className="w-3 h-3" /> Assign
                             </button>
@@ -711,63 +941,110 @@ export default function AdminRacesPage() {
                         </td>
 
                         {/* Actions */}
-                        <td>
-                          {deletingId === race.raceId ? (
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-xs text-error">Confirm?</span>
-                              <button onClick={() => handleDelete(race.raceId)} className="gs-btn gs-btn-danger gs-btn-sm">Delete</button>
-                              <button onClick={() => setDeletingId(null)} className="gs-btn gs-btn-ghost gs-btn-sm">Cancel</button>
+                        <td onClick={e => e.stopPropagation()}>
+                          <div className="flex items-center gap-2">
+                            {/* Primary lifecycle button */}
+                            {race.status === 'Scheduled' && !raceRegMap[race.raceId]?.registrationOpenAt && (
+                              <button onClick={() => handleOpenRegistration(race.raceId)} disabled={regLoading === race.raceId}
+                                className="gs-btn gs-btn-primary gs-btn-sm flex items-center gap-1">
+                                {regLoading === race.raceId ? <div className="w-3 h-3 border-2 border-on-primary/30 border-t-on-primary rounded-full animate-spin" /> : <LockOpen className="w-3.5 h-3.5" />}
+                                Open Reg
+                              </button>
+                            )}
+                            {race.status === 'Scheduled' && raceRegMap[race.raceId]?.registrationOpenAt && !raceRegMap[race.raceId]?.registrationCloseAt && (
+                              <button onClick={() => handleCloseRegistration(race.raceId)}
+                                disabled={regLoading === race.raceId || approvedEntryCount < 2}
+                                title={approvedEntryCount < 2 ? `Needs at least 2 approved entries to close registration (currently ${approvedEntryCount}).` : ''}
+                                className="gs-btn gs-btn-danger gs-btn-sm flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed">
+                                {regLoading === race.raceId ? <div className="w-3 h-3 border-2 border-error/30 border-t-error rounded-full animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
+                                Close Reg
+                              </button>
+                            )}
+                            {(race.status === 'InProgress' || race.status === 'Paused' || race.status === 'PendingResult') && (
+                              <button onClick={() => navigate(`/admin/race-execution?raceId=${race.raceId}`)}
+                                className="gs-btn gs-btn-outline-gold gs-btn-sm flex items-center gap-1">
+                                <Eye className="w-3.5 h-3.5" /> Monitor
+                              </button>
+                            )}
+                            {(pendingViolationCountByRace[race.raceId] ?? 0) > 0 && race.status === 'PendingResult' && (
+                              <button onClick={e => { e.stopPropagation(); navigate(`/admin/violations?raceId=${race.raceId}`) }}
+                                className="gs-btn gs-btn-ghost gs-btn-sm flex items-center gap-1 text-amber-400">
+                                <AlertCircle className="w-3.5 h-3.5" /> {pendingViolationCountByRace[race.raceId]} Pending
+                              </button>
+                            )}
+                            {race.status === 'Finished' && (
+                              <button onClick={e => { e.stopPropagation(); setUnpublishError(''); setUnpublishTarget(race) }} disabled={regLoading === race.raceId}
+                                className="gs-btn gs-btn-ghost gs-btn-sm flex items-center gap-1 text-on-surface-variant">
+                                {regLoading === race.raceId ? <div className="w-3 h-3 border-2 border-on-surface-variant/30 border-t-on-surface-variant rounded-full animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                                Unpublish
+                              </button>
+                            )}
+
+                            {/* ⋮ overflow menu */}
+                            <div className="relative">
+                              <button
+                                onClick={e => { e.stopPropagation(); setOpenMenuId(openMenuId === race.raceId ? null : race.raceId) }}
+                                className="w-8 h-8 rounded-lg border border-outline-variant/40 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors"
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
+                              {openMenuId === race.raceId && (
+                                <div className="absolute right-0 mt-1 bg-surface-container border border-outline-variant/40 rounded-xl shadow-xl z-20 min-w-[130px] py-1 overflow-hidden">
+                                  <button
+                                    onClick={() => { openEdit(race); setOpenMenuId(null) }}
+                                    className="w-full text-left px-3 py-2 text-sm text-on-surface hover:bg-surface-container-high flex items-center gap-2 transition-colors"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" /> Edit
+                                  </button>
+                                  <div className="border-t border-outline-variant/30 my-1" />
+                                  {deletingId === race.raceId ? (
+                                    <div className="px-3 py-2">
+                                      <p className="text-xs text-error mb-1.5">Confirm delete?</p>
+                                      <div className="flex gap-1.5">
+                                        <button onClick={() => handleDelete(race.raceId)} className="gs-btn gs-btn-danger gs-btn-sm flex-1">Delete</button>
+                                        <button onClick={() => setDeletingId(null)} className="gs-btn gs-btn-ghost gs-btn-sm">Cancel</button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => setDeletingId(race.raceId)}
+                                      className="w-full text-left px-3 py-2 text-sm text-error hover:bg-error/10 flex items-center gap-2 transition-colors"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                             </div>
-                          ) : (
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {race.status === 'Scheduled' && !raceRegMap[race.raceId]?.registrationOpenAt && (
-                                <button
-                                  onClick={() => handleOpenRegistration(race.raceId)}
-                                  disabled={regLoading === race.raceId}
-                                  className="gs-btn gs-btn-primary gs-btn-sm flex items-center gap-1">
-                                  {regLoading === race.raceId
-                                    ? <div className="w-3 h-3 border-2 border-on-primary/30 border-t-on-primary rounded-full animate-spin" />
-                                    : <LockOpen className="w-3.5 h-3.5" />}
-                                  Open Reg
-                                </button>
-                              )}
-                              {race.status === 'Scheduled' && raceRegMap[race.raceId]?.registrationOpenAt && !raceRegMap[race.raceId]?.registrationCloseAt && (
-                                <button
-                                  onClick={() => handleCloseRegistration(race.raceId)}
-                                  disabled={regLoading === race.raceId}
-                                  className="gs-btn gs-btn-danger gs-btn-sm flex items-center gap-1">
-                                  {regLoading === race.raceId
-                                    ? <div className="w-3 h-3 border-2 border-error/30 border-t-error rounded-full animate-spin" />
-                                    : <Lock className="w-3.5 h-3.5" />}
-                                  Close Reg
-                                </button>
-                              )}
-                              {(race.status === 'InProgress' || race.status === 'Paused') && (
-                                <button onClick={() => navigate('/admin/race-execution')}
-                                  className="gs-btn gs-btn-outline-gold gs-btn-sm flex items-center gap-1">
-                                  <Eye className="w-3.5 h-3.5" /> Monitor
-                                </button>
-                              )}
-                              <button onClick={() => navigate(`/admin/races/${race.raceId}/entries`)}
-                                className="gs-btn gs-btn-outline-emerald gs-btn-sm flex items-center gap-1">
-                                <Users className="w-3.5 h-3.5" /> Entries
-                              </button>
-                              <button onClick={() => openEdit(race)}
-                                className="gs-btn gs-btn-ghost gs-btn-sm flex items-center gap-1">
-                                <Edit2 className="w-3.5 h-3.5" /> Edit
-                              </button>
-                              <button onClick={() => setDeletingId(race.raceId)}
-                                className="gs-btn gs-btn-danger gs-btn-sm flex items-center gap-1">
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          )}
+                          </div>
                         </td>
                       </tr>
                     )
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {/* Pagination */}
+          {!loading && racesTotalPages > 1 && (
+            <div className="flex items-center justify-between px-5 py-3 border-t border-outline-variant/40">
+              <p className="text-xs text-on-surface-variant">
+                Showing {(racesPageSafe - 1) * RACES_PAGE_SIZE + 1}–{Math.min(racesPageSafe * RACES_PAGE_SIZE, filteredRaces.length)} of {filteredRaces.length} races
+              </p>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setRacesPage(p => Math.max(1, p - 1))} disabled={racesPageSafe === 1}
+                  className="w-7 h-7 rounded-lg bg-surface-container-high hover:bg-surface-container-highest disabled:opacity-40 flex items-center justify-center transition-all">
+                  <ChevronLeft className="w-3.5 h-3.5 text-on-surface" />
+                </button>
+                <span className="text-xs text-on-surface font-mono px-2">
+                  {racesPageSafe} / {racesTotalPages}
+                </span>
+                <button onClick={() => setRacesPage(p => Math.min(racesTotalPages, p + 1))} disabled={racesPageSafe === racesTotalPages}
+                  className="w-7 h-7 rounded-lg bg-surface-container-high hover:bg-surface-container-highest disabled:opacity-40 flex items-center justify-center transition-all">
+                  <ChevronRight className="w-3.5 h-3.5 text-on-surface" />
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -783,6 +1060,16 @@ export default function AdminRacesPage() {
           onSubmit={handleRaceSubmit}
           submitting={submitting}
           error={formError}
+        />
+      )}
+
+      {unpublishTarget && (
+        <UnpublishConfirmModal
+          race={unpublishTarget}
+          onClose={() => setUnpublishTarget(null)}
+          onConfirm={reason => handleUnpublishRace(unpublishTarget.raceId, reason)}
+          submitting={regLoading === unpublishTarget.raceId}
+          error={unpublishError}
         />
       )}
       </div>
@@ -801,6 +1088,7 @@ export default function AdminRacesPage() {
     : isRegOpen ? 'text-primary'
     : 'text-on-surface-variant'
 
+  const approvedActiveCount = raceEntries.filter(e => e.status === 'Approved').length
   const minOdds = Math.min(...raceEntries.filter(e => e.currentOdds).map(e => e.currentOdds))
   const fmtDate = (s) => {
     if (!s) return '—'
@@ -857,14 +1145,20 @@ export default function AdminRacesPage() {
             {isRegOpen && (
               <button
                 onClick={() => handleCloseRegistration(activeRace.raceId)}
-                disabled={regLoading === activeRace?.raceId}
-                className="gs-btn gs-btn-secondary flex items-center gap-2 px-5 py-2.5"
+                disabled={regLoading === activeRace?.raceId || approvedActiveCount < 2}
+                title={approvedActiveCount < 2 ? `Needs at least 2 approved entries to close registration (currently ${approvedActiveCount}).` : ''}
+                className="gs-btn gs-btn-secondary flex items-center gap-2 px-5 py-2.5 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {regLoading === activeRace?.raceId
                   ? <div className="w-3.5 h-3.5 border-2 border-black/20 border-t-black/70 rounded-full animate-spin" />
                   : <Lock className="w-4 h-4" />}
                 Close Registration
               </button>
+            )}
+            {isRegOpen && approvedActiveCount < 2 && (
+              <p className="text-xs text-on-surface-variant self-center">
+                Needs ≥2 approved entries ({approvedActiveCount} now)
+              </p>
             )}
             {isRegClosed && activeRace?.status === 'Scheduled' && (
               <button
@@ -1021,12 +1315,12 @@ export default function AdminRacesPage() {
                                 <input
                                   value={rejectReason}
                                   onChange={e => setRejectReason(e.target.value)}
-                                  placeholder="Reject reason (optional)"
+                                  placeholder="Reject reason (required) *"
                                   className="text-xs bg-surface-container-lowest border border-outline-variant/40 rounded px-2 py-1.5 text-on-surface focus:outline-none focus:border-error w-full"
                                 />
                                 <div className="flex gap-1.5">
-                                  <button disabled={isActing} onClick={() => handleRejectEntry(entry.entryId)}
-                                    className="gs-btn gs-btn-danger gs-btn-sm flex-1 flex items-center justify-center gap-1">
+                                  <button disabled={isActing || !rejectReason.trim()} onClick={() => handleRejectEntry(entry.entryId)}
+                                    className="gs-btn gs-btn-danger gs-btn-sm flex-1 flex items-center justify-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed">
                                     {isActing && entryAction?.type === 'Rejected'
                                       ? <div className="w-3 h-3 border-2 border-error/30 border-t-error rounded-full animate-spin" />
                                       : <XCircle className="w-3 h-3" />}

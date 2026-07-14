@@ -19,8 +19,8 @@ export default function RefereeDashboard() {
                 <Scale className="w-5 h-5 text-tertiary" />
               </div>
               <div>
-                <h1 className="font-serif text-2xl font-bold text-on-surface">Dashboard Trọng tài</h1>
-                <p className="text-on-surface-variant text-sm">Chào mừng trở lại, {user?.fullName || 'Người dùng'}!</p>
+                <h1 className="font-serif text-2xl font-bold text-on-surface">Referee Dashboard</h1>
+                <p className="text-on-surface-variant text-sm">Welcome back, {user?.fullName || 'User'}!</p>
               </div>
             </div>
             <div className="h-[2px] w-20 rounded-full bg-gradient-to-r from-tertiary to-secondary mt-4" />
@@ -37,7 +37,7 @@ export default function RefereeDashboard() {
                   <p className="font-serif text-xl font-bold text-on-surface">{user?.fullName}</p>
                   <span className="gs-badge gs-badge-neutral text-[10px]">
                     <Star className="w-3 h-3" />
-                    Trọng tài
+                    Referee
                   </span>
                 </div>
                 <p className="text-sm text-on-surface-variant">{user?.email}</p>
@@ -50,10 +50,10 @@ export default function RefereeDashboard() {
             <div className="w-16 h-16 rounded-full bg-tertiary/10 border-2 border-tertiary/25 mx-auto mb-6 flex items-center justify-center">
               <Clock className="w-8 h-8 text-tertiary" />
             </div>
-            <h3 className="font-serif text-2xl font-bold text-on-surface mb-3">Sắp Ra Mắt</h3>
+            <h3 className="font-serif text-2xl font-bold text-on-surface mb-3">Coming Soon</h3>
             <p className="text-on-surface-variant text-sm max-w-md mx-auto leading-relaxed">
-              Chức năng giám sát và ghi nhận kết quả đua đang được phát triển bởi đội ngũ GrandStride.
-              Hãy quay lại để trải nghiệm phiên bản đầy đủ.
+              Race monitoring and result recording features are being developed by the GrandStride team.
+              Check back soon for the full experience.
             </p>
           </div>
         </div>

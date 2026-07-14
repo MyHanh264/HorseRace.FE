@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Trophy,
   Plus,
@@ -13,8 +14,8 @@ import {
   AlertCircle,
 } from "lucide-react";
 import {
-  getTournaments,
-  getTournamentDetail,
+  getAllTournaments,
+  getTournamentById,
   createTournament,
   updateTournament,
   deleteTournament,
@@ -303,6 +304,7 @@ function TournamentModal({ tournament, onClose, onSubmit, submitting, error }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AdminTournamentsPage() {
+  const navigate = useNavigate();
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -318,21 +320,21 @@ export default function AdminTournamentsPage() {
 
   const load = useCallback(async () => {
     try {
-      const data = await getTournaments();
+      const data = await getAllTournaments();
       setTournaments(Array.isArray(data) ? data : []);
       setError("");
     } catch (err) {
-      setError(err?.message || "Không tải được danh sách giải đấu");
+      setError(err?.message || "Failed to load tournament list");
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    getTournaments()
+    getAllTournaments()
       .then((data) => setTournaments(Array.isArray(data) ? data : []))
       .catch((err) =>
-        setError(err?.message || "Không tải được danh sách giải đấu"),
+        setError(err?.message || "Failed to load tournament list"),
       )
       .finally(() => setLoading(false));
   }, []);
@@ -362,7 +364,7 @@ export default function AdminTournamentsPage() {
   const openEdit = async (t) => {
     setFormError("");
     try {
-      const detail = await getTournamentDetail(t.tournamentId);
+      const detail = await getTournamentById(t.tournamentId);
       setEditingItem(detail);
     } catch {
       setEditingItem(t);
@@ -377,7 +379,7 @@ export default function AdminTournamentsPage() {
       setDeletingId(null);
       await load();
     } catch (err) {
-      setError(err?.message || "Xóa giải đấu thất bại");
+      setError(err?.message || "Failed to delete tournament");
       setDeletingId(null);
     }
   };
@@ -397,7 +399,7 @@ export default function AdminTournamentsPage() {
       setShowModal(false);
       await load();
     } catch (err) {
-      setFormError(err?.message || "Lưu thất bại");
+      setFormError(err?.message || "Failed to save");
     } finally {
       setSubmitting(false);
     }
@@ -537,9 +539,14 @@ export default function AdminTournamentsPage() {
                       className={`animate-fade-in-up delay-row-${(i % 4) + 1}`}
                       style={{ opacity: 0, animationFillMode: "forwards" }}
                     >
-                      {/* Name */}
+                      {/* Name — click to view Races for this tournament */}
                       <td>
-                        <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/admin/races?tournamentId=${t.tournamentId}`)}
+                          title="View races for this tournament"
+                          className="flex items-center gap-3 text-left group"
+                        >
                           <div className="w-9 h-9 rounded-lg bg-secondary/10 border border-secondary/20 flex items-center justify-center shrink-0">
                             {t.logoUrl ? (
                               <img
@@ -552,14 +559,14 @@ export default function AdminTournamentsPage() {
                             )}
                           </div>
                           <div>
-                            <div className="font-semibold text-on-surface text-sm leading-snug">
+                            <div className="font-semibold text-on-surface text-sm leading-snug group-hover:text-secondary group-hover:underline transition-colors">
                               {t.name}
                             </div>
                             <div className="text-[11px] text-on-surface-variant font-mono">
                               ID: {fmtId(t.tournamentId, t.startDate)}
                             </div>
                           </div>
-                        </div>
+                        </button>
                       </td>
 
                       {/* Location */}

@@ -9,6 +9,10 @@ import {
   Clock,
   Plus,
   ImageIcon,
+  CheckCircle2,
+  XCircle,
+  Bell,
+  Trophy,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -185,7 +189,7 @@ function HorseRow({ horse, onClick }) {
 
 // ─── InvitationRow ────────────────────────────────────────────────────────────
 
-function InvitationRow({ inv }) {
+function InvitationRow({ inv, onReview }) {
   const name = inv.jockeyName ?? `Jockey #${inv.jockeyId}`;
   const color = avatarColor(name);
   const abbr = initials(name);
@@ -209,7 +213,10 @@ function InvitationRow({ inv }) {
         {fmtDate(inv.sentAt)}
       </span>
 
-      <button className="border border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap">
+      <button
+        onClick={onReview}
+        className="border border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+      >
         Review
       </button>
     </div>
@@ -317,6 +324,34 @@ export default function HorseOwnerDashboard() {
   );
   const firstName = user?.fullName?.split(" ")[0] ?? "there";
 
+  const rejectedHorses = horses.filter((h) => h.status === "Rejected");
+  const rejectedEntries = entries.filter((e) => e.status === "Rejected");
+  const finishedRaceIds = new Set(
+    races.filter((r) => r.status === "Finished").map((r) => r.raceId)
+  );
+  const finishedEntries = entries.filter(
+    (e) => e.status === "Approved" && finishedRaceIds.has(e.raceId)
+  );
+  const upcomingRaces = races
+    .filter((r) => r.status === "Scheduled")
+    .sort((a, b) => new Date(a.scheduledAt ?? a.scheduledStartTime) - new Date(b.scheduledAt ?? b.scheduledStartTime));
+
+  const notifications = [];
+  if (!loading) {
+    if (pendingInvitations.length > 0)
+      notifications.push({ type: "warn", icon: Bell, msg: `You have ${pendingInvitations.length} jockey invitation(s) awaiting your response.`, path: "/horse-owner/invitations" });
+    if (approvedCount > 0)
+      notifications.push({ type: "success", icon: CheckCircle2, msg: `${approvedCount} horse(s) have been approved and are ready to compete.`, path: "/horse-owner/horses" });
+    if (rejectedHorses.length > 0)
+      notifications.push({ type: "error", icon: XCircle, msg: `${rejectedHorses.length} horse(s) had their registration rejected.`, path: "/horse-owner/horses" });
+    if (rejectedEntries.length > 0)
+      notifications.push({ type: "error", icon: XCircle, msg: `${rejectedEntries.length} entry/entries were rejected from a race.`, path: "/horse-owner/entries" });
+    if (finishedEntries.length > 0)
+      notifications.push({ type: "success", icon: Trophy, msg: `${finishedEntries.length} race(s) have finished — check your results.`, path: "/horse-owner/entries" });
+    if (pendingInvitations.length === 0 && rejectedHorses.length === 0 && rejectedEntries.length === 0)
+      notifications.push({ type: "info", icon: CheckCircle2, msg: "Everything looks good. No action needed right now.", path: null });
+  }
+
   if (loading) {
     return (
       <div className="p-8 flex items-center justify-center min-h-[400px]">
@@ -354,6 +389,32 @@ export default function HorseOwnerDashboard() {
         </button>
       </div>
 
+      {/* ── Notification Banners ── */}
+      {notifications.length > 0 && (
+        <div className="flex flex-col gap-2">
+          {notifications.map((n, i) => {
+            const Icon = n.icon
+            const styles = {
+              warn:    "bg-yellow-500/10 border-yellow-500/30 text-yellow-300",
+              error:   "bg-red-500/10 border-red-500/30 text-red-300",
+              success: "bg-emerald-500/10 border-emerald-500/30 text-emerald-300",
+              info:    "bg-white/5 border-white/10 text-gray-400",
+            }
+            return (
+              <div key={i} className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm ${styles[n.type]}`}>
+                <Icon size={16} className="shrink-0" />
+                <span className="flex-1">{n.msg}</span>
+                {n.path && (
+                  <button onClick={() => navigate(n.path)} className="text-xs font-bold underline underline-offset-2 whitespace-nowrap">
+                    View Now
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       {/* ── Stat Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
@@ -383,8 +444,8 @@ export default function HorseOwnerDashboard() {
           id="races"
           label="Upcoming Races"
           icon={<Calendar size={18} />}
-          value={races.length}
-          sub="This Week"
+          value={upcomingRaces.length}
+          sub="Scheduled"
         />
       </div>
 
@@ -451,7 +512,7 @@ export default function HorseOwnerDashboard() {
                   <span>Action</span>
                 </div>
                 {pendingInvitations.slice(0, 3).map((inv) => (
-                  <InvitationRow key={inv.invitationId} inv={inv} />
+                  <InvitationRow key={inv.invitationId} inv={inv} onReview={() => navigate("/horse-owner/invitations")} />
                 ))}
               </>
             )}
@@ -464,14 +525,14 @@ export default function HorseOwnerDashboard() {
             <h2 className="text-white font-bold text-base">Upcoming Races</h2>
           </div>
 
-          {races.length === 0 ? (
+          {upcomingRaces.length === 0 ? (
             <div className="flex flex-col items-center justify-center flex-1 py-12 gap-3">
               <Clock size={32} className="text-gray-700" />
               <p className="text-gray-500 text-sm">No upcoming races.</p>
             </div>
           ) : (
             <div className="flex flex-col gap-3 flex-1">
-              {races.slice(0, 4).map((race) => (
+              {upcomingRaces.slice(0, 4).map((race) => (
                 <RaceCard key={race.raceId} race={race} />
               ))}
             </div>

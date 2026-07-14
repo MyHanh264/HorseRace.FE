@@ -105,7 +105,7 @@ export default function LeaderboardPage() {
         setAllPredictions(Array.isArray(predsData) ? predsData : [])
         setUsers(Array.isArray(usersData) ? usersData : [])
       } catch (err) {
-        if (active) setError(err?.message || 'Không tải được leaderboard')
+        if (active) setError(err?.message || 'Failed to load leaderboard')
       } finally {
         if (active) setLoading(false)
       }

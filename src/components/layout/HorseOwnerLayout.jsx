@@ -9,6 +9,9 @@ import {
   User,
   LogOut,
 } from "lucide-react";
+import NotificationBell from "../NotificationBell";
+import { useHorseOwnerNotifications } from "../../hooks/useHorseOwnerNotifications";
+import { useNotificationRead } from "../../hooks/useNotificationRead";
 
 const navItems = [
   { to: "/horse-owner", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -31,6 +34,8 @@ function getInitials(name) {
 
 export default function HorseOwnerLayout() {
   const { user, logout } = useAuth();
+  const notifItems = useHorseOwnerNotifications();
+  const notifRead = useNotificationRead(notifItems, user?.userId);
 
   return (
     <div className="flex h-screen font-sans" style={{ background: "#0D1117", color: "#E6EDF3" }}>
@@ -93,9 +98,14 @@ export default function HorseOwnerLayout() {
       </aside>
 
       {/* Page content */}
-      <main className="flex-1 overflow-auto ml-[200px]">
-        <Outlet />
-      </main>
+      <div className="flex-1 flex flex-col min-w-0 ml-[200px]">
+        <header className="h-14 px-6 flex items-center justify-end flex-shrink-0 sticky top-0 z-40 bg-[#111418] border-b border-white/10">
+          <NotificationBell items={notifItems} {...notifRead} />
+        </header>
+        <main className="flex-1 overflow-auto">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }

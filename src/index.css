@@ -557,7 +557,8 @@ a, button { -webkit-tap-highlight-color: transparent; }
   margin-top: 16px;
   border: 1px solid var(--color-outline-variant);
   border-radius: 12px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   background: var(--color-surface-container-low);
 }
 
@@ -591,6 +592,26 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .admin-table tbody tr { transition: background 0.15s ease; }
 .admin-table tbody tr:hover { background: rgba(141, 214, 166, 0.04); }
 .admin-table tbody tr:last-child td { border-bottom: none; }
+
+/* ==========================================================================
+   10b. DATE/TIME INPUT ICON — the browser draws a black calendar/clock icon
+   by default, which gets lost against the app's dark background. Invert the
+   color to make the icon light, visible, and clickable — applied app-wide,
+   no need to fix each form individually.
+   ========================================================================== */
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.7;
+  cursor: pointer;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
+input[type="time"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
 
 /* ==========================================================================
    11. TROPHY BADGES

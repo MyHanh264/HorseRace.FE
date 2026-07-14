@@ -131,7 +131,7 @@ export default function JockeyProfilePage() {
   const [biography, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState(null);
 
-  // stats (read-only từ API)
+  // stats (read-only from API)
   const [totalRaces, setTotalRaces] = useState(0);
   const [totalWins, setTotalWins] = useState(0);
 
@@ -183,7 +183,7 @@ export default function JockeyProfilePage() {
       if (profileExists) {
         const res = await api.put(`/api/jockey-profiles/${userId}`, payload);
         if (res.data?.success === false) {
-          throw new Error("Cập nhật thất bại — profile không tồn tại.");
+          throw new Error("Update failed — profile does not exist.");
         }
       } else {
         await api.post(`/api/jockey-profiles`, payload);
@@ -197,7 +197,7 @@ export default function JockeyProfilePage() {
         err?.response?.data?.message ??
         err?.response?.data?.detail ??
         err?.message ??
-        "Lưu thất bại.";
+        "Save failed.";
       setSaveError(msg);
     } finally {
       setSaving(false);
@@ -208,7 +208,7 @@ export default function JockeyProfilePage() {
   const handleUpdatePassword = async () => {
     setUpdatingPw(true);
     try {
-      // TODO: gọi API đổi password khi BE có endpoint
+      // TODO: call password change API when BE has an endpoint
       await new Promise((r) => setTimeout(r, 600));
       setCurrentPw("");
       setNewPw("");

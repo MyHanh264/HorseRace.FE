@@ -43,7 +43,7 @@ export default function Header({ title, onSearch, searchValue, showBack = false,
           <div className="hidden md:block h-8 w-[1px] bg-outline-variant/40 mx-2" />
 
           <span className="hidden md:inline font-sans text-sm text-on-surface-variant font-medium">
-            {title || 'Bảng quản trị hệ thống'}
+            {title || 'System Admin Panel'}
           </span>
         </div>
       </div>
@@ -55,7 +55,7 @@ export default function Header({ title, onSearch, searchValue, showBack = false,
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/60 group-focus-within:text-secondary transition-colors" />
           <input
             type="text"
-            placeholder="Tìm kiếm hồ sơ..."
+            placeholder="Search records..."
             value={searchValue || ''}
             onChange={(e) => onSearch && onSearch(e.target.value)}
             className="w-64 bg-surface-container-high border border-outline-variant/60 text-xs text-on-surface placeholder:text-on-surface-variant/50 rounded-full pl-9 pr-4 py-2.5 focus:outline-none focus:border-secondary focus:ring-1 focus:ring-secondary/20 transition-all font-sans"
@@ -64,11 +64,11 @@ export default function Header({ title, onSearch, searchValue, showBack = false,
 
         {/* Action icons */}
         <div className="flex items-center gap-1">
-          <button className="relative p-2.5 text-on-surface-variant hover:text-secondary hover:bg-surface-container-highest rounded-lg transition-all cursor-pointer group" aria-label="Thông báo">
+          <button className="relative p-2.5 text-on-surface-variant hover:text-secondary hover:bg-surface-container-highest rounded-lg transition-all cursor-pointer group" aria-label="Notifications">
             <Bell className="w-[18px] h-[18px] group-hover:scale-105 transition-transform" />
             <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-error rounded-full animate-pulse" />
           </button>
-          <button className="p-2.5 text-on-surface-variant hover:text-secondary hover:bg-surface-container-highest rounded-lg transition-all cursor-pointer group" aria-label="Cài đặt">
+          <button className="p-2.5 text-on-surface-variant hover:text-secondary hover:bg-surface-container-highest rounded-lg transition-all cursor-pointer group" aria-label="Settings">
             <Settings className="w-[18px] h-[18px] group-hover:rotate-45 transition-transform duration-200" />
           </button>
         </div>
@@ -76,7 +76,7 @@ export default function Header({ title, onSearch, searchValue, showBack = false,
         {/* Admin profile */}
         <div className="hidden md:flex items-center gap-3 pl-3 border-l border-outline-variant/40">
           <div className="flex flex-col items-end">
-            <span className="font-sans font-bold text-xs text-secondary leading-tight">Ban Điều Hành</span>
+            <span className="font-sans font-bold text-xs text-secondary leading-tight">Administration</span>
             <span className="text-[10px] text-on-surface-variant/60 font-medium">{user?.email || 'admin@grandstride.com'}</span>
           </div>
           <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-outline-variant bg-surface-container-high flex items-center justify-center">
@@ -88,10 +88,10 @@ export default function Header({ title, onSearch, searchValue, showBack = false,
         <button
           onClick={handleLogout}
           className="hidden lg:flex items-center gap-1.5 text-xs text-on-surface-variant hover:text-error px-3 py-2 rounded-lg hover:bg-error/10 transition-all cursor-pointer bg-transparent border border-transparent hover:border-error/20"
-          aria-label="Đăng xuất"
+          aria-label="Log Out"
         >
           <LogOut className="w-4 h-4" />
-          <span className="font-medium">Đăng xuất</span>
+          <span className="font-medium">Log Out</span>
         </button>
       </div>
 
@@ -102,7 +102,7 @@ export default function Header({ title, onSearch, searchValue, showBack = false,
             <div className="flex items-center gap-3 p-3 rounded-lg bg-surface-container-high">
               <ShieldCheck className="w-5 h-5 text-primary" />
               <div>
-                <p className="text-sm font-bold text-secondary">Ban Điều Hành</p>
+                <p className="text-sm font-bold text-secondary">Administration</p>
                 <p className="text-xs text-on-surface-variant">{user?.email || 'admin@grandstride.com'}</p>
               </div>
             </div>
@@ -111,7 +111,7 @@ export default function Header({ title, onSearch, searchValue, showBack = false,
               className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-error hover:bg-error/10 rounded-lg transition-colors cursor-pointer bg-transparent border-none"
             >
               <LogOut className="w-4 h-4" />
-              Đăng xuất
+              Log Out
             </button>
           </div>
         </div>

@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-  Bell,
-  Settings,
   Mail,
   Flag,
   User,
@@ -15,6 +14,7 @@ import {
   getJockeyProfile,
   getJockeyInvitations,
   updateJockeyInvitation,
+  getRaces,
 } from "../../api/jockey";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -136,25 +136,30 @@ function InvitationCard({ inv, onAccept, onDecline, accepting, declining }) {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export default function JockeyDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const userId = user?.userId ?? user?.id;
   const firstName = user?.fullName?.split(" ")[0] ?? "there";
 
   const [profile, setProfile] = useState(null);
   const [invitations, setInvitations] = useState([]);
+  const [races, setRaces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(null);
   const [declining, setDeclining] = useState(null);
   const [actionError, setActionError] = useState("");
 
   useEffect(() => {
-    Promise.allSettled([getJockeyProfile(userId), getJockeyInvitations()])
-      .then(([p, inv]) => {
+    Promise.allSettled([getJockeyProfile(userId), getJockeyInvitations(), getRaces()])
+      .then(([p, inv, r]) => {
         if (p.status === "fulfilled") setProfile(p.value);
         if (inv.status === "fulfilled") {
           const list = Array.isArray(inv.value)
             ? inv.value
             : (inv.value?.data ?? inv.value?.invitations ?? []);
           setInvitations(list);
+        }
+        if (r.status === "fulfilled") {
+          setRaces(Array.isArray(r.value) ? r.value : (r.value?.data ?? []));
         }
       })
       .finally(() => setLoading(false));
@@ -171,7 +176,7 @@ export default function JockeyDashboard() {
         ),
       );
     } catch (err) {
-      const msg = err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? "Lỗi không xác định";
+      const msg = err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? "Unknown error";
       setActionError(`[${err?.response?.status ?? "?"}] ${msg}`);
     } finally {
       setAccepting(null);
@@ -189,7 +194,7 @@ export default function JockeyDashboard() {
         ),
       );
     } catch (err) {
-      const msg = err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? "Lỗi không xác định";
+      const msg = err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? "Unknown error";
       setActionError(`[${err?.response?.status ?? "?"}] ${msg}`);
     } finally {
       setDeclining(null);
@@ -202,21 +207,24 @@ export default function JockeyDashboard() {
       ? ((profile.totalWins / profile.totalRaces) * 100).toFixed(1)
       : null;
 
+  const acceptedRaceIds = new Set(
+    invitations.filter((i) => i.status === "Accepted").map((i) => i.raceId)
+  );
+  const upcomingRaces = races.filter(
+    (r) => acceptedRaceIds.has(r.raceId) && ["Scheduled", "InProgress"].includes(r.status)
+  );
+  const prizePoints = profile?.careerPrizePoints ?? null;
+
+  const notifications = [];
+  if (!loading) {
+    if (pending.length > 0)
+      notifications.push({ type: "warn", icon: Mail, msg: `You have ${pending.length} unanswered invitation(s).` });
+    if (upcomingRaces.some((r) => r.status === "InProgress"))
+      notifications.push({ type: "info", icon: Flag, msg: `One of your races is currently in progress.` });
+  }
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Top bar */}
-      <header className="flex items-center justify-end gap-2 px-8 py-3.5 border-b border-white/8 flex-shrink-0">
-        <button className="w-8 h-8 rounded-lg hover:bg-white/8 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
-          <Bell size={16} />
-        </button>
-        <button className="w-8 h-8 rounded-lg hover:bg-white/8 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
-          <Settings size={16} />
-        </button>
-        <div className="w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center text-xs font-bold text-black ml-1">
-          {user?.fullName?.[0] ?? "J"}
-        </div>
-      </header>
-
       {/* Scrollable content */}
       <main className="flex-1 overflow-auto p-8 space-y-6">
           {/* Welcome */}
@@ -229,6 +237,25 @@ export default function JockeyDashboard() {
               <span className="text-yellow-400">invitations</span>.
             </p>
           </div>
+
+          {/* Notification banners */}
+          {notifications.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {notifications.map((n, i) => {
+                const Icon = n.icon
+                const styles = {
+                  warn: "bg-yellow-500/10 border-yellow-500/30 text-yellow-300",
+                  info: "bg-sky-500/10 border-sky-500/30 text-sky-300",
+                }
+                return (
+                  <div key={i} className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm ${styles[n.type]}`}>
+                    <Icon size={16} className="shrink-0" />
+                    <span>{n.msg}</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
 
           {/* Stat cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -243,9 +270,9 @@ export default function JockeyDashboard() {
             <StatCard
               label="Upcoming Races"
               icon={Flag}
-              value={0}
-              sub="Next: TBA"
-              subColor="text-emerald-400"
+              value={loading ? "—" : upcomingRaces.length}
+              sub={upcomingRaces.length > 0 ? "Confirmed participation" : "No races scheduled"}
+              subColor={upcomingRaces.length > 0 ? "text-emerald-400" : "text-gray-500"}
             />
             <StatCard
               label="Career Wins"
@@ -257,9 +284,9 @@ export default function JockeyDashboard() {
             <StatCard
               label="Career Prize Points"
               icon={Star}
-              value="—"
-              sub="Coming soon"
-              subColor="text-gray-500"
+              value={loading ? "—" : (prizePoints ?? "—")}
+              sub={prizePoints != null ? "Total prize points" : "No data yet"}
+              subColor={prizePoints != null ? "text-yellow-400" : "text-gray-500"}
             />
           </div>
 
@@ -271,7 +298,10 @@ export default function JockeyDashboard() {
                 <h2 className="text-white font-bold text-base">
                   Invitation Inbox
                 </h2>
-                <button className="text-yellow-400 hover:text-yellow-300 text-sm flex items-center gap-1 transition-colors">
+                <button
+                  onClick={() => navigate("/jockey/invitations")}
+                  className="text-yellow-400 hover:text-yellow-300 text-sm flex items-center gap-1 transition-colors"
+                >
                   View All <ChevronRight size={14} />
                 </button>
               </div>
@@ -314,31 +344,36 @@ export default function JockeyDashboard() {
 
             {/* Right column */}
             <div className="flex flex-col gap-4">
-              {/* Upcoming Races placeholder */}
+              {/* Upcoming Races */}
               <div className="bg-[#141920] border border-white/8 rounded-xl p-5 flex-1">
                 <h2 className="text-white font-bold text-base mb-4">
                   My Upcoming Races
                 </h2>
-                <div className="flex flex-col items-center justify-center py-10 gap-3">
-                  <Flag size={28} className="text-gray-700" />
-                  <p className="text-gray-500 text-sm text-center">
-                    Race schedule coming soon.
-                  </p>
-                </div>
-              </div>
-
-              {/* Jockey Masterclass card */}
-              <div className="bg-emerald-950/60 border border-emerald-500/25 rounded-xl p-5">
-                <h3 className="text-emerald-400 font-bold text-sm mb-1">
-                  Jockey Masterclass
-                </h3>
-                <p className="text-gray-400 text-xs leading-relaxed mb-4">
-                  Review recent race telemetry and improve your gate break
-                  timing.
-                </p>
-                <button className="text-xs px-4 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-semibold transition-colors">
-                  View Analysis
-                </button>
+                {loading ? (
+                  <div className="space-y-2">
+                    {[1,2].map(i => <div key={i} className="h-14 bg-white/5 rounded-lg animate-pulse" />)}
+                  </div>
+                ) : upcomingRaces.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-10 gap-3">
+                    <Flag size={28} className="text-gray-700" />
+                    <p className="text-gray-500 text-sm text-center">No races scheduled.</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {upcomingRaces.slice(0, 4).map((r) => (
+                      <div key={r.raceId} className="flex items-center gap-3 bg-white/5 rounded-lg px-3 py-2.5">
+                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${r.status === "InProgress" ? "bg-emerald-400 animate-pulse" : "bg-yellow-400"}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white text-sm font-semibold truncate">{r.name}</p>
+                          <p className="text-gray-500 text-xs">{fmtDate(r.scheduledAt ?? r.scheduledStartTime)}</p>
+                        </div>
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-md ${r.status === "InProgress" ? "bg-emerald-500/20 text-emerald-400" : "bg-yellow-500/20 text-yellow-400"}`}>
+                          {r.status === "InProgress" ? "Live" : "Upcoming"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>

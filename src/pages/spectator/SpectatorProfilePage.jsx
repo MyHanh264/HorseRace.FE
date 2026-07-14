@@ -153,7 +153,7 @@ export default function SpectatorProfilePage() {
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     } catch (err) {
-      setSaveError(err?.response?.data?.message || err?.message || 'Lưu thất bại')
+      setSaveError(err?.response?.data?.message || err?.message || 'Failed to save')
     } finally {
       setSaving(false)
     }
@@ -161,16 +161,16 @@ export default function SpectatorProfilePage() {
 
   // ── Change password ──
   const handleUpdatePassword = async () => {
-    if (!currentPw || !newPw) { setPwMsg('Vui lòng điền đủ thông tin.'); return }
+    if (!currentPw || !newPw) { setPwMsg('Please fill in all fields.'); return }
     setUpdatingPw(true)
     setPwMsg('')
     try {
       await api.put(`/api/users/${userId}/change-password`, { currentPassword: currentPw, newPassword: newPw })
-      setPwMsg('Đổi mật khẩu thành công!')
+      setPwMsg('Password changed successfully!')
       setCurrentPw('')
       setNewPw('')
     } catch (err) {
-      setPwMsg(err?.response?.data?.message || 'Đổi mật khẩu thất bại.')
+      setPwMsg(err?.response?.data?.message || 'Failed to change password.')
     } finally {
       setUpdatingPw(false)
     }
@@ -297,7 +297,7 @@ export default function SpectatorProfilePage() {
                 </div>
 
                 {pwMsg && (
-                  <p className={`text-sm ${pwMsg.includes('thành công') ? 'text-primary' : 'text-error'}`}>
+                  <p className={`text-sm ${pwMsg.includes('successfully') ? 'text-primary' : 'text-error'}`}>
                     {pwMsg}
                   </p>
                 )}

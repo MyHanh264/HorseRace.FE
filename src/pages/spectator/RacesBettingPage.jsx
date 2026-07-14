@@ -1,20 +1,24 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useLocation } from 'react-router-dom'
 import {
-  Flag, Search, Clock, AlertCircle, X, CheckCircle, ChevronRight,
+  Flag, Search, Clock, AlertCircle, X, CheckCircle, ChevronRight, Trophy,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import {
   getAllRaces, getRaceDetail, getAllEntries, getAllHorses,
   getAllTournaments, getMyWallet, getMyPredictions, placePrediction,
+  getRaceStandings, getRaceResults,
 } from '../../api/spectator'
+import RaceResultsModal from '../../components/RaceResultsModal'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const STATUS_META = {
-  Scheduled:  { label: 'Scheduled',  cls: 'bg-primary/15 text-primary border border-primary/25' },
-  InProgress: { label: 'Live',       cls: 'bg-amber-500/15 text-amber-400 border border-amber-500/25' },
-  Finished:   { label: 'Finished',   cls: 'bg-surface-container-high text-on-surface-variant border border-outline-variant/50' },
+  Scheduled:     { label: 'Scheduled',      cls: 'bg-primary/15 text-primary border border-primary/25' },
+  InProgress:    { label: 'Live',           cls: 'bg-amber-500/15 text-amber-400 border border-amber-500/25' },
+  Paused:        { label: 'Paused',         cls: 'bg-orange-500/15 text-orange-400 border border-orange-500/25' },
+  PendingResult: { label: 'Pending Result', cls: 'bg-violet-500/15 text-violet-400 border border-violet-500/25' },
+  Finished:      { label: 'Finished',       cls: 'bg-surface-container-high text-on-surface-variant border border-outline-variant/50' },
 }
 
 const TABS = ['All Scheduled', 'Live', 'Recently Finished']
@@ -60,25 +64,28 @@ function Countdown({ target }) {
 // ─── Bet Panel ────────────────────────────────────────────────────────────────
 
 function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, onBetPlaced }) {
-  const { user } = useAuth()
 
   const [selectedEntryId, setSelectedEntryId] = useState('')
   const [betAmount, setBetAmount]             = useState('')
   const [submitting, setSubmitting]           = useState(false)
   const [betError, setBetError]               = useState('')
   const [betSuccess, setBetSuccess]           = useState(false)
+  const [showResults, setShowResults]         = useState(false)
 
   const balance      = Number(wallet?.balance ?? 0)
-  const alreadyBet   = myPredictions.some(p => p.raceId === race.raceId)
-  const canBet       = race.status === 'Scheduled' && !alreadyBet
+  const alreadyBet   = myPredictions.some(p => p.raceId === race.raceId && p.status !== 'Cancelled')
+  const oddsLocked   = !!race.oddsComputedAt
+  const canBet       = race.status === 'Scheduled' && oddsLocked && !alreadyBet
   const amount       = Number(betAmount) || 0
-  const estPayout    = selectedEntryId && amount > 0 ? `~${fmtBalance(amount * 2)} pts` : '—'
+  const selectedEntry = entries.find(e => e.entryId === Number(selectedEntryId))
+  const selectedOdds  = selectedEntry?.currentOdds ?? 1.0
+  const estPayout    = selectedEntryId && amount > 0 ? `~${fmtBalance(amount * selectedOdds)} pts` : '—'
 
   const validate = () => {
-    if (!selectedEntryId) return 'Hãy chọn ngựa đua.'
-    if (amount < 10) return 'Đặt cược tối thiểu là 10 điểm.'
-    if (amount > balance * 0.5) return `Tối đa 50% số dư (${fmtBalance(balance * 0.5)} pts).`
-    if (amount > balance) return 'Số dư không đủ.'
+    if (!selectedEntryId) return 'Please select a horse.'
+    if (amount < 10) return 'Minimum bet is 10 points.'
+    if (amount > balance * 0.5) return `Maximum 50% of balance (${fmtBalance(Math.floor(balance * 0.5))} pts).`
+    if (amount > balance) return `Insufficient balance (you have ${fmtBalance(balance)} pts).`
     return null
   }
 
@@ -88,23 +95,21 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
     setSubmitting(true)
     setBetError('')
     try {
-      await placePrediction({
-        raceId:        race.raceId,
-        spectatorId:   user.userId,
-        firstEntryId:  Number(selectedEntryId),
-        secondEntryId: Number(selectedEntryId),
-        thirdEntryId:  Number(selectedEntryId),
-        betAmount:     amount,
-        oddsLocked1:   1.0,
-        oddsLocked2:   1.0,
-        oddsLocked3:   1.0,
+      await placePrediction(race.raceId, {
+        entryId:   Number(selectedEntryId),
+        betAmount: amount,
       })
       setBetSuccess(true)
       setBetAmount('')
       setSelectedEntryId('')
       onBetPlaced?.()
     } catch (err) {
-      setBetError(err?.response?.data?.message || err?.message || 'Đặt cược thất bại')
+      const msg = err?.response?.data?.message
+        ?? err?.response?.data?.detail
+        ?? (typeof err?.response?.data === 'string' ? err.response.data : null)
+        ?? err?.message
+        ?? 'Failed to place bet'
+      setBetError(`[${err?.response?.status ?? '?'}] ${msg}`)
     } finally {
       setSubmitting(false)
     }
@@ -121,11 +126,29 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
           {race.status === 'Scheduled' && raceDetail?.scheduledStartTime && (
             <Countdown target={raceDetail.scheduledStartTime} />
           )}
+          {race.status === 'Finished' && (
+            <button
+              onClick={() => setShowResults(true)}
+              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-yellow-400/10 text-yellow-400 border border-yellow-400/25 hover:bg-yellow-400/20 transition-all"
+            >
+              <Trophy size={13} /> View Results
+            </button>
+          )}
         </div>
         <p className="text-xs text-on-surface-variant">
           {raceDetail?.numberOfLegs ?? '—'} Legs · {raceDetail?.roundType ?? '—'} · Max {raceDetail?.maxHorses ?? '—'} horses
         </p>
       </div>
+
+      {showResults && (
+        <RaceResultsModal
+          raceId={race.raceId}
+          raceName={race.name}
+          onClose={() => setShowResults(false)}
+          fetchStandings={getRaceStandings}
+          fetchResults={getRaceResults}
+        />
+      )}
 
       {/* Contenders */}
       {entries.length > 0 && (
@@ -144,7 +167,9 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
                       <p className="text-sm font-semibold text-on-surface">{horse?.name ?? `Entry #${e.entryId}`}</p>
                     </div>
                   </div>
-                  <span className="text-secondary font-bold font-mono text-sm">—</span>
+                  <span className="text-secondary font-bold font-mono text-sm">
+                    {e.currentOdds != null ? `${e.currentOdds}x` : '—'}
+                  </span>
                 </div>
               )
             })}
@@ -159,17 +184,23 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
         {betSuccess && (
           <div className="mb-3 p-3 rounded-lg bg-primary/10 border border-primary/25 text-primary text-sm flex items-center gap-2">
             <CheckCircle className="w-4 h-4 shrink-0" />
-            Đặt cược thành công!
+            Bet placed successfully!
           </div>
         )}
 
         {alreadyBet && !betSuccess && (
           <div className="mb-3 p-3 rounded-lg bg-surface-container border border-outline-variant/40 text-on-surface-variant text-sm">
-            Bạn đã đặt cược cho cuộc đua này.
+            You have already placed a bet on this race.
           </div>
         )}
 
-        {!alreadyBet && !betSuccess && (
+        {!alreadyBet && !oddsLocked && !betSuccess && (
+          <div className="mb-3 p-3 rounded-lg bg-surface-container border border-outline-variant/40 text-on-surface-variant text-sm">
+            Betting isn't open yet — registration hasn't closed, so odds haven't been locked in. Check back once the admin closes registration for this race.
+          </div>
+        )}
+
+        {!alreadyBet && oddsLocked && !betSuccess && (
           <>
             {betError && (
               <div className="mb-3 p-3 rounded-lg bg-error/10 border border-error/25 text-error text-sm flex items-center gap-2">
@@ -187,7 +218,7 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
                   className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all"
                 >
                   <option value="">Select Entry...</option>
-                  {entries.filter(e => e.status === 'Approved').map(e => (
+                  {entries.map(e => (
                     <option key={e.entryId} value={e.entryId}>
                       {horseMap[e.horseId]?.name ?? `Entry #${e.entryId}`}
                     </option>
@@ -200,7 +231,7 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
                 <input
                   type="number"
                   min={10}
-                  max={balance * 0.5}
+                  max={Math.floor(balance * 0.5)}
                   value={betAmount}
                   onChange={e => { setBetAmount(e.target.value); setBetError('') }}
                   disabled={!canBet}
@@ -284,7 +315,7 @@ export default function RacesBettingPage() {
         setRaceDetails(prev => ({ ...prev, [selectedId]: detail }))
       }
     } catch (err) {
-      setError(err?.message || 'Không tải được dữ liệu')
+      setError(err?.message || 'Failed to load data')
     } finally {
       setLoading(false)
     }
@@ -307,7 +338,7 @@ export default function RacesBettingPage() {
   const filteredRaces = useMemo(() => {
     let list = allRaces
     if (activeTab === 'All Scheduled') list = list.filter(r => r.status === 'Scheduled')
-    else if (activeTab === 'Live')     list = list.filter(r => r.status === 'InProgress')
+    else if (activeTab === 'Live')     list = list.filter(r => ['InProgress', 'Paused', 'PendingResult'].includes(r.status))
     else                               list = list.filter(r => r.status === 'Finished')
 
     if (search) {
@@ -319,7 +350,9 @@ export default function RacesBettingPage() {
 
   const selectedRace   = allRaces.find(r => r.raceId === selectedId) ?? filteredRaces[0] ?? null
   const selectedDetail = selectedRace ? raceDetails[selectedRace.raceId] : null
-  const selectedEntries = selectedRace ? allEntries.filter(e => e.raceId === selectedRace.raceId) : []
+  const selectedEntries = selectedRace
+    ? allEntries.filter(e => e.raceId === selectedRace.raceId && e.status === 'Approved')
+    : []
 
   return (
     <div className="min-h-screen p-8">
@@ -381,7 +414,7 @@ export default function RacesBettingPage() {
                 </div>
               ) : filteredRaces.length === 0 ? (
                 <div className="py-12 text-center text-on-surface-variant text-sm">
-                  Không có cuộc đua nào.
+                  No races found.
                 </div>
               ) : (
                 <div className="divide-y divide-outline-variant/30 max-h-[520px] overflow-y-auto">

@@ -4,9 +4,9 @@ import { Calendar, MapPin, Play, ChevronRight } from 'lucide-react'
 export default function RaceCard({ race, onNavigate }) {
   const getStatusBadgeClass = (status) => {
     switch (status) {
-      case 'ĐÃ LÊN LỊCH':
+      case 'SCHEDULED':
         return 'gs-badge gs-badge-primary'
-      case 'MỞ NHẬN ĐĂNG KÝ':
+      case 'REGISTRATION OPEN':
         return 'gs-badge gs-badge-secondary'
       default:
         return 'gs-badge gs-badge-neutral'
@@ -15,7 +15,7 @@ export default function RaceCard({ race, onNavigate }) {
 
   return (
     <div className={`min-w-[280px] sm:min-w-[320px] rounded-2xl p-5 flex flex-col justify-between snap-start transition-all duration-300 group animate-fade-in-up ${
-      race.status === 'ĐÃ LÊN LỊCH'
+      race.status === 'SCHEDULED'
         ? 'bg-surface-container border-l-[3px] border-l-primary border border-outline-variant hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5'
         : 'bg-surface-container-low border border-outline-variant hover:border-secondary/40 hover:shadow-lg hover:shadow-secondary/5'
     }`}>
@@ -23,7 +23,7 @@ export default function RaceCard({ race, onNavigate }) {
         {/* Header row */}
         <div className="flex justify-between items-center gap-2 mb-4">
           <span className={getStatusBadgeClass(race.status)}>
-            <span className={`w-1.5 h-1.5 rounded-full ${race.status === 'ĐÃ LÊN LỊCH' ? 'bg-primary' : race.status === 'MỞ NHẬN ĐĂNG KÝ' ? 'bg-secondary' : 'bg-tertiary'}`} />
+            <span className={`w-1.5 h-1.5 rounded-full ${race.status === 'SCHEDULED' ? 'bg-primary' : race.status === 'REGISTRATION OPEN' ? 'bg-secondary' : 'bg-tertiary'}`} />
             {race.status}
           </span>
           <span className="text-xs text-on-surface-variant font-medium flex items-center gap-1.5">
@@ -49,7 +49,7 @@ export default function RaceCard({ race, onNavigate }) {
           onClick={() => onNavigate('racedetails')}
           className="w-full inline-flex items-center justify-center gap-2 bg-surface-container-high hover:bg-secondary hover:text-on-secondary text-xs font-bold uppercase tracking-wider py-3 rounded-xl transition-all duration-200 cursor-pointer text-on-surface border border-transparent hover:border-secondary/30 group-hover:shadow-md group-hover:shadow-secondary/10"
         >
-          Xem chi tiết
+          View Details
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>

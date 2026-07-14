@@ -1,5 +1,6 @@
 import "./App.css";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { Toaster } from "sonner";
 import AuthSessionSync from "./components/AuthSessionSync";
 import RequireRole from "./components/RequireRole";
 
@@ -25,6 +26,7 @@ import AdminPointManagementPage from "./pages/admin/AdminPointManagementPage";
 import AdminRaceExecutionPage from "./pages/admin/AdminRaceExecutionPage";
 import AdminRaceEntriesPage from "./pages/admin/AdminRaceEntriesPage";
 import AdminConflictResolutionPage from "./pages/admin/AdminConflictResolutionPage";
+import AdminAuditLogPage from "./pages/admin/AdminAuditLogPage";
 // Spectator
 import SpectatorLayout from "./components/layout/SpectatorLayout";
 import SpectatorDashboard from "./pages/spectator/SpectatorDashboard";
@@ -47,7 +49,6 @@ import RefereeLayout from "./components/layout/RefereeLayout";
 import RefereeAssignedRacesPage from "./pages/referee/RefereeAssignedRacesPage";
 import RefereeRaceDashboard from "./pages/referee/RefereeRaceDashboard";
 import LegSubmissionPage from "./pages/referee/LegSubmissionPage";
-import RefereeResultEntryPage from "./pages/referee/RefereeResultEntryPage";
 import RefereeViolationsPage from "./pages/referee/RefereeViolationsPage";
 import RefereeProfilePage from "./pages/referee/RefereeProfilePage";
 
@@ -64,7 +65,8 @@ import HorseOwnerTournamentsPage from "./pages/horse-owner/HorseOwnerTournaments
 function App() {
   return (
     <BrowserRouter>
-      <AuthSessionSync /> {/* ← đứng một mình, không bọc Routes */}
+      <AuthSessionSync /> {/* ← standalone, does not wrap Routes */}
+      <Toaster theme="dark" richColors position="top-right" />
       <Routes>
         {/* Public */}
         <Route path="/" element={<LandingDashboard />} />
@@ -102,6 +104,7 @@ function App() {
             path="point-management"
             element={<AdminPointManagementPage />}
           />
+          <Route path="audit-log" element={<AdminAuditLogPage />} />
         </Route>
 
         {/* Spectator */}
@@ -149,7 +152,6 @@ function App() {
           <Route index element={<RefereeAssignedRacesPage />} />
           <Route path="races/:id" element={<RefereeRaceDashboard />} />
           <Route path="races/:id/legs/:legId" element={<LegSubmissionPage />} />
-          <Route path="result-entry" element={<RefereeResultEntryPage />} />
           <Route path="violations" element={<RefereeViolationsPage />} />
           <Route path="profile" element={<RefereeProfilePage />} />
         </Route>

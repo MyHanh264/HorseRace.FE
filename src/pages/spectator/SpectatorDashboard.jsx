@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Trophy, TrendingUp, Clock, ChevronRight, Wallet, Flag, AlertCircle } from 'lucide-react'
+import { Trophy, TrendingUp, Clock, ChevronRight, Wallet, Flag, AlertCircle, CheckCircle2, XCircle, Bell } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import { getMyWallet, getMyPredictions, getAllRaces, getAllTournaments } from '../../api/spectator'
+import { getMyWallet, getMyPredictions, getAllRaces, getAllTournaments, getPredictionDetail } from '../../api/spectator'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -119,11 +119,23 @@ export default function SpectatorDashboard() {
         ])
         if (!active) return
         setWallet(w)
-        setPredictions(Array.isArray(p) ? p : [])
+
+        // The list endpoint doesn't return OddsLocked1 — fetch detail for Won predictions
+        // only (needed to compute the real payout = betAmount * oddsLocked1).
+        const predsBasic = Array.isArray(p) ? p : []
+        const wonPreds = predsBasic.filter(x => x.status === 'Won')
+        const details = await Promise.all(
+          wonPreds.map(x => getPredictionDetail(x.predictionId).catch(() => null)),
+        )
+        const oddsByPredictionId = Object.fromEntries(
+          wonPreds.map((x, i) => [x.predictionId, details[i]?.oddsLocked1]),
+        )
+        if (!active) return
+        setPredictions(predsBasic.map(x => ({ ...x, oddsLocked1: oddsByPredictionId[x.predictionId] })))
         setRaces(Array.isArray(r) ? r : [])
         setTournaments(Array.isArray(t) ? t : [])
       } catch (err) {
-        if (active) setError(err?.message || 'Không tải được dữ liệu')
+        if (active) setError(err?.message || 'Failed to load data')
       } finally {
         if (active) setLoading(false)
       }
@@ -143,15 +155,26 @@ export default function SpectatorDashboard() {
     [races],
   )
 
-  const activeCount   = predictions.filter(p => p.status === 'Pending').length
-  const wonBets       = predictions.filter(p => p.status === 'Won').length
-  const pendingSettle = predictions.filter(p => p.status === 'Pending').length
+  const activeCount    = predictions.filter(p => p.status === 'Pending').length
+  const wonBets        = predictions.filter(p => p.status === 'Won').length
+  const lostBets       = predictions.filter(p => p.status === 'Lost').length
+  const pendingSettle  = predictions.filter(p => p.status === 'Pending').length
+  const totalWinnings  = predictions
+    .filter(p => p.status === 'Won')
+    .reduce((sum, p) => sum + Number(p.betAmount ?? 0) * Number(p.oddsLocked1 ?? 1), 0)
+
+  const notifications = []
+  if (!loading) {
+    if (wonBets > 0)  notifications.push({ type: 'success', icon: CheckCircle2, msg: `Congratulations! ${wonBets} of your predictions won.`, action: { label: 'View Predictions', path: '/spectator/predictions' } })
+    if (lostBets > 0) notifications.push({ type: 'info',    icon: XCircle,      msg: `${lostBets} predictions did not win.`,                 action: { label: 'View Predictions', path: '/spectator/predictions' } })
+    if (activeCount > 0) notifications.push({ type: 'warn', icon: Bell,         msg: `${activeCount} predictions awaiting results from admin.`, action: null })
+  }
 
   const STATS = [
-    { label: 'Active Predictions', value: activeCount,           Icon: Flag,        color: 'text-primary',   bg: 'bg-primary/10 border border-primary/20' },
-    { label: 'Won Bets',           value: wonBets,               Icon: Trophy,      color: 'text-secondary', bg: 'bg-secondary/10 border border-secondary/20' },
-    { label: 'Total Winnings',     value: '0 pts',               Icon: TrendingUp,  color: 'text-primary',   bg: 'bg-primary/10 border border-primary/20' },
-    { label: 'Pending Settlement', value: pendingSettle,         Icon: Clock,       color: 'text-error',     bg: 'bg-error/10 border border-error/20' },
+    { label: 'Active Predictions', value: activeCount,                             Icon: Flag,        color: 'text-primary',   bg: 'bg-primary/10 border border-primary/20' },
+    { label: 'Won Bets',           value: wonBets,                                 Icon: Trophy,      color: 'text-secondary', bg: 'bg-secondary/10 border border-secondary/20' },
+    { label: 'Total Winnings',     value: `${fmtBalance(totalWinnings)} pts`,      Icon: TrendingUp,  color: 'text-primary',   bg: 'bg-primary/10 border border-primary/20' },
+    { label: 'Pending Settlement', value: pendingSettle,                           Icon: Clock,       color: 'text-error',     bg: 'bg-error/10 border border-error/20' },
   ]
 
   return (
@@ -181,9 +204,8 @@ export default function SpectatorDashboard() {
               {loading ? '—' : fmtBalance(wallet?.balance ?? 0)}
               <span className="text-base font-normal text-on-surface-variant ml-1.5">pts</span>
             </p>
-            <p className="text-xs text-on-surface-variant mt-2 flex items-center gap-1">
-              <Clock size={12} />
-              Next top-up: Mon 00:00 (+100 pts)
+            <p className="text-xs text-on-surface-variant mt-2">
+              Total Winnings: <span className="text-secondary font-bold">{fmtBalance(totalWinnings)} pts</span>
             </p>
           </div>
         </div>
@@ -193,6 +215,31 @@ export default function SpectatorDashboard() {
           <div className="mb-6 p-4 rounded-xl bg-error/10 border border-error/25 text-error text-sm flex items-center gap-2">
             <AlertCircle size={16} className="shrink-0" />
             {error}
+          </div>
+        )}
+
+        {/* Notification banners */}
+        {notifications.length > 0 && (
+          <div className="flex flex-col gap-2 mb-8">
+            {notifications.map((n, i) => {
+              const Icon = n.icon
+              const styles = {
+                success: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
+                info:    'bg-gray-500/10 border-gray-500/30 text-gray-300',
+                warn:    'bg-yellow-500/10 border-yellow-500/30 text-yellow-300',
+              }
+              return (
+                <div key={i} className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm ${styles[n.type]}`}>
+                  <Icon size={16} className="shrink-0" />
+                  <span className="flex-1">{n.msg}</span>
+                  {n.action && (
+                    <button onClick={() => navigate(n.action.path)} className="text-xs font-bold underline underline-offset-2 whitespace-nowrap">
+                      {n.action.label}
+                    </button>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
 
@@ -234,7 +281,7 @@ export default function SpectatorDashboard() {
             </div>
           ) : scheduledRaces.length === 0 ? (
             <div className="gs-card p-12 text-center text-on-surface-variant text-sm">
-              Không có cuộc đua nào đang mở đặt cược.
+              No races are currently open for betting.
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">

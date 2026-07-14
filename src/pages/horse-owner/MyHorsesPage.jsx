@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { Plus, RefreshCw, AlertCircle, Eye, Edit } from "lucide-react";
-import { getMyHorses } from "../../api/horseOwner";
+import { Plus, RefreshCw, AlertCircle, Eye, Edit, RotateCw } from "lucide-react";
+import { toast } from "sonner";
+import { getMyHorses, resubmitHorse } from "../../api/horseOwner";
 import RegisterHorseModal from "./RegisterHorseModal";
 import EditHorseModal from "./EditHorseModal";
 import ViewHorseModal from "./ViewHorseModal";
@@ -15,9 +16,9 @@ const STATUS_BADGE = {
 };
 
 const STATUS_LABEL = {
-  Approved: "Đã duyệt",
-  Pending: "Chờ duyệt",
-  Rejected: "Từ chối",
+  Approved: "Approved",
+  Pending: "Pending Review",
+  Rejected: "Rejected",
 };
 
 export default function MyHorsesPage() {
@@ -29,7 +30,25 @@ export default function MyHorsesPage() {
   const [editHorseId, setEditHorseId] = useState(null);
   const [viewHorseId, setViewHorseId] = useState(null);
   const [registeringHorse, setRegisteringHorse] = useState(false);
+  const [resubmittingId, setResubmittingId] = useState(null);
   const navigate = useNavigate();
+
+  const handleResubmit = async (horseId) => {
+    setResubmittingId(horseId);
+    try {
+      await resubmitHorse(horseId);
+      toast.success("Horse resubmitted — awaiting Admin review.");
+      fetchHorses();
+    } catch (err) {
+      const msg =
+        err?.response?.data?.detail ||
+        err?.response?.data?.message ||
+        "Resubmit failed. Please try again.";
+      toast.error(msg);
+    } finally {
+      setResubmittingId(null);
+    }
+  };
 
   const fetchHorses = () => {
     setLoading(true);
@@ -48,7 +67,7 @@ export default function MyHorsesPage() {
           || err?.response?.data?.message
           || err instanceof Error
           ? err.message
-          : "Không tải được danh sách ngựa.";
+          : "Couldn't load the horse list.";
         setError(msg);
         setHorses([]);
       })
@@ -74,15 +93,15 @@ export default function MyHorsesPage() {
           <h1 className="text-2xl font-bold text-white">My Horses</h1>
           <p className="text-sm text-gray-400 mt-1">
             {horses.length > 0
-              ? `${horses.length} ngựa · ${totalPending} chờ duyệt · ${totalApproved} đã duyệt`
-              : "Quản lý danh sách ngựa của bạn"}
+              ? `${horses.length} horses · ${totalPending} pending review · ${totalApproved} approved`
+              : "Manage your horse list"}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={fetchHorses}
             className="flex items-center gap-2 border border-white/20 hover:bg-white/10 text-sm py-2 px-3 rounded-lg transition-colors text-gray-300"
-            title="Làm mới"
+            title="Refresh"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
           </button>
@@ -94,7 +113,7 @@ export default function MyHorsesPage() {
             {registeringHorse ? (
               <>
                 <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                Đang xử lý...
+                Processing...
               </>
             ) : (
               <>
@@ -117,7 +136,7 @@ export default function MyHorsesPage() {
             onClick={() => setError("")}
             className="text-xs text-red-400 hover:text-red-300 underline shrink-0"
           >
-            Đóng
+            Dismiss
           </button>
         </div>
       )}
@@ -172,14 +191,14 @@ export default function MyHorsesPage() {
             🐴
           </div>
           <h3 className="text-lg font-bold text-white mb-2">
-            {error ? "Đã xảy ra lỗi" : horses.length === 0 ? "Chưa có ngựa nào" : "Không có ngựa"}
+            {error ? "An error occurred" : horses.length === 0 ? "No horses yet" : "No horses"}
           </h3>
           <p className="text-gray-400 text-sm mb-6 text-center max-w-sm">
             {error
-              ? "Không thể tải danh sách ngựa. Hãy thử lại."
+              ? "Couldn't load the horse list. Please try again."
               : horses.length === 0
-              ? "Bạn chưa đăng ký ngựa nào. Nhấn \"Register New Horse\" để bắt đầu."
-              : `Không có ngựa nào ở trạng thái "${activeTab}".`}
+              ? "You haven't registered any horses yet. Click \"Register New Horse\" to get started."
+              : `No horses with status "${activeTab}".`}
           </p>
           {!error && horses.length === 0 && (
             <button
@@ -196,7 +215,7 @@ export default function MyHorsesPage() {
               className="flex items-center gap-2 border border-white/20 hover:bg-white/10 text-sm py-2 px-4 rounded-lg transition-colors text-gray-300"
             >
               <RefreshCw className="w-4 h-4" />
-              Thử lại
+              Retry
             </button>
           )}
         </div>
@@ -236,18 +255,20 @@ export default function MyHorsesPage() {
 
                 {horse.status === "Rejected" && horse.rejectionReason && (
                   <p className="text-red-400 text-xs mt-2 bg-red-900/20 px-2 py-1 rounded">
-                    Lý do: {horse.rejectionReason}
+                    Reason: {horse.rejectionReason}
                   </p>
                 )}
 
                 <div className="flex gap-2 mt-4">
-                  <button
-                    onClick={() => setEditHorseId(horse.horseId)}
-                    className="flex-1 flex items-center justify-center gap-1.5 border border-white/20 hover:bg-white/10 text-sm py-1.5 rounded-lg transition-colors text-gray-300"
-                  >
-                    <Edit className="w-3.5 h-3.5" />
-                    Sửa
-                  </button>
+                  {horse.status !== "Approved" && (
+                    <button
+                      onClick={() => setEditHorseId(horse.horseId)}
+                      className="flex-1 flex items-center justify-center gap-1.5 border border-white/20 hover:bg-white/10 text-sm py-1.5 rounded-lg transition-colors text-gray-300"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                      Edit
+                    </button>
+                  )}
                   <button
                     onClick={() =>
                       navigate(`/horse-owner/horses/${horse.horseId}`)
@@ -255,9 +276,27 @@ export default function MyHorsesPage() {
                     className="flex-1 flex items-center justify-center gap-1.5 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-600/10 text-sm py-1.5 rounded-lg transition-colors"
                   >
                     <Eye className="w-3.5 h-3.5" />
-                    Xem
+                    View
                   </button>
                 </div>
+                {horse.status === "Approved" && (
+                  <p className="text-[11px] text-gray-500 mt-2 text-center">
+                    This horse has been approved — it can't be edited directly.
+                  </p>
+                )}
+
+                {horse.status === "Rejected" && (
+                  <button
+                    onClick={() => handleResubmit(horse.horseId)}
+                    disabled={resubmittingId === horse.horseId}
+                    className="w-full flex items-center justify-center gap-1.5 bg-yellow-500 hover:bg-yellow-400 disabled:opacity-50 text-black font-semibold text-sm py-1.5 rounded-lg transition-colors mt-2"
+                  >
+                    <RotateCw
+                      className={`w-3.5 h-3.5 ${resubmittingId === horse.horseId ? "animate-spin" : ""}`}
+                    />
+                    {resubmittingId === horse.horseId ? "Resubmitting..." : "Resubmit for Review"}
+                  </button>
+                )}
               </div>
             </div>
           ))}

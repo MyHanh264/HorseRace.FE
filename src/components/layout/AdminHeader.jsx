@@ -1,8 +1,17 @@
 import { useState } from "react";
-import { Search, Bell, Settings } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Search, Settings } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import NotificationBell from "../NotificationBell";
+import { useAdminNotifications } from "../../hooks/useAdminNotifications";
+import { useNotificationRead } from "../../hooks/useNotificationRead";
 
-const TABS = ["Dashboard", "Reports", "Audit Log"];
+// `path: null` = no real page yet (keeps the old behavior, just a UI tab toggle).
+const TABS = [
+  { label: "Dashboard", path: "/admin" },
+  { label: "Reports", path: null },
+  { label: "Audit Log", path: "/admin/audit-log" },
+];
 
 function getInitials(name) {
   if (!name) return "A";
@@ -11,7 +20,12 @@ function getInitials(name) {
 
 export default function AdminHeader() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState("Dashboard");
+  const location = useLocation();
+  const navigate = useNavigate();
+  // Only used for the "Reports" tab — no real page yet, keeps the old toggle behavior.
+  const [localTab, setLocalTab] = useState("Dashboard");
+  const notifItems = useAdminNotifications();
+  const notifRead = useNotificationRead(notifItems, user?.userId);
 
   return (
     <header className="h-16 px-8 flex items-center justify-between sticky top-0 z-40 bg-[#111418] border-b border-white/10">
@@ -22,20 +36,28 @@ export default function AdminHeader() {
           <span className="text-primary">Admin</span>
         </h1>
         <nav className="flex">
-          {TABS.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 text-sm transition-colors border-b-2
-                ${
-                  activeTab === tab
-                    ? "border-primary text-primary font-semibold"
-                    : "border-transparent text-gray-400 hover:text-white"
-                }`}
-            >
-              {tab}
-            </button>
-          ))}
+          {TABS.map(({ label, path }) => {
+            const isActive = path
+              ? location.pathname === path
+              : localTab === label;
+            return (
+              <button
+                key={label}
+                onClick={() => {
+                  if (path) navigate(path);
+                  else setLocalTab(label);
+                }}
+                className={`px-4 py-2 text-sm transition-colors border-b-2
+                  ${
+                    isActive
+                      ? "border-primary text-primary font-semibold"
+                      : "border-transparent text-gray-400 hover:text-white"
+                  }`}
+              >
+                {label}
+              </button>
+            );
+          })}
         </nav>
       </div>
 
@@ -49,10 +71,7 @@ export default function AdminHeader() {
             className="bg-white/5 border border-white/10 rounded-lg pl-8 pr-4 py-1.5 text-xs text-gray-300 placeholder:text-gray-600 focus:outline-none focus:border-primary/50 w-40 transition-colors"
           />
         </div>
-        <button className="relative p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
-          <Bell size={16} />
-          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full" />
-        </button>
+        <NotificationBell items={notifItems} {...notifRead} />
         <button className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
           <Settings size={16} />
         </button>

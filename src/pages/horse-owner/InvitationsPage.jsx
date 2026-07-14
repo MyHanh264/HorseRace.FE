@@ -1,18 +1,24 @@
 import { useState, useEffect } from "react";
-import { X, Trash2 } from "lucide-react";
-import { getInvitations, deleteInvitation, getRaces } from "../../api/horseOwner";
+import { X, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { getInvitations, deleteInvitation, getRaces, getMyEntries } from "../../api/horseOwner";
 import ConfirmJockeyModal from "./ConfirmJockeyModal";
 
+const PAGE_SIZE = 10;
+
 const STATUS_BADGE = {
-  Accepted: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40",
-  Pending: "bg-yellow-500/20 text-yellow-400 border border-yellow-500/40",
-  Declined: "bg-red-500/20 text-red-400 border border-red-500/40",
+  Accepted:  "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40",
+  Confirmed: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40",
+  Pending:   "bg-yellow-500/20 text-yellow-400 border border-yellow-500/40",
+  Declined:  "bg-red-500/20 text-red-400 border border-red-500/40",
+  Cancelled: "bg-gray-500/20 text-gray-400 border border-gray-500/40",
 };
 
 const ROW_ACCENT = {
-  Accepted: "border-l-2 border-l-emerald-500",
-  Pending: "border-l-2 border-l-transparent",
-  Declined: "border-l-2 border-l-transparent",
+  Accepted:  "border-l-2 border-l-emerald-500",
+  Confirmed: "border-l-2 border-l-emerald-500",
+  Pending:   "border-l-2 border-l-transparent",
+  Declined:  "border-l-2 border-l-transparent",
+  Cancelled: "border-l-2 border-l-transparent",
 };
 
 const TABS = ["Sent", "Pending Response"];
@@ -39,21 +45,36 @@ function HorseAvatar() {
 export default function InvitationsPage() {
   const [invitations, setInvitations] = useState([]);
   const [raceMap, setRaceMap] = useState({});
+  const [anyEntryKeys, setAnyEntryKeys] = useState(new Set());
+  const [myJockeyKeys, setMyJockeyKeys] = useState(new Set());
+  const [jockeyRaceKeys, setJockeyRaceKeys] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("Sent");
+  const [page, setPage] = useState(1);
   const [refreshKey, setRefreshKey] = useState(0);
   const [confirmInv, setConfirmInv] = useState(null);
 
   useEffect(() => {
-    Promise.all([getInvitations(), getRaces().catch(() => [])])
-      .then(([data, races]) => {
+    Promise.all([
+      getInvitations(),
+      getRaces().catch(() => []),
+      getMyEntries().catch(() => []),
+    ])
+      .then(([data, races, entries]) => {
         const list = Array.isArray(data) ? data : (data?.data ?? data?.invitations ?? []);
         setInvitations(list);
+
         const map = {};
         (Array.isArray(races) ? races : (races?.data ?? [])).forEach((r) => {
           map[r.raceId] = r;
         });
         setRaceMap(map);
+
+        const entryList = Array.isArray(entries) ? entries : (entries?.data ?? entries?.entries ?? []);
+        const activeEntries = entryList.filter((e) => e.status === "Pending" || e.status === "Approved");
+        setAnyEntryKeys(new Set(activeEntries.map((e) => `${e.raceId}_${e.horseId}`)));
+        setMyJockeyKeys(new Set(activeEntries.map((e) => `${e.raceId}_${e.horseId}_${e.jockeyId}`)));
+        setJockeyRaceKeys(new Set(activeEntries.map((e) => `${e.raceId}_${e.jockeyId}`)));
       })
       .catch((err) => {
         console.error("getInvitations failed:", err);
@@ -73,6 +94,11 @@ export default function InvitationsPage() {
     }
   };
 
+  // Reset to page 1 whenever the visible set changes shape (tab).
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab]);
+
   const formatDate = (dateStr) => {
     if (!dateStr) return "—";
     return new Date(dateStr).toLocaleDateString("en-GB", {
@@ -86,6 +112,10 @@ export default function InvitationsPage() {
     activeTab === "Pending Response"
       ? invitations.filter((i) => i.status === "Pending")
       : invitations;
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
+  const pageSafe = Math.min(page, totalPages);
+  const paginated = filtered.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE);
 
   return (
     <div className="p-8">
@@ -142,7 +172,7 @@ export default function InvitationsPage() {
             No invitations found.
           </p>
         ) : (
-          filtered.map((inv) => (
+          paginated.map((inv) => (
             <div
               key={inv.invitationId}
               className={`grid grid-cols-[2.2fr_1.6fr_1.6fr_1.1fr_1fr_1fr] px-6 py-4 items-center
@@ -195,14 +225,35 @@ export default function InvitationsPage() {
 
               {/* Action */}
               <div className="flex items-center justify-end gap-2">
-                {inv.status === "Accepted" && (
-                  <button
-                    onClick={() => setConfirmInv(inv)}
-                    className="bg-yellow-500 hover:bg-yellow-400 text-black text-xs font-bold px-4 py-1.5 rounded-lg transition-colors"
-                  >
-                    Confirm
-                  </button>
-                )}
+                {(inv.status === "Accepted" || inv.status === "Confirmed") && (() => {
+                  const raceHorseKey   = `${inv.raceId}_${inv.horseId}`;
+                  const jockeyKey      = `${inv.raceId}_${inv.horseId}_${inv.jockeyId}`;
+                  const raceJockeyKey  = `${inv.raceId}_${inv.jockeyId}`;
+                  const submittedSame  = myJockeyKeys.has(jockeyKey);
+                  const submittedOther = !submittedSame && anyEntryKeys.has(raceHorseKey);
+                  const jockeyBusy     = !submittedSame && !submittedOther && jockeyRaceKeys.has(raceJockeyKey);
+                  const disabled       = submittedSame || submittedOther || jockeyBusy;
+                  const label          = submittedSame  ? "Entry Submitted"
+                                       : submittedOther ? "Another Jockey Confirmed"
+                                       : jockeyBusy      ? "Jockey Riding Another Horse"
+                                       : "Confirm & Submit Entry";
+                  return (
+                    <button
+                      onClick={() => !disabled && setConfirmInv(inv)}
+                      disabled={disabled}
+                      title={submittedOther ? "This race already has an entry with a different jockey"
+                           : jockeyBusy      ? "This jockey already has a confirmed entry with a different horse in this race"
+                           : ""}
+                      className={`text-xs font-bold px-4 py-1.5 rounded-lg transition-colors
+                        ${disabled
+                          ? "bg-gray-600 text-gray-400 cursor-not-allowed opacity-60"
+                          : "bg-yellow-500 hover:bg-yellow-400 text-black cursor-pointer"
+                        }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })()}
                 {inv.status === "Pending" && (
                   <button
                     onClick={() => handleDelete(inv.invitationId ?? inv.id)}
@@ -224,6 +275,35 @@ export default function InvitationsPage() {
           ))
         )}
       </div>
+
+      {/* Pagination */}
+      {!loading && totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4">
+          <p className="text-sm text-gray-500">
+            Showing {(pageSafe - 1) * PAGE_SIZE + 1}-
+            {Math.min(pageSafe * PAGE_SIZE, filtered.length)} of {filtered.length}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={pageSafe === 1}
+              className="flex items-center justify-center w-8 h-8 rounded-lg border border-white/20 text-gray-300 hover:bg-white/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span className="text-sm text-gray-300 font-mono px-2">
+              {pageSafe} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={pageSafe >= totalPages}
+              className="flex items-center justify-center w-8 h-8 rounded-lg border border-white/20 text-gray-300 hover:bg-white/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Confirm Jockey Modal */}
       {confirmInv && (

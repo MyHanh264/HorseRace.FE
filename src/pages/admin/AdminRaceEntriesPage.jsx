@@ -2,10 +2,10 @@ import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft, Flag, Lock, AlertCircle, X,
-  CheckCircle, XCircle, Users, UserCheck,
+  CheckCircle, XCircle, Users, UserCheck, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import {
-  getRaceDetail, getRaces, getTournaments, getUsers,
+  getRaceDetail, getRaces, getAllTournaments, getAllUser,
   openRegistration, closeRegistration, startRace,
   approveEntry, rejectEntry,
 } from '../../api/admin'
@@ -19,6 +19,8 @@ const ENTRY_STATUS_META = {
   Rejected:  { label: 'Rejected', cls: 'bg-error/15 text-error border border-error/25',               dot: 'bg-error' },
   Withdrawn: { label: 'Withdrawn', cls: 'bg-surface-container-high text-on-surface-variant border border-outline-variant/50', dot: 'bg-on-surface-variant' },
 }
+
+const PAGE_SIZE = 10
 
 // pastel avatar colors cycling
 const AVATAR_COLORS = [
@@ -66,6 +68,7 @@ export default function AdminRaceEntriesPage() {
   const [rejectingEntryId,   setRejectingEntryId]    = useState(null)
   const [rejectReason,       setRejectReason]        = useState('')
   const [tick,               setTick]                = useState(0)
+  const [page,               setPage]                = useState(1)
 
   const refresh = () => setTick(t => t + 1)
 
@@ -76,8 +79,8 @@ export default function AdminRaceEntriesPage() {
       getRaceDetail(raceId),
       getRaces(),
       api.get('/api/entries').then(r => r.data),
-      getUsers(),
-      getTournaments(),
+      getAllUser({ page: 1, pageSize: 1000 }),
+      getAllTournaments(),
     ]).then(([detail, racesBasic, allEntries, users, tournaments]) => {
       if (cancelled) return
       setRace(detail)
@@ -89,7 +92,7 @@ export default function AdminRaceEntriesPage() {
       setError('')
       setLoading(false)
     }).catch(err => {
-      if (!cancelled) { setError(err?.message || 'Không tải được dữ liệu'); setLoading(false) }
+      if (!cancelled) { setError(err?.message || 'Failed to load data'); setLoading(false) }
     })
     return () => { cancelled = true }
   }, [raceId, tick])
@@ -121,43 +124,47 @@ export default function AdminRaceEntriesPage() {
   const ref1 = race?.referee1Id ? userMap[race.referee1Id] : null
   const ref2 = race?.referee2Id ? userMap[race.referee2Id] : null
 
+  const totalPages = Math.max(1, Math.ceil(entries.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const paginatedEntries = entries.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+
   // ── Handlers ─────────────────────────────────────────────────────────────
   const handleOpenReg = async () => {
     setRegLoading(true); setError('')
     try { await openRegistration(raceId); refresh() }
-    catch (err) { setError(err?.response?.data?.detail ?? err?.message ?? 'Mở đăng ký thất bại') }
+    catch (err) { setError(err?.response?.data?.detail ?? err?.message ?? 'Failed to open registration') }
     finally { setRegLoading(false) }
   }
 
   const handleCloseReg = async () => {
     setRegLoading(true); setError('')
     try { await closeRegistration(raceId); refresh() }
-    catch (err) { setError(err?.response?.data?.detail ?? err?.message ?? 'Đóng đăng ký thất bại') }
+    catch (err) { setError(err?.response?.data?.detail ?? err?.message ?? 'Failed to close registration') }
     finally { setRegLoading(false) }
   }
 
   const handleStartRace = async () => {
     setRegLoading(true); setError('')
     try { await startRace(raceId); refresh() }
-    catch (err) { setError(err?.response?.data?.detail ?? err?.message ?? 'Bắt đầu race thất bại') }
+    catch (err) { setError(err?.response?.data?.detail ?? err?.message ?? 'Failed to start race') }
     finally { setRegLoading(false) }
   }
 
   const handleApprove = async (entryId) => {
     setEntryAction({ id: entryId, type: 'Approved' }); setEntryError('')
     try { await approveEntry(entryId); refresh() }
-    catch (err) { setEntryError(err?.message || 'Duyệt entry thất bại') }
+    catch (err) { setEntryError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Failed to approve entry') }
     finally { setEntryAction(null) }
   }
 
   const handleReject = async (entryId) => {
     setEntryAction({ id: entryId, type: 'Rejected' }); setEntryError('')
     try {
-      await rejectEntry(entryId, rejectReason.trim() || null)
+      await rejectEntry(entryId, rejectReason.trim())
       setRejectingEntryId(null); setRejectReason('')
       refresh()
     }
-    catch (err) { setEntryError(err?.message || 'Từ chối entry thất bại') }
+    catch (err) { setEntryError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Failed to reject entry') }
     finally { setEntryAction(null) }
   }
 
@@ -238,13 +245,21 @@ export default function AdminRaceEntriesPage() {
               </button>
             )}
             {isRegOpen && (
-              <button onClick={handleCloseReg} disabled={regLoading}
-                className="gs-btn gs-btn-secondary flex items-center gap-2 px-5 py-2.5">
-                {regLoading
-                  ? <div className="w-3.5 h-3.5 border-2 border-black/20 border-t-black/70 rounded-full animate-spin" />
-                  : <Lock className="w-4 h-4" />}
-                Close Registration
-              </button>
+              <>
+                <button onClick={handleCloseReg} disabled={regLoading || entryStats.approved < 2}
+                  title={entryStats.approved < 2 ? `Needs at least 2 approved entries to close registration (currently ${entryStats.approved}).` : ''}
+                  className="gs-btn gs-btn-secondary flex items-center gap-2 px-5 py-2.5 disabled:opacity-40 disabled:cursor-not-allowed">
+                  {regLoading
+                    ? <div className="w-3.5 h-3.5 border-2 border-black/20 border-t-black/70 rounded-full animate-spin" />
+                    : <Lock className="w-4 h-4" />}
+                  Close Registration
+                </button>
+                {entryStats.approved < 2 && (
+                  <p className="text-xs text-on-surface-variant mt-1.5 text-right">
+                    Needs ≥2 approved entries ({entryStats.approved} now)
+                  </p>
+                )}
+              </>
             )}
             {isRegClosed && race?.status === 'Scheduled' && (
               <button onClick={handleStartRace} disabled={regLoading}
@@ -337,7 +352,7 @@ export default function AdminRaceEntriesPage() {
                 </tr>
               </thead>
               <tbody>
-                {entries.map((entry, i) => {
+                {paginatedEntries.map((entry, i) => {
                   const meta     = ENTRY_STATUS_META[entry.status] ?? ENTRY_STATUS_META.Pending
                   const isActing = entryAction?.id === entry.entryId
                   const isFav    = isRegClosed && entry.currentOdds && entry.currentOdds === minOdds
@@ -411,12 +426,12 @@ export default function AdminRaceEntriesPage() {
                                 <input
                                   value={rejectReason}
                                   onChange={e => setRejectReason(e.target.value)}
-                                  placeholder="Reject reason (optional)"
+                                  placeholder="Reject reason (required) *"
                                   className="text-xs bg-surface-container-lowest border border-outline-variant/40 rounded px-2 py-1.5 text-on-surface focus:outline-none focus:border-error w-full"
                                 />
                                 <div className="flex gap-1.5">
-                                  <button disabled={isActing} onClick={() => handleReject(entry.entryId)}
-                                    className="gs-btn gs-btn-danger gs-btn-sm flex-1 flex items-center justify-center gap-1">
+                                  <button disabled={isActing || !rejectReason.trim()} onClick={() => handleReject(entry.entryId)}
+                                    className="gs-btn gs-btn-danger gs-btn-sm flex-1 flex items-center justify-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed">
                                     {isActing && entryAction?.type === 'Rejected'
                                       ? <div className="w-3 h-3 border-2 border-error/30 border-t-error rounded-full animate-spin" />
                                       : <XCircle className="w-3 h-3" />}
@@ -456,6 +471,23 @@ export default function AdminRaceEntriesPage() {
               <p className="text-center text-xs text-on-surface-variant py-3 border-t border-outline-variant/30">
                 Odds calculated based on historical win rates. Locked at {fmtDate(regInfo.registrationCloseAt)}.
               </p>
+            )}
+
+            {entries.length > PAGE_SIZE && (
+              <div className="flex items-center justify-between px-5 py-3 border-t border-outline-variant/30">
+                <span className="text-xs text-on-surface-variant">
+                  Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, entries.length)} of {entries.length}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="gs-btn gs-btn-ghost gs-btn-sm px-2">
+                    <ChevronLeft size={16} />
+                  </button>
+                  <span className="text-xs text-on-surface-variant px-2 font-mono">{currentPage} / {totalPages}</span>
+                  <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="gs-btn gs-btn-ghost gs-btn-sm px-2">
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         )}

@@ -10,6 +10,7 @@ import {
   getRaceExecutionStatus,
   getRaceStandings,
   getRefereeLegView,
+  getAllTournaments,
 } from '../../api/referee'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -23,7 +24,7 @@ function getLegPoints(pos) {
 
 function fmtDateTime(dt) {
   if (!dt) return '—'
-  return new Date(dt).toLocaleString('vi-VN', {
+  return new Date(dt).toLocaleString('en-GB', {
     day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
@@ -73,19 +74,18 @@ function LegProgressStepper({ legs, currentLegIndex, onLegSelect }) {
       {legs.map((leg, idx) => {
         const meta = getLegStatusMeta(leg.status)
         const isActive = idx === currentLegIndex
-        const isClickable = leg.status === 'Pending' || leg.status === 'AwaitingSecondReferee'
+        // Every leg is viewable (read-only review of a Confirmed/Resolved leg's submission
+        // status) — GetRefereeLegView works for any leg regardless of status. Only the
+        // "Enter Leg Results" action button (elsewhere) is gated to the current actionable leg.
 
         return (
           <button
             key={idx}
-            onClick={() => isClickable && onLegSelect(idx)}
-            disabled={!isClickable}
-            className={`shrink-0 flex flex-col items-center gap-1.5 px-4 py-3 rounded-xl border transition-all min-w-[100px]
+            onClick={() => onLegSelect(idx)}
+            className={`shrink-0 flex flex-col items-center gap-1.5 px-4 py-3 rounded-xl border transition-all min-w-[100px] cursor-pointer
               ${isActive
                 ? 'border-yellow-400/50 bg-yellow-400/5 shadow-lg shadow-yellow-400/10'
-                : isClickable
-                ? 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10 cursor-pointer'
-                : 'border-white/5 bg-white/3 opacity-60 cursor-not-allowed'
+                : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
               }`}
           >
             <div className="relative">
@@ -189,6 +189,7 @@ export default function RefereeRaceDashboard() {
 
   // Data state
   const [race, setRace] = useState(null)
+  const [tournament, setTournament] = useState(null)
   const [execution, setExecution] = useState(null)
   const [standings, setStandings] = useState([])
   const [legView, setLegView] = useState(null)
@@ -205,10 +206,11 @@ export default function RefereeRaceDashboard() {
   // ── Load data ──
   const loadRaceData = useCallback(async () => {
     try {
-      const [raceDetail, execData, standingsData] = await Promise.all([
+      const [raceDetail, execData, standingsData, tournaments] = await Promise.all([
         getRaceDetail(raceId),
         getRaceExecutionStatus(raceId),
         getRaceStandings(raceId).catch(() => []),
+        getAllTournaments().catch(() => []),
       ])
 
       if (!isMountedRef.current) return
@@ -216,6 +218,7 @@ export default function RefereeRaceDashboard() {
       setRace(raceDetail)
       setExecution(execData)
       setStandings(standingsData)
+      setTournament(tournaments.find(t => t.tournamentId === raceDetail?.tournamentId) ?? null)
 
       // Determine current leg
       const activeLeg = execData?.currentLegIndex ?? 0
@@ -249,6 +252,10 @@ export default function RefereeRaceDashboard() {
     return () => { isMountedRef.current = false }
   }, [loadRaceData])
 
+  // Set once the referee manually browses to a leg (including past ones) — stops the poll
+  // below from snapping the view back to the live leg every 8s while they're reviewing.
+  const manualLegSelectRef = useRef(false)
+
   // ── Polling ──
   useEffect(() => {
     if (!race) return
@@ -257,8 +264,8 @@ export default function RefereeRaceDashboard() {
         .then(exec => {
           if (isMountedRef.current) {
             setExecution(exec)
-            // Reload leg view if leg changed
-            if (exec.currentLegIndex !== currentLegIndex) {
+            // Only auto-follow the live leg if the referee hasn't manually navigated away.
+            if (exec.currentLegIndex !== currentLegIndex && !manualLegSelectRef.current) {
               setCurrentLegIndex(exec.currentLegIndex)
               getRefereeLegView(raceId, exec.currentLegIndex)
                 .then(view => {
@@ -275,6 +282,9 @@ export default function RefereeRaceDashboard() {
 
   // ── Handlers ──
   function handleLegSelect(idx) {
+    // Resume auto-following the live leg once the referee clicks back onto it; otherwise
+    // treat this as a deliberate review of a different (often past) leg.
+    manualLegSelectRef.current = idx !== (execution?.currentLegIndex ?? idx)
     setCurrentLegIndex(idx)
     getRefereeLegView(raceId, idx)
       .then(view => {
@@ -395,6 +405,11 @@ export default function RefereeRaceDashboard() {
                   </span>
                 )}
               </div>
+              {tournament?.name && (
+                <p className="text-xs font-semibold text-yellow-400/80 uppercase tracking-widest mb-1">
+                  {tournament.name}
+                </p>
+              )}
               <h2 className="font-serif text-3xl font-bold text-on-surface mb-1">{race?.name}</h2>
               <div className="flex items-center gap-4 text-sm text-on-surface-variant">
                 <span className="flex items-center gap-1.5">
@@ -416,11 +431,11 @@ export default function RefereeRaceDashboard() {
             <div className="shrink-0">
               {race?.status === 'Scheduled' && (
                 <button
-                  onClick={() => navigate('/referee/result-entry', { state: { raceId } })}
+                  onClick={() => navigate('/referee')}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-black font-bold text-sm transition-all"
                 >
                   <Play size={16} />
-                  Start Race
+                  Go to Pre-Race Checklist
                 </button>
               )}
               {race?.status === 'InProgress' && (
@@ -495,11 +510,14 @@ export default function RefereeRaceDashboard() {
                   })()}
                 </div>
 
-                {/* Referee Status */}
+                {/* Referee Status — derived from execution.legs (always populated, regardless of
+                    race status), not the blind-entry-only `legView` (which is only fetched while
+                    the race is InProgress/Paused, so it stays stale/null for a Confirmed leg on a
+                    race that has since moved to PendingResult/Finished). */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5">
                     <span className="text-sm text-on-surface-variant">Your Submission</span>
-                    {legView?.mySubmitted ? (
+                    {currentLeg.mySubmitted ? (
                       <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-semibold">
                         <CheckCircle2 size={14} /> Submitted
                       </span>
@@ -511,7 +529,9 @@ export default function RefereeRaceDashboard() {
                   </div>
                   <div className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5">
                     <span className="text-sm text-on-surface-variant">Opponent Referee</span>
-                    {legView?.opponentSubmitted ? (
+                    {(currentLeg.mySubmitted
+                      ? currentLeg.referee1Submitted && currentLeg.referee2Submitted
+                      : currentLeg.referee1Submitted || currentLeg.referee2Submitted) ? (
                       <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-semibold">
                         <CheckCircle2 size={14} /> Submitted
                       </span>
@@ -523,19 +543,21 @@ export default function RefereeRaceDashboard() {
                   </div>
                 </div>
 
-                {/* Privacy Notice */}
-                <div className="mt-4 p-3 rounded-lg bg-yellow-400/5 border border-yellow-400/20">
-                  <p className="text-xs text-on-surface-variant flex items-start gap-2">
-                    <EyeOff size={14} className="text-yellow-400/70 shrink-0 mt-0.5" />
-                    <span>
-                      <span className="text-yellow-400/80 font-medium">Blind Entry Active: </span>
-                      Your submission is hidden from the other referee until both submit.
-                    </span>
-                  </p>
-                </div>
+                {/* Privacy Notice — only relevant while the leg is still blind (not yet Confirmed) */}
+                {(currentLeg.status === 'Pending' || currentLeg.status === 'AwaitingSecondReferee') && (
+                  <div className="mt-4 p-3 rounded-lg bg-yellow-400/5 border border-yellow-400/20">
+                    <p className="text-xs text-on-surface-variant flex items-start gap-2">
+                      <EyeOff size={14} className="text-yellow-400/70 shrink-0 mt-0.5" />
+                      <span>
+                        <span className="text-yellow-400/80 font-medium">Blind Entry Active: </span>
+                        Your submission is hidden from the other referee until both submit.
+                      </span>
+                    </p>
+                  </div>
+                )}
 
                 {/* Action */}
-                {(race?.status === 'InProgress') && !legView?.mySubmitted && (
+                {(race?.status === 'InProgress') && !currentLeg.mySubmitted && (
                   <button
                     onClick={handleContinueLeg}
                     className="w-full mt-4 flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-black font-bold text-sm transition-all"

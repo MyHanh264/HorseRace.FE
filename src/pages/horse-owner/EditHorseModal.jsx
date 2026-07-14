@@ -28,7 +28,7 @@ export default function EditHorseModal({ horseId, onClose, onSuccess }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [preview, setPreview] = useState(null);
+  const [imageBroken, setImageBroken] = useState(false);
   const [form, setForm] = useState({
     name: "",
     breed: "Thoroughbred",
@@ -37,7 +37,7 @@ export default function EditHorseModal({ horseId, onClose, onSuccess }) {
     imageUrl: "",
   });
 
-  // Load thông tin ngựa hiện tại
+  // Load current horse info
   useEffect(() => {
     getHorseById(horseId)
       .then((data) => {
@@ -48,28 +48,14 @@ export default function EditHorseModal({ horseId, onClose, onSuccess }) {
           color: data.color || "Bay",
           imageUrl: data.imageUrl || "",
         });
-        if (data.imageUrl) setPreview(data.imageUrl);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [horseId]);
 
   const handleChange = (e) => {
+    if (e.target.name === "imageUrl") setImageBroken(false);
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-  };
-
-  const handleImage = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setPreview(URL.createObjectURL(file));
-    // TODO: upload ảnh lên server lấy URL, tạm thời dùng preview
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (!file) return;
-    setPreview(URL.createObjectURL(file));
   };
 
   const handleSubmit = async (e) => {
@@ -94,7 +80,7 @@ export default function EditHorseModal({ horseId, onClose, onSuccess }) {
       await updateHorse(horseId, payload);
       onSuccess();
     } catch {
-      setError("Cập nhật thất bại. Vui lòng thử lại.");
+      setError("Update failed. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -190,37 +176,40 @@ export default function EditHorseModal({ horseId, onClose, onSuccess }) {
               </div>
             </div>
 
-            {/* Upload ảnh */}
+            {/* Horse photo — paste an existing image link (local file upload not yet supported) */}
             <div>
               <label className="text-sm text-gray-300 mb-1 block">
-                Horse Photo
+                Horse Photo URL
               </label>
-              <label
-                onDrop={handleDrop}
-                onDragOver={(e) => e.preventDefault()}
-                className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-white/20 rounded-lg cursor-pointer hover:border-emerald-500 transition-colors overflow-hidden"
-              >
-                {preview ? (
-                  <img
-                    src={preview}
-                    alt="preview"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="flex flex-col items-center gap-2 text-gray-500">
-                    <CloudUpload size={28} />
-                    <span className="text-xs">
-                      Drag image here or click to browse
-                    </span>
-                  </div>
-                )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImage}
-                  className="hidden"
+              <div className="relative">
+                <CloudUpload
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
                 />
-              </label>
+                <input
+                  name="imageUrl"
+                  value={form.imageUrl}
+                  onChange={handleChange}
+                  placeholder="https://..."
+                  className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 transition-colors"
+                />
+              </div>
+              {form.imageUrl && (
+                <div className="mt-2 w-full h-28 rounded-lg overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center">
+                  {imageBroken ? (
+                    <span className="text-gray-500 text-xs">
+                      Couldn't load image from this link
+                    </span>
+                  ) : (
+                    <img
+                      src={form.imageUrl}
+                      alt="preview"
+                      onError={() => setImageBroken(true)}
+                      className="w-full h-full object-cover"
+                    />
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Error */}
