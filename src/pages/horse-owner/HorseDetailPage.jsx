@@ -1,8 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Trophy, Target, TrendingUp, BarChart2, AlertTriangle, RotateCw } from "lucide-react";
 import { toast } from "sonner";
-import { getHorseById, resubmitHorse } from "../../api/horseOwner";
+import {
+  getHorseById,
+  resubmitHorse,
+  getMyEntries,
+  getRaceResults,
+  getRaces,
+} from "../../api/horseOwner";
 
 const STATUS_STYLE = {
   Approved: "bg-emerald-500/20 text-emerald-400 border border-emerald-700",
@@ -17,18 +23,64 @@ const POSITION_STYLE = (pos) => {
   return "bg-white/10 text-gray-300";
 };
 
+// ISO → "12 Aug 2026 · 14:30"
+function formatRaceDate(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return `${d.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  })} · ${d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
+}
+
 export default function HorseDetailPage() {
   const navigate = useNavigate();
   const { horseId } = useParams();
   const [horse, setHorse] = useState(null);
+  const [entries, setEntries] = useState([]);
+  const [raceResults, setRaceResults] = useState([]);
+  const [races, setRaces] = useState([]);
   const [loading, setLoading] = useState(true);
   const [resubmitting, setResubmitting] = useState(false);
 
+  // BE chưa trả career stats trong GET /api/horses/{id} → ghép client-side:
+  // entries (lọc theo ngựa) → entryId → race-results. /api/entries đã được BE scope
+  // theo owner nên chỉ trả entry của chính mình.
   useEffect(() => {
-    getHorseById(horseId)
-      .then(setHorse)
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    let active = true;
+
+    Promise.allSettled([
+      getHorseById(horseId),
+      getMyEntries(),
+      getRaceResults(),
+      getRaces(),
+    ])
+      .then(([horseRes, entriesRes, resultsRes, racesRes]) => {
+        if (!active) return;
+
+        if (horseRes.status === "fulfilled") setHorse(horseRes.value);
+        else console.error("Fetch horse failed:", horseRes.reason);
+
+        // Stats là phụ — hỏng thì trang vẫn hiện, chỉ mất số liệu.
+        if (entriesRes.status === "fulfilled")
+          setEntries(Array.isArray(entriesRes.value) ? entriesRes.value : []);
+        else console.error("Fetch entries failed:", entriesRes.reason);
+
+        if (resultsRes.status === "fulfilled") setRaceResults(resultsRes.value);
+        else console.error("Fetch race results failed:", resultsRes.reason);
+
+        if (racesRes.status === "fulfilled")
+          setRaces(Array.isArray(racesRes.value) ? racesRes.value : []);
+        else console.error("Fetch races failed:", racesRes.reason);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [horseId]);
 
   const handleResubmit = async () => {
@@ -49,20 +101,69 @@ export default function HorseDetailPage() {
     }
   };
 
-  const results = [];
-  const upcoming = [];
+  const raceById = useMemo(
+    () => new Map(races.map((r) => [r.raceId, r])),
+    [races],
+  );
 
+  // Entry của đúng con ngựa này (useParams trả string → so sánh theo Number).
+  const horseEntries = useMemo(
+    () => entries.filter((e) => e.horseId === Number(horseId)),
+    [entries, horseId],
+  );
+
+  // Kết quả đã công bố của ngựa, sắp xếp mới → cũ theo giờ đua.
+  const results = useMemo(() => {
+    const entryIds = new Set(horseEntries.map((e) => e.entryId));
+    return raceResults
+      .filter((r) => entryIds.has(r.entryId))
+      .map((r) => ({ ...r, scheduledAt: raceById.get(r.raceId)?.scheduledAt }))
+      .sort(
+        (a, b) =>
+          new Date(b.scheduledAt ?? 0).getTime() -
+          new Date(a.scheduledAt ?? 0).getTime(),
+      );
+  }, [horseEntries, raceResults, raceById]);
+
+  // Race sắp tới ngựa đã có entry (chưa chạy xong).
+  const upcoming = useMemo(
+    () =>
+      horseEntries
+        .map((e) => ({ entry: e, race: raceById.get(e.raceId) }))
+        .filter(
+          ({ entry, race }) =>
+            race &&
+            entry.status !== "Rejected" &&
+            entry.status !== "Withdrawn" &&
+            race.status !== "Finished" &&
+            race.status !== "Cancelled",
+        )
+        .sort(
+          (a, b) =>
+            new Date(a.race.scheduledAt).getTime() -
+            new Date(b.race.scheduledAt).getTime(),
+        ),
+    [horseEntries, raceById],
+  );
+
+  // Race DQ vẫn có finalPosition (Publish xếp xuống cuối bảng) → phải loại theo isRaceDQ,
+  // giống cách BE tính career stats của nài (PublishRaceResult: !IsDq && FinalPosition == 1).
   const totalRaces = results.length;
-  const wins = 0;
-  const top3 = 0;
-  const winRate = 0;
+  const wins = results.filter((r) => !r.isRaceDQ && r.finalPosition === 1).length;
+  const top3 = results.filter(
+    (r) => !r.isRaceDQ && r.finalPosition != null && r.finalPosition <= 3,
+  ).length;
+  const winRate = totalRaces > 0 ? Math.round((wins / totalRaces) * 100) : 0;
+
+  const ranked = results.filter((r) => !r.isRaceDQ && r.finalPosition != null);
   const avgFinish =
-    totalRaces > 0
+    ranked.length > 0
       ? (
-          results.reduce((sum, r) => sum + r.finalPosition, 0) / totalRaces
+          ranked.reduce((sum, r) => sum + r.finalPosition, 0) / ranked.length
         ).toFixed(1)
-      : 0;
-  const recentForm = [...results].reverse().slice(0, 5);
+      : "—";
+
+  const recentForm = results.slice(0, 5);
 
   if (loading) return <div className="p-8 text-gray-400">Loading...</div>;
   if (!horse) return <div className="p-8 text-red-400">Horse not found.</div>;
@@ -193,11 +294,13 @@ export default function HorseDetailPage() {
         </p>
         <div className="flex items-center gap-4">
           {recentForm.map((r, i) => (
-            <div key={i} className="flex flex-col items-center gap-1">
+            <div key={r.entryId} className="flex flex-col items-center gap-1">
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${POSITION_STYLE(r.finalPosition)}`}
+                title={raceById.get(r.raceId)?.name ?? `Race #${r.raceId}`}
               >
-                {r.finalPosition}
+                {/* Race DQ / DNF không có thứ hạng chung cuộc */}
+                {r.isRaceDQ ? "DQ" : (r.finalPosition ?? "–")}
               </div>
               {i === 0 && <p className="text-xs text-gray-500">Latest</p>}
             </div>
@@ -216,30 +319,35 @@ export default function HorseDetailPage() {
             Upcoming Scheduled Races
           </h3>
           <div className="space-y-4">
-            {upcoming.map((race) => (
+            {upcoming.length === 0 && (
+              <p className="text-gray-500 text-sm">No upcoming races.</p>
+            )}
+            {upcoming.map(({ entry, race }) => (
               <div
-                key={race.raceId}
+                key={entry.entryId}
                 className="border-l-2 border-emerald-500 pl-3"
               >
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-yellow-400 text-xs font-semibold">
-                      {race.date} · {race.time}
+                      {formatRaceDate(race.scheduledAt)}
                     </p>
                     <p className="text-white text-sm font-medium">
                       {race.name}
                     </p>
-                    <p className="text-gray-500 text-xs">{race.venue}</p>
-                  </div>
-                  {race.status === "Entry Ready" ? (
-                    <button className="bg-yellow-500 hover:bg-yellow-400 text-black text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors">
-                      Entry Ready
-                    </button>
-                  ) : (
-                    <p className="text-gray-500 text-xs italic">
-                      {race.status}
+                    <p className="text-gray-500 text-xs">
+                      {race.tournamentName ?? "—"}
                     </p>
-                  )}
+                  </div>
+                  <p
+                    className={`text-xs font-semibold ${
+                      entry.status === "Approved"
+                        ? "text-emerald-400"
+                        : "text-gray-500 italic"
+                    }`}
+                  >
+                    {entry.status}
+                  </p>
                 </div>
               </div>
             ))}
@@ -251,11 +359,16 @@ export default function HorseDetailPage() {
           <h3 className="text-white font-bold mb-4">Horse Details</h3>
           <div className="space-y-3">
             {[
-              { label: "Owner", value: horse.owner },
-              { label: "Breed", value: horse.breed },
-              { label: "Color", value: horse.color },
-              { label: "Born", value: horse.birthYear },
-              { label: "Jockey (Reg.)", value: horse.jockey ?? "TBA" },
+              // BE trả ownerName (không phải owner) — dùng sai tên field nên dòng này luôn trống.
+              { label: "Owner", value: horse.ownerName ?? "—" },
+              { label: "Breed", value: horse.breed ?? "—" },
+              { label: "Color", value: horse.color ?? "—" },
+              { label: "Born", value: horse.birthYear ?? "—" },
+              // Ngựa không có nài cố định — nài gắn theo từng Entry/Race.
+              {
+                label: "Jockey (Next Race)",
+                value: upcoming[0]?.entry.jockeyName ?? "TBA",
+              },
             ].map((item) => (
               <div
                 key={item.label}
