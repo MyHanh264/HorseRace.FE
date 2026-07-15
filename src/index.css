@@ -157,11 +157,11 @@ body {
   border-radius: 4px;
 }
 
-/* Inputs already show focus via input-focus-gold container — no extra outline needed */
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: none;
+  outline: 2px solid var(--color-secondary);
+  outline-offset: 2px;
 }
 
 /* Fix browser autofill white background */
@@ -176,6 +176,20 @@ input:-webkit-autofill:active {
 }
 
 a, button { -webkit-tap-highlight-color: transparent; }
+
+.role-shell__sidebar {
+  width: var(--role-sidebar-width, 200px);
+}
+
+.role-shell__main {
+  margin-left: 0;
+}
+
+@media (min-width: 1024px) {
+  .role-shell__main {
+    margin-left: var(--role-sidebar-width, 200px);
+  }
+}
 
 /* ==========================================================================
    3. TYPOGRAPHY
@@ -236,6 +250,27 @@ a, button { -webkit-tap-highlight-color: transparent; }
 .delay-row-2 { animation-delay: 160ms; }
 .delay-row-3 { animation-delay: 240ms; }
 .delay-row-4 { animation-delay: 320ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .animate-fade-in-up,
+  .pulse-live,
+  .spin-slow,
+  .glow-effect-gold {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
 
 /* ==========================================================================
    5. DISPLAY EFFECTS

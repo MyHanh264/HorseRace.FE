@@ -4,6 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import NotificationBell from "../NotificationBell";
 import { useJockeyNotifications } from "../../hooks/useJockeyNotifications";
 import { useNotificationRead } from "../../hooks/useNotificationRead";
+import RoleShell from "./RoleShell";
 
 const navItems = [
   { to: "/jockey", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -28,10 +29,8 @@ export default function JockeyLayout() {
   const notifItems = useJockeyNotifications();
   const notifRead = useNotificationRead(notifItems, user?.userId);
 
-  return (
-    <div className="flex h-screen font-sans" style={{ background: "#0D1117", color: "#E6EDF3" }}>
-      {/* Sidebar */}
-      <aside className="w-[200px] h-screen fixed left-0 top-0 flex flex-col bg-[#111418] border-r border-white/10 flex-shrink-0">
+  const sidebar = (
+    <>
         {/* Logo */}
         <div className="flex items-center gap-3 px-4 py-5 border-b border-white/10">
           <div className="w-9 h-9 rounded-full bg-primary-container/50 border border-primary/20 flex items-center justify-center text-base flex-shrink-0">
@@ -86,17 +85,16 @@ export default function JockeyLayout() {
             Logout
           </button>
         </div>
-      </aside>
+      </>
+  );
 
-      {/* Page content */}
-      <div className="flex-1 flex flex-col min-w-0 ml-[200px]">
-        <header className="h-14 px-6 flex items-center justify-end flex-shrink-0 sticky top-0 z-40 bg-[#111418] border-b border-white/10">
-          <NotificationBell items={notifItems} {...notifRead} />
-        </header>
-        <main className="flex-1 overflow-auto">
-          <Outlet />
-        </main>
-      </div>
-    </div>
+  return (
+    <RoleShell
+      sidebar={sidebar}
+      header={<div className="flex justify-end"><NotificationBell items={notifItems} {...notifRead} /></div>}
+      sidebarWidth={200}
+    >
+      <Outlet />
+    </RoleShell>
   );
 }

@@ -42,7 +42,7 @@ export default function SidebarAdmin() {
   const { user, logout } = useAuth();
 
   return (
-    <aside className="w-[200px] h-screen fixed left-0 top-0 flex flex-col bg-[#111418] border-r border-white/10 flex-shrink-0">
+    <div className="h-full flex flex-col bg-[#111418] flex-shrink-0">
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-5 border-b border-white/10">
         <div className="w-9 h-9 rounded-full bg-primary-container/50 border border-primary/20 flex items-center justify-center text-base flex-shrink-0">
@@ -101,6 +101,6 @@ export default function SidebarAdmin() {
           Logout
         </button>
       </div>
-    </aside>
+    </div>
   );
 }

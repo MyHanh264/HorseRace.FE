@@ -12,6 +12,7 @@
 | Router | React Router | 7.15.1 |
 | State | React Context + useState | - |
 | HTTP Client | Axios | 1.16.1 |
+| Realtime | SignalR client (`@microsoft/signalr`) | - |
 | Icons | Lucide React + Phosphor Icons | - |
 | Notifications | Sonner (toast) | 2.0.7 |
 | Utilities | cmdk (command menu) | 1.1.1 |
@@ -55,6 +56,8 @@ HorseRace.FE/
 │   │   └── index.js           # Constants (mock data)
 │   ├── context/
 │   │   └── AuthContext.jsx    # Auth state management
+│   ├── hooks/
+│   │   └── useRaceLiveHub.js  # SignalR hub lifecycle for live race snapshots
 │   ├── pages/
 │   │   ├── admin/            # Admin pages
 │   │   │   ├── AdminAnalyticsPage.jsx
@@ -71,6 +74,8 @@ HorseRace.FE/
 │   │   ├── spectator/       # Spectator pages
 │   │   │   ├── SpectatorDashboard.jsx
 │   │   │   ├── RacesBettingPage.jsx
+│   │   │   ├── LiveRacesPage.jsx
+│   │   │   ├── LiveRaceDetailPage.jsx
 │   │   │   ├── MyPredictionsPage.jsx
 │   │   │   ├── PointWalletPage.jsx
 │   │   │   ├── LeaderboardPage.jsx
@@ -167,6 +172,8 @@ Routes được định nghĩa trong `src/App.jsx` sử dụng React Router v7:
     <Route path="/spectator" element={<RequireRole role="SPECTATOR"><SpectatorLayout /></RequireRole>}>
       <Route index element={<SpectatorDashboard />} />
       <Route path="races" element={<RacesBettingPage />} />
+      <Route path="live" element={<LiveRacesPage />} />
+      <Route path="live/:raceId" element={<LiveRaceDetailPage />} />
       <Route path="predictions" element={<MyPredictionsPage />} />
       <Route path="wallet" element={<PointWalletPage />} />
       <Route path="leaderboard" element={<LeaderboardPage />} />
@@ -299,7 +306,7 @@ api.interceptors.response.use(
 |------|-----------|
 | `auth.js` | `loginUser`, `registerUser`, `logoutUser`, `getMyProfile`, `refreshAuthToken`, `forgotPassword`, `resetPassword` |
 | `admin.js` | User/horse/entry management, points, discrepancies, violations |
-| `spectator.js` | Predictions, wallet, leaderboard |
+| `spectator.js` | Predictions, wallet, leaderboard, live race snapshot (`getRaceLive`) |
 | `referee.js` | Race execution, leg submission, violations |
 | `jockey.js` | Profile, invitations, races |
 | `horseOwner.js` | Horses, entries, invitations, tournaments |
@@ -439,6 +446,8 @@ return (
 |------|--------|
 | `SpectatorDashboard` | Dashboard chính |
 | `RacesBettingPage` | Xem race & đặt cược |
+| `LiveRacesPage` | Danh sách race đang chạy/chờ publish |
+| `LiveRaceDetailPage` | Diễn biến từng Leg qua `GET /api/races/{id}/live` + SignalR |
 | `MyPredictionsPage` | Lịch sử predictions |
 | `PointWalletPage` | Quản lý ví điểm |
 | `LeaderboardPage` | Bảng xếp hạng |
@@ -572,8 +581,10 @@ npm run preview # Preview production build
 server: {
   proxy: {
     '/api': {
-      target: 'https://horseracemanagementsystem.onrender.com',
+      target: process.env.VITE_PROXY_TARGET || 'https://horseracemanagementsystem.onrender.com',
       changeOrigin: true,
+      secure: false,
+      ws: true,
     },
   },
 }
@@ -583,6 +594,7 @@ server: {
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `VITE_API_BASE_URL` | `''` (empty uses proxy) | Backend API URL |
+| `VITE_PROXY_TARGET` | Render BE URL | Dev proxy target; set `VITE_PROXY_TARGET=http://localhost:5088` when testing local BE |
 
 ---
 
@@ -602,6 +614,11 @@ server: {
 - `sonner` — Toast notifications
 - Usage: `toast.success('Message')`, `toast.error('Error')`
 
+### Realtime
+- `@microsoft/signalr` — Spectator live race page.
+- Hub URL: `/api/hubs/race-live`; event: `RaceLiveChanged`.
+- Client hook: `src/hooks/useRaceLiveHub.js` joins group `race-{raceId}`, rejoins after reconnect, then refetches `getRaceLive()` because missed pushes are not replayed.
+
 ---
 
 ## 12. Điểm đặc biệt / Gotchas
@@ -614,8 +631,10 @@ server: {
 6. **Dark theme** — Admin pages use inline dark palette styles (not Tailwind dark mode)
 7. **No Redux/Zustand** — Using Context API for simplicity
 8. **API base URL** — Vite proxy for dev, set `VITE_API_BASE_URL` for production
-9. **React 19** — Using latest React with new features
-10. **Vite 8** — Fast HMR and build times
+9. **SignalR token refresh** — `services/api.js` exports `getValidAccessToken()` so hub reconnects share the same refresh-token dedupe as axios interceptors.
+10. **Live race privacy** — Spectator live UI must render `Pending` and `AwaitingSecondReferee` the same ("Đang đua…"); never show referee submit counts.
+11. **React 19** — Using latest React with new features
+12. **Vite 8** — Fast HMR and build times
 
 ---
 
@@ -625,6 +644,7 @@ server: {
 
 ### ✅ Đã khớp BE (không còn là gap)
 - **Prediction (Flow 7):** `api/spectator.js` dùng đúng route mới — `placePrediction` → `POST /api/predictions/races/{raceId}` body `{EntryId, BetAmount}`; `cancelPrediction` → `DELETE /api/predictions/{id}/cancel`. (Docs cũ ghi "còn lệch route cũ" — **đã lỗi thời**.)
+- **Live Race (Flow 4, 2026-07-16):** sidebar Spectator có mục **Live Race** → `LiveRacesPage` (`/spectator/live`) lọc `InProgress|Paused|PendingResult` và poll 30s; `LiveRaceDetailPage` (`/spectator/live/:raceId`) dùng `getRaceLive()` + SignalR hub `/api/hubs/race-live` để cập nhật từng Leg đã Confirmed/Resolved, standings tạm tính, và highlight entry đã cược. UI cố ý không phân biệt `AwaitingSecondReferee` với `Pending` để giữ Blind Double-Entry.
 
 ### ⚠️ FE đã sẵn nhưng chờ BE fix
 - **`AdminUsersPage` / `getAllUser`** đã gửi `page, pageSize, search, role, status, sort, sortDirection` nhưng **BE `GET /api/users` chưa phân trang/filter** và response chỉ có `{ userId, email, fullName, roleId, isActive }` → FE đang tự `slice` client-side + thiếu field (`phoneNumber, avatarUrl, lockedUntil, createdAt, licenseNumber, weight, bio`). Chờ BE Task 5-6.

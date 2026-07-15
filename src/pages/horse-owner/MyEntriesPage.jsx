@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { getMyEntries, getRaces, withdrawEntry, getRaceResults, getRaceStandings } from "../../api/horseOwner";
 import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Trophy } from "lucide-react";
 import RaceResultsModal from "../../components/RaceResultsModal";
+import ModalShell from "../../components/layout/ModalShell";
 
 const PAGE_SIZE = 10;
 
@@ -143,9 +144,9 @@ export default function MyEntriesPage() {
   const paginated = filtered.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE);
 
   return (
-    <div className="p-8">
+    <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
       {/* Header */}
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-3xl font-bold text-white">My Entries</h1>
           <p className="text-gray-400 text-sm mt-1">
@@ -154,8 +155,8 @@ export default function MyEntriesPage() {
         </div>
 
         {/* Search + Filter buttons */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2 w-72">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2 w-full lg:w-auto">
+          <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2 w-full sm:w-72">
             <svg
               className="w-4 h-4 text-gray-500 shrink-0"
               fill="none"
@@ -187,12 +188,12 @@ export default function MyEntriesPage() {
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
         {STATUS_FILTERS.map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors whitespace-nowrap
               ${
                 activeTab === tab
                   ? "bg-white text-black"
@@ -205,9 +206,9 @@ export default function MyEntriesPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-[#1a2035] rounded-xl border border-white/10 overflow-hidden">
+      <div className="bg-[#1a2035] rounded-xl border border-white/10 overflow-x-auto">
         {/* Table header */}
-        <div className="grid grid-cols-6 px-6 py-3 border-b border-white/10 text-xs text-gray-500 uppercase tracking-wider">
+        <div className="grid grid-cols-6 px-6 py-3 border-b border-white/10 text-xs text-gray-500 uppercase tracking-wider min-w-[780px]">
           <div className="col-span-2">Race & Date</div>
           <div>Tournament</div>
           <div>Horse & Jockey</div>
@@ -244,7 +245,7 @@ export default function MyEntriesPage() {
             return (
               <div
                 key={entry.entryId}
-                className="border-b border-white/5 last:border-0"
+                className="border-b border-white/5 last:border-0 min-w-[780px]"
               >
                 {/* Main row */}
                 <div
@@ -361,7 +362,7 @@ export default function MyEntriesPage() {
                 {/* Expanded detail */}
                 {expandedId === entry.entryId && (
                   <div className="px-6 pb-5 pt-2 bg-white/5">
-                    <div className="grid grid-cols-4 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                       <div className="bg-[#1a2035] rounded-lg p-3 border border-white/10">
                         <p className="text-xs text-gray-500 mb-1">Entry ID</p>
                         <p className="text-sm text-white font-medium">
@@ -421,7 +422,7 @@ export default function MyEntriesPage() {
                         </p>
                       </div>
                       {entry.status === "Rejected" && (
-                        <div className="col-span-4 bg-red-500/[0.06] rounded-lg p-3 border border-red-500/20">
+                        <div className="sm:col-span-2 lg:col-span-4 bg-red-500/[0.06] rounded-lg p-3 border border-red-500/20">
                           <p className="text-xs text-red-400/80 mb-1">Rejection Reason</p>
                           <p className="text-sm text-red-200">
                             {entry.rejectionReason || "No reason provided."}
@@ -461,7 +462,7 @@ export default function MyEntriesPage() {
 
       {/* Pagination */}
       {!loading && totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
           <p className="text-sm text-gray-500">
             Showing {(pageSafe - 1) * PAGE_SIZE + 1}-
             {Math.min(pageSafe * PAGE_SIZE, filtered.length)} of {filtered.length}
@@ -493,9 +494,9 @@ export default function MyEntriesPage() {
         const entry = entries.find((e) => e.entryId === confirmWithdrawId);
         const race = entry ? getRaceById(entry.raceId) : null;
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <ModalShell onClose={() => { setConfirmWithdrawId(null); setWithdrawError(""); }} labelledBy="withdraw-entry-title">
             <div className="bg-[#111827] border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl p-6">
-              <h2 className="text-white font-bold text-lg mb-2">Withdraw Entry?</h2>
+              <h2 id="withdraw-entry-title" className="text-white font-bold text-lg mb-2">Withdraw Entry?</h2>
               <p className="text-gray-400 text-sm leading-relaxed mb-4">
                 This will withdraw{" "}
                 <span className="text-white font-semibold">
@@ -531,7 +532,7 @@ export default function MyEntriesPage() {
                 </button>
               </div>
             </div>
-          </div>
+          </ModalShell>
         );
       })()}
 

@@ -13,6 +13,7 @@ import {
   getRaceStandings,
 } from '../../api/referee'
 import { validateLegPositions } from '../../utils/legValidation'
+import ModalShell from '../../components/layout/ModalShell'
 
 // Store a session key for each (raceId, legIndex) that has been submitted, to prevent
 // duplicates when the user opens multiple tabs. Key resets when the tab closes (sessionStorage).
@@ -217,10 +218,10 @@ function SubmissionSummary({ positions, entries, isLocked }) {
 
 function SubmitConfirmationModal({ entries, positions, onConfirm, onCancel, submitting, hasSubmitted }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="bg-[#1a2035] rounded-2xl w-full max-w-md border border-white/10 shadow-2xl animate-fade-in-up">
+    <ModalShell onClose={onCancel} labelledBy="submit-confirmation-title">
+      <div className="bg-[#1a2035] rounded-2xl w-full max-w-md border border-white/10 shadow-2xl animate-fade-in-up max-h-[90dvh] flex flex-col">
         <div className="px-6 py-4 border-b border-white/10">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+          <h2 id="submit-confirmation-title" className="text-lg font-bold text-white flex items-center gap-2">
             <CheckCircle2 size={20} className="text-yellow-400" />
             Confirm Submission
           </h2>
@@ -229,7 +230,7 @@ function SubmitConfirmationModal({ entries, positions, onConfirm, onCancel, subm
           </p>
         </div>
 
-        <div className="p-6">
+        <div className="p-6 overflow-y-auto">
           <p className="text-sm text-on-surface mb-4">
             You are about to submit your leg results for <span className="font-semibold text-yellow-400">{entries.length}</span> entries.
           </p>
@@ -244,18 +245,18 @@ function SubmitConfirmationModal({ entries, positions, onConfirm, onCancel, subm
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t border-white/10 flex items-center justify-end gap-3">
+        <div className="px-6 py-4 border-t border-white/10 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-3 shrink-0">
           <button
             onClick={onCancel}
             disabled={submitting}
-            className="px-4 py-2 rounded-lg border border-white/20 text-sm text-gray-300 hover:bg-white/10 transition-all"
+            className="px-4 py-2 rounded-lg border border-white/20 text-sm text-gray-300 hover:bg-white/10 transition-all w-full sm:w-auto"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
             disabled={submitting || hasSubmitted}
-            className="flex items-center gap-2 px-5 py-2 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-black text-sm font-bold transition-all disabled:opacity-50"
+            className="flex items-center justify-center gap-2 px-5 py-2 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-black text-sm font-bold transition-all disabled:opacity-50 w-full sm:w-auto"
           >
             {submitting ? (
               <><Loader2 size={14} className="animate-spin" /> Submitting...</>
@@ -265,7 +266,7 @@ function SubmitConfirmationModal({ entries, positions, onConfirm, onCancel, subm
           </button>
         </div>
       </div>
-    </div>
+    </ModalShell>
   )
 }
 
@@ -631,7 +632,7 @@ export default function LegSubmissionPage() {
   // ── Error ──
   if (error) {
     return (
-      <div className="min-h-screen p-8">
+      <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center gap-3 mb-6">
             <button
@@ -657,7 +658,7 @@ export default function LegSubmissionPage() {
   // Race is no longer InProgress → don't allow entering/saving/submitting.
   if (execution?.status === 'Paused') {
     return (
-      <div className="min-h-screen p-8">
+      <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center gap-3 mb-6">
             <button
@@ -688,7 +689,7 @@ export default function LegSubmissionPage() {
 
   if (execution?.status === 'Finished') {
     return (
-      <div className="min-h-screen p-8">
+      <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center gap-3 mb-6">
             <button
@@ -716,7 +717,7 @@ export default function LegSubmissionPage() {
 
   if (execution?.status === 'Cancelled') {
     return (
-      <div className="min-h-screen p-8">
+      <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center gap-3 mb-6">
             <button
@@ -792,13 +793,14 @@ export default function LegSubmissionPage() {
 
   // ── Main Render ──
   return (
-    <div className="min-h-screen p-6 lg:p-8">
+    <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
       <div className="max-w-4xl mx-auto">
 
         {/* ── Header ────────────────────────────────────────────── */}
         <div className="flex items-center gap-3 mb-6">
           <button
             onClick={() => navigate(`/referee/races/${raceId}`)}
+            aria-label="Back to race dashboard"
             className="w-9 h-9 rounded-xl border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:border-white/20 transition-all"
           >
             <ChevronLeft size={16} />
@@ -824,17 +826,17 @@ export default function LegSubmissionPage() {
 
         {/* ── Status Bar ────────────────────────────────────────── */}
         <div className="p-4 rounded-xl bg-yellow-400/5 border border-yellow-400/20 mb-6">
-          <div className="flex items-center gap-4 text-xs text-on-surface-variant">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-on-surface-variant">
             <span className="flex items-center gap-1.5">
               <EyeOff size={12} className="text-yellow-400/70" />
               <span className="text-yellow-400/80 font-medium">Blind Entry Active</span>
             </span>
-            <span>|</span>
+            <span className="hidden sm:inline">|</span>
             <span className="flex items-center gap-1.5">
               <Clock size={12} />
               {legView?.opponentSubmitted ? 'Opponent submitted' : 'Waiting for opponent'}
             </span>
-            <span>|</span>
+            <span className="hidden sm:inline">|</span>
             <span>
               {entries.length} entries · {Object.values(positions).filter(p => p !== null && p !== undefined).length} assigned
             </span>

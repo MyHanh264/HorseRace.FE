@@ -45,6 +45,11 @@ export async function getRaceDetail(raceId) {
   return res.data
 }
 
+export async function getRaceLive(raceId) {
+  const res = await api.get(`/api/races/${raceId}/live`)
+  return res.data
+}
+
 // Standings has HorseName/JockeyName embedded (not owner-scoped) — used together with
 // getRaceResults() to build a full-field final-results view for a Finished race.
 export async function getRaceStandings(raceId) {

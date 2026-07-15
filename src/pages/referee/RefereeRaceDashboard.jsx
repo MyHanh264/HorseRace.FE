@@ -321,7 +321,7 @@ export default function RefereeRaceDashboard() {
   // ── Error ──
   if (error) {
     return (
-      <div className="min-h-screen p-8">
+      <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center gap-3 mb-6">
             <button
@@ -568,7 +568,7 @@ export default function RefereeRaceDashboard() {
                 )}
               </div>
             ) : (
-              <div className="p-8 text-center text-on-surface-variant text-sm">
+              <div className="px-4 sm:px-6 lg:px-8 py-8 text-center text-on-surface-variant text-sm">
                 No leg data available
               </div>
             )}
@@ -616,7 +616,7 @@ export default function RefereeRaceDashboard() {
                 ))}
               </div>
             ) : (
-              <div className="p-8 text-center text-on-surface-variant text-sm">
+              <div className="px-4 sm:px-6 lg:px-8 py-8 text-center text-on-surface-variant text-sm">
                 No standings data yet
               </div>
             )}

@@ -33,6 +33,7 @@ import {
   UserX,
   UserCheck,
 } from "lucide-react";
+import ModalShell from "../../components/layout/ModalShell";
 
 function formatDate(value) {
   if (!value) return "—";
@@ -237,9 +238,10 @@ function UserModal({ user, onClose, onSubmit, submitting, error }) {
     "w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40";
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }}
+    <ModalShell
+      onClose={onClose}
+      labelledBy="user-form-title"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-[4px]"
     >
       <div className="gs-card w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/40 sticky top-0 bg-surface-container-low z-10">
@@ -251,12 +253,13 @@ function UserModal({ user, onClose, onSubmit, submitting, error }) {
                 <UserPlus className="w-4 h-4 text-primary" />
               )}
             </div>
-            <h2 className="font-serif font-bold text-on-surface">
+            <h2 id="user-form-title" className="font-serif font-bold text-on-surface">
               {isEdit ? "Edit User" : "Create New Account"}
             </h2>
           </div>
           <button
             onClick={onClose}
+            aria-label="Close user form"
             className="text-on-surface-variant hover:text-on-surface transition-colors"
           >
             <X className="w-5 h-5" />
@@ -454,7 +457,7 @@ function UserModal({ user, onClose, onSubmit, submitting, error }) {
           </div>
         </form>
       </div>
-    </div>
+    </ModalShell>
   );
 }
 
@@ -473,9 +476,10 @@ function UserDetailModal({
   const isDeleted = user.status === "DELETED";
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }}
+    <ModalShell
+      onClose={onClose}
+      labelledBy="user-detail-title"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-[4px]"
     >
       <div className="gs-card w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/40">
@@ -484,7 +488,7 @@ function UserDetailModal({
               {(user.fullName || "U").charAt(0).toUpperCase()}
             </div>
             <div>
-              <h2 className="font-serif font-bold text-on-surface">
+              <h2 id="user-detail-title" className="font-serif font-bold text-on-surface">
                 {user.fullName || "—"}
               </h2>
               <p className="text-xs text-on-surface-variant">User Profile</p>
@@ -492,6 +496,7 @@ function UserDetailModal({
           </div>
           <button
             onClick={onClose}
+            aria-label="Close user profile"
             className="text-on-surface-variant hover:text-on-surface transition-colors"
           >
             <X className="w-5 h-5" />
@@ -640,7 +645,7 @@ function UserDetailModal({
           </div>
         </div>
       </div>
-    </div>
+    </ModalShell>
   );
 }
 
@@ -649,9 +654,10 @@ function LockConfirmModal({ user, onClose, onConfirm, loading }) {
   const [reason, setReason] = useState("");
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }}
+    <ModalShell
+      onClose={onClose}
+      labelledBy="lock-account-title"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-[4px]"
     >
       <div className="gs-card w-full max-w-md">
         <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/40">
@@ -659,12 +665,13 @@ function LockConfirmModal({ user, onClose, onConfirm, loading }) {
             <div className="w-8 h-8 rounded-lg bg-error/10 border border-error/20 flex items-center justify-center">
               <Lock className="w-4 h-4 text-error" />
             </div>
-            <h2 className="font-serif font-bold text-on-surface">
+            <h2 id="lock-account-title" className="font-serif font-bold text-on-surface">
               Lock Account
             </h2>
           </div>
           <button
             onClick={onClose}
+            aria-label="Close lock confirmation"
             className="text-on-surface-variant hover:text-on-surface transition-colors"
           >
             <X className="w-5 h-5" />
@@ -707,16 +714,17 @@ function LockConfirmModal({ user, onClose, onConfirm, loading }) {
           </div>
         </div>
       </div>
-    </div>
+    </ModalShell>
   );
 }
 
 // ─── Delete Confirmation ─────────────────────────────────────────────────────
 function DeleteConfirmModal({ user, onClose, onConfirm, loading }) {
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }}
+    <ModalShell
+      onClose={onClose}
+      labelledBy="delete-user-title"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-[4px]"
     >
       <div className="gs-card w-full max-w-md">
         <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/40">
@@ -724,12 +732,13 @@ function DeleteConfirmModal({ user, onClose, onConfirm, loading }) {
             <div className="w-8 h-8 rounded-lg bg-error/10 border border-error/20 flex items-center justify-center">
               <Trash2 className="w-4 h-4 text-error" />
             </div>
-            <h2 className="font-serif font-bold text-on-surface">
+            <h2 id="delete-user-title" className="font-serif font-bold text-on-surface">
               Delete User
             </h2>
           </div>
           <button
             onClick={onClose}
+            aria-label="Close delete confirmation"
             className="text-on-surface-variant hover:text-on-surface transition-colors"
           >
             <X className="w-5 h-5" />
@@ -759,7 +768,7 @@ function DeleteConfirmModal({ user, onClose, onConfirm, loading }) {
           </div>
         </div>
       </div>
-    </div>
+    </ModalShell>
   );
 }
 
@@ -1403,13 +1412,13 @@ export default function AdminUsersPage() {
 
   // ── Render ──
   return (
-    <div className="max-w-[1280px] mx-auto px-6 sm:px-8 py-8">
+    <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
       {/* Page Header */}
       <div
         className="mb-8 animate-fade-in-up"
         style={{ opacity: 0, animationFillMode: "forwards" }}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 rounded-xl bg-secondary/10 border border-secondary/20 flex items-center justify-center">
               <ShieldCheck className="w-5 h-5 text-secondary" />
@@ -1425,7 +1434,7 @@ export default function AdminUsersPage() {
           </div>
           <button
             onClick={openCreate}
-            className="gs-btn gs-btn-primary flex items-center gap-2"
+            className="gs-btn gs-btn-primary flex items-center justify-center gap-2 w-full sm:w-auto"
           >
             <UserPlus className="w-4 h-4" />
             Create User
@@ -1588,7 +1597,7 @@ export default function AdminUsersPage() {
 
           {/* Pagination */}
           {activeTab !== "pending" && totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
               <p className="text-sm text-on-surface-variant">
                 Showing {(page - 1) * pageSize + 1}-
                 {Math.min(page * pageSize, totalUsers)} of {totalUsers}

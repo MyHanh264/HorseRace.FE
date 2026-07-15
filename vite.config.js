@@ -18,9 +18,10 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": {
-        target: "https://horseracemanagementsystem.onrender.com",
+        target: process.env.VITE_PROXY_TARGET || "https://horseracemanagementsystem.onrender.com",
         changeOrigin: true,
         secure: false,
+        ws: true,
       },
     },
   },

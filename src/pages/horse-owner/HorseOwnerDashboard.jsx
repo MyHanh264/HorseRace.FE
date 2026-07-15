@@ -195,7 +195,7 @@ function InvitationRow({ inv, onReview }) {
   const abbr = initials(name);
 
   return (
-    <div className="grid grid-cols-[1fr_1fr_auto_auto] items-center gap-4 py-3 border-b border-white/5 last:border-0">
+    <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] xl:grid-cols-[1fr_1fr_auto_auto] items-start sm:items-center gap-3 xl:gap-4 py-3 border-b border-white/5 last:border-0">
       <div className="flex items-center gap-2.5 min-w-0">
         <div
           className={`w-8 h-8 rounded-full ${color} flex items-center justify-center text-xs font-bold text-white flex-shrink-0`}
@@ -205,7 +205,7 @@ function InvitationRow({ inv, onReview }) {
         <span className="text-gray-200 text-sm truncate">{name}</span>
       </div>
 
-      <span className="text-gray-400 text-sm truncate">
+      <span className="text-gray-400 text-sm truncate sm:col-span-2 xl:col-span-1">
         {inv.raceName ?? "—"}
       </span>
 
@@ -354,7 +354,7 @@ export default function HorseOwnerDashboard() {
 
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-[400px]">
+    <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8 flex items-center justify-center min-h-[400px]">
         <div className="text-gray-500 text-sm animate-pulse">
           Loading dashboard…
         </div>
@@ -363,9 +363,9 @@ export default function HorseOwnerDashboard() {
   }
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8 space-y-6">
       {/* ── Header ── */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 mb-1 flex-wrap">
             <h1 className="text-3xl font-bold text-white">
@@ -382,7 +382,7 @@ export default function HorseOwnerDashboard() {
 
         <button
           onClick={() => navigate("/horse-owner/horses/register")}
-          className="flex items-center gap-2 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 font-semibold px-4 py-2.5 rounded-xl text-sm transition-colors whitespace-nowrap flex-shrink-0"
+          className="flex items-center justify-center gap-2 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 font-semibold px-4 py-2.5 rounded-xl text-sm transition-colors whitespace-nowrap flex-shrink-0 w-full sm:w-auto"
         >
           <Plus size={16} />
           Register New Horse
@@ -505,7 +505,7 @@ export default function HorseOwnerDashboard() {
             ) : (
               <>
                 {/* Table header */}
-                <div className="grid grid-cols-[1fr_1fr_auto_auto] gap-4 px-0 pb-2 mb-1 text-xs text-gray-500 uppercase tracking-wider">
+                <div className="hidden xl:grid grid-cols-[1fr_1fr_auto_auto] gap-4 px-0 pb-2 mb-1 text-xs text-gray-500 uppercase tracking-wider">
                   <span>Jockey / Sender</span>
                   <span>Race Event</span>
                   <span>Date</span>

@@ -151,11 +151,11 @@ export default function LeaderboardPage() {
   const TABS = ['All Time', 'This Month', 'This Week']
 
   return (
-    <div className="min-h-screen p-8">
+    <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
       <div className="max-w-[1000px] mx-auto">
 
         {/* Header */}
-        <div className="flex items-start justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
           <div className="animate-fade-in-up" style={{ opacity: 0, animationFillMode: 'forwards' }}>
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 rounded-xl bg-secondary/10 border border-secondary/20 flex items-center justify-center">

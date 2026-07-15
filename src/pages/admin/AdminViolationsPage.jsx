@@ -25,6 +25,7 @@ import {
   updateViolation,
   getRaces,
 } from "../../api/admin";
+import ModalShell from "../../components/layout/ModalShell";
 
 // ─── Domain-aligned enums (Flow 6 — Violation Handling) ──────────────────────
 // Source of truth: Domain/Aggregates/Entities/Violation.cs + GetAdminViolations handler.
@@ -103,7 +104,7 @@ function ViolationDetailModal({ item, onClose }) {
   const penalty = PENALTY_CONFIG[item.penalty] || null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <ModalShell onClose={onClose} labelledBy="violation-detail-title" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div
         className="bg-[#1a2035] rounded-2xl w-full max-w-2xl border border-white/10 shadow-2xl overflow-hidden animate-fade-in-up max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
@@ -114,7 +115,7 @@ function ViolationDetailModal({ item, onClose }) {
               <ShieldAlert className="w-4 h-4 text-red-400" />
             </div>
             <div>
-              <h2 className="font-serif font-bold text-on-surface">Violation Details</h2>
+              <h2 id="violation-detail-title" className="font-serif font-bold text-on-surface">Violation Details</h2>
               <p className="text-xs text-on-surface-variant">ID: #{item.violationId}</p>
             </div>
           </div>
@@ -204,7 +205,7 @@ function ViolationDetailModal({ item, onClose }) {
           <button onClick={onClose} className="gs-btn gs-btn-ghost gs-btn-sm">Close</button>
         </div>
       </div>
-    </div>
+    </ModalShell>
   );
 }
 
@@ -254,7 +255,7 @@ function ApproveViolationModal({ item, onClose, onApproved }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <ModalShell onClose={onClose} labelledBy="approve-violation-title" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div
         className="bg-[#1a2035] rounded-2xl w-full max-w-lg border border-white/10 shadow-2xl overflow-hidden animate-fade-in-up max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
@@ -265,7 +266,7 @@ function ApproveViolationModal({ item, onClose, onApproved }) {
               <CheckCircle className="w-4 h-4 text-emerald-400" />
             </div>
             <div>
-              <h2 className="font-serif font-bold text-on-surface">Approve Violation Report</h2>
+              <h2 id="approve-violation-title" className="font-serif font-bold text-on-surface">Approve Violation Report</h2>
               <p className="text-xs text-on-surface-variant">#{item.violationId} · {item.violatorName || "—"}</p>
             </div>
           </div>
@@ -356,7 +357,7 @@ function ApproveViolationModal({ item, onClose, onApproved }) {
           </button>
         </div>
       </div>
-    </div>
+    </ModalShell>
   );
 }
 
@@ -384,7 +385,7 @@ function RejectViolationModal({ item, onClose, onRejected }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <ModalShell onClose={onClose} labelledBy="reject-violation-title" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div
         className="bg-[#1a2035] rounded-2xl w-full max-w-lg border border-white/10 shadow-2xl overflow-hidden animate-fade-in-up max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
@@ -395,7 +396,7 @@ function RejectViolationModal({ item, onClose, onRejected }) {
               <XCircle className="w-4 h-4 text-zinc-400" />
             </div>
             <div>
-              <h2 className="font-serif font-bold text-on-surface">Reject Violation Report</h2>
+              <h2 id="reject-violation-title" className="font-serif font-bold text-on-surface">Reject Violation Report</h2>
               <p className="text-xs text-on-surface-variant">#{item.violationId} · {item.violatorName || "—"}</p>
             </div>
           </div>
@@ -442,7 +443,7 @@ function RejectViolationModal({ item, onClose, onRejected }) {
           </button>
         </div>
       </div>
-    </div>
+    </ModalShell>
   );
 }
 
@@ -504,7 +505,7 @@ function EditViolationModal({ item, onClose, onSaved }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <ModalShell onClose={onClose} labelledBy="edit-violation-title" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div
         className="bg-[#1a2035] rounded-2xl w-full max-w-lg border border-white/10 shadow-2xl overflow-hidden animate-fade-in-up max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
@@ -515,7 +516,7 @@ function EditViolationModal({ item, onClose, onSaved }) {
               <Edit3 className="w-4 h-4 text-blue-400" />
             </div>
             <div>
-              <h2 className="font-serif font-bold text-on-surface">Edit Violation</h2>
+              <h2 id="edit-violation-title" className="font-serif font-bold text-on-surface">Edit Violation</h2>
               <p className="text-xs text-on-surface-variant">#{item.violationId} · {item.violatorName || "—"}</p>
             </div>
           </div>
@@ -624,7 +625,7 @@ function EditViolationModal({ item, onClose, onSaved }) {
           </button>
         </div>
       </div>
-    </div>
+    </ModalShell>
   );
 }
 
@@ -760,10 +761,10 @@ export default function AdminViolationsPage() {
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
-    <div className="max-w-[1280px] mx-auto px-6 sm:px-8 py-8">
+    <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
       {/* Header */}
       <div className="mb-8 animate-fade-in-up" style={{ opacity: 0, animationFillMode: "forwards" }}>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
               <ShieldAlert className="w-5 h-5 text-red-400" />
@@ -775,7 +776,7 @@ export default function AdminViolationsPage() {
               </p>
             </div>
           </div>
-          <button onClick={fetchData} className="gs-btn gs-btn-ghost gs-btn-sm flex items-center gap-1.5">
+          <button onClick={fetchData} className="gs-btn gs-btn-ghost gs-btn-sm flex items-center justify-center gap-1.5 w-full sm:w-auto">
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </button>
@@ -1050,7 +1051,7 @@ export default function AdminViolationsPage() {
           </div>
 
           {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4 px-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4 px-2">
               <p className="text-xs text-on-surface-variant">
                 Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length} items
               </p>

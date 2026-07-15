@@ -163,11 +163,11 @@ function RaceCard({ race, myEntry, myInvitation, index, onRegister, onConfirm })
   const pct = Math.min(100, Math.round((filled / max) * 100));
 
   return (
-    <div className="flex items-stretch bg-[#0b0f14] rounded-xl overflow-hidden border border-white/5 hover:border-white/12 transition-colors">
+    <div className="flex flex-col md:flex-row md:items-stretch bg-[#0b0f14] rounded-xl overflow-hidden border border-white/5 hover:border-white/12 transition-colors">
 
       {/* Race thumbnail */}
       <div
-        className="relative w-48 h-[130px] flex-shrink-0 overflow-hidden"
+        className="relative w-full md:w-48 h-[110px] md:h-[130px] md:flex-shrink-0 overflow-hidden"
         style={{ background: RACE_BG[index % RACE_BG.length] }}
       >
         {/* Abstract track lines */}
@@ -233,7 +233,7 @@ function RaceCard({ race, myEntry, myInvitation, index, onRegister, onConfirm })
       </div>
 
       {/* Action */}
-      <div className="flex flex-col items-center justify-center gap-2 px-5 w-[164px] flex-shrink-0 border-l border-white/5">
+      <div className="flex flex-col items-center justify-center gap-2 px-5 py-4 md:py-0 w-full md:w-[164px] md:flex-shrink-0 border-t md:border-t-0 md:border-l border-white/5">
         {/* Show entry badge if one exists */}
         {myEntry && (
           <span className={`text-[11px] px-3 py-1.5 rounded-lg font-semibold text-center ${ENTRY_STATUS[myEntry.status]?.cls ?? "text-gray-400 bg-gray-500/10 border border-gray-500/20"}`}>
@@ -368,7 +368,7 @@ function TournamentDetail({ tournament, races, entryByRace, activeInvByRace, onB
         />
 
         {/* Content */}
-        <div className="relative px-8 pt-8 pb-10">
+        <div className="relative px-4 sm:px-6 lg:px-8 pt-8 pb-10">
           {/* Trophy + badge */}
           <div className="flex items-center gap-2.5 mb-4">
             <div className="w-9 h-9 rounded-xl bg-yellow-400/15 border border-yellow-400/30 flex items-center justify-center">
@@ -392,7 +392,7 @@ function TournamentDetail({ tournament, races, entryByRace, activeInvByRace, onB
       </div>
 
       {/* ── Stats row ─────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-4 gap-3 px-6 py-4 bg-[#080c12] flex-shrink-0">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 px-4 sm:px-6 py-4 bg-[#080c12] flex-shrink-0">
         <StatCard
           label="Races"
           value={tournament.raceCount}
@@ -569,7 +569,7 @@ export default function HorseOwnerTournamentsPage() {
   // ── loading ──
   if (loading) {
     return (
-      <div className="p-8 space-y-4">
+      <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8 space-y-4">
         {[1, 2, 3].map((i) => (
           <div key={i} className="h-44 bg-white/4 rounded-2xl animate-pulse" />
         ))}
@@ -626,7 +626,7 @@ export default function HorseOwnerTournamentsPage() {
 
   // ── LIST VIEW ──
   return (
-    <div className="p-8">
+    <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white">Tournaments</h1>
         <p className="text-gray-500 text-sm mt-0.5">
@@ -666,7 +666,7 @@ export default function HorseOwnerTournamentsPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {paginatedTournaments.map((t) => (
               <TournamentListCard
                 key={t.tournamentId}

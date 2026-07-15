@@ -8,6 +8,7 @@ import {
   sendInvitation,
 } from "../../api/horseOwner";
 import { useAuth } from "../../context/AuthContext";
+import ModalShell from "../../components/layout/ModalShell";
 
 function StepDots({ step }) {
   return (
@@ -32,7 +33,7 @@ function Step1({ races, search, onSearch, selected, onSelect, onClose, onNext, f
       <div className="flex items-start justify-between">
         <div>
           <StepDots step={1} />
-          <h2 className="text-white font-bold text-xl">Step 1: Select Race</h2>
+          <h2 id="send-invitation-title" className="text-white font-bold text-xl">Step 1: Select Race</h2>
         </div>
         <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors mt-1">
           <X size={20} />
@@ -133,7 +134,7 @@ function Step2({ horses, selected, onSelect, onClose, onBack, onNext, selectedRa
       {/* Header */}
       <div className="flex items-start justify-between px-6 pt-6 pb-4 flex-shrink-0">
         <div>
-          <h2 className="text-white font-bold text-xl">Register Horse</h2>
+          <h2 id="send-invitation-title" className="text-white font-bold text-xl">Register Horse</h2>
           {selectedRace && (
             <p className="text-emerald-400 text-sm mt-0.5">{selectedRace.name}</p>
           )}
@@ -352,7 +353,7 @@ function Step3({ jockeys, search, onSearch, onClose, onInvite, selectedRace, sel
           <div className="w-7 h-7 rounded-lg bg-yellow-400/15 border border-yellow-400/20 flex items-center justify-center">
             <UserPlus size={13} className="text-yellow-400" />
           </div>
-          <h2 className="text-white font-bold text-[15px]">Invite Jockey</h2>
+          <h2 id="send-invitation-title" className="text-white font-bold text-[15px]">Invite Jockey</h2>
         </div>
         <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">
           <X size={17} />
@@ -600,8 +601,8 @@ export default function SendInvitationModal({ onClose, onSuccess, initialRace = 
   // The Done button in Step3 calls onClose directly
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="bg-[#111827] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl">
+    <ModalShell onClose={onClose} labelledBy="send-invitation-title">
+      <div className="bg-[#111827] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90dvh] overflow-y-auto">
         {loading ? (
           <div className="p-10 text-center text-gray-400 text-sm">Loading...</div>
         ) : loadError ? (
@@ -649,6 +650,6 @@ export default function SendInvitationModal({ onClose, onSuccess, initialRace = 
           </>
         )}
       </div>
-    </div>
+    </ModalShell>
   );
 }

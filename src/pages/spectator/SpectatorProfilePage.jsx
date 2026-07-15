@@ -184,7 +184,7 @@ export default function SpectatorProfilePage() {
   ]
 
   return (
-    <div className="min-h-screen p-8">
+    <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
       <div className="max-w-[960px] mx-auto">
 
         {/* Header */}
@@ -328,7 +328,7 @@ export default function SpectatorProfilePage() {
                   <div className="w-6 h-6 border-2 border-secondary/30 border-t-secondary rounded-full animate-spin" />
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {STATS.map(s => (
                     <StatCard key={s.label} {...s} />
                   ))}

@@ -171,7 +171,7 @@ export default function AdminRaceEntriesPage() {
   // ── Loading skeleton ───────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="max-w-[1100px] mx-auto px-6 sm:px-8 py-8">
+      <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
         <div className="flex items-center gap-2 text-on-surface-variant text-sm mb-6">
           <ArrowLeft className="w-4 h-4" /> Back
         </div>
@@ -183,7 +183,7 @@ export default function AdminRaceEntriesPage() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="max-w-[1100px] mx-auto px-6 sm:px-8 py-8">
+    <div className="max-w-[1100px] mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
 
       {/* Back */}
       <button
@@ -218,7 +218,7 @@ export default function AdminRaceEntriesPage() {
 
       {/* Race card */}
       <div className="gs-card p-6 mb-5">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
           <div className="flex-1 min-w-0">
             <p className="text-xs text-secondary font-semibold uppercase tracking-widest mb-1 flex items-center gap-1.5">
               <Flag className="w-3 h-3" />
@@ -234,10 +234,10 @@ export default function AdminRaceEntriesPage() {
           </div>
 
           {/* Action button */}
-          <div className="shrink-0">
+          <div className="shrink-0 w-full lg:w-auto">
             {!isRegOpen && !isRegClosed && (
               <button onClick={handleOpenReg} disabled={regLoading}
-                className="gs-btn gs-btn-primary flex items-center gap-2 px-5 py-2.5">
+                className="gs-btn gs-btn-primary flex items-center justify-center gap-2 px-5 py-2.5 w-full lg:w-auto">
                 {regLoading
                   ? <div className="w-3.5 h-3.5 border-2 border-on-primary/30 border-t-on-primary rounded-full animate-spin" />
                   : null}
@@ -248,7 +248,7 @@ export default function AdminRaceEntriesPage() {
               <>
                 <button onClick={handleCloseReg} disabled={regLoading || entryStats.approved < 2}
                   title={entryStats.approved < 2 ? `Needs at least 2 approved entries to close registration (currently ${entryStats.approved}).` : ''}
-                  className="gs-btn gs-btn-secondary flex items-center gap-2 px-5 py-2.5 disabled:opacity-40 disabled:cursor-not-allowed">
+                  className="gs-btn gs-btn-secondary flex items-center justify-center gap-2 px-5 py-2.5 disabled:opacity-40 disabled:cursor-not-allowed w-full lg:w-auto">
                   {regLoading
                     ? <div className="w-3.5 h-3.5 border-2 border-black/20 border-t-black/70 rounded-full animate-spin" />
                     : <Lock className="w-4 h-4" />}
@@ -263,7 +263,7 @@ export default function AdminRaceEntriesPage() {
             )}
             {isRegClosed && race?.status === 'Scheduled' && (
               <button onClick={handleStartRace} disabled={regLoading}
-                className="gs-btn gs-btn-secondary flex items-center gap-2 px-5 py-2.5">
+                className="gs-btn gs-btn-secondary flex items-center justify-center gap-2 px-5 py-2.5 w-full lg:w-auto">
                 {regLoading
                   ? <div className="w-3.5 h-3.5 border-2 border-black/20 border-t-black/70 rounded-full animate-spin" />
                   : <span className="text-base">▶</span>}
@@ -296,7 +296,7 @@ export default function AdminRaceEntriesPage() {
         )}
 
         {/* Stats */}
-        <div className="grid grid-cols-4 gap-3 mt-5 pt-4 border-t border-outline-variant/25">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-4 border-t border-outline-variant/25">
           {[
             { label: 'CAPACITY',  value: `${entryStats.filled}/${entryStats.total}` },
             { label: 'APPROVED',  value: entryStats.approved },
@@ -474,7 +474,7 @@ export default function AdminRaceEntriesPage() {
             )}
 
             {entries.length > PAGE_SIZE && (
-              <div className="flex items-center justify-between px-5 py-3 border-t border-outline-variant/30">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 py-3 border-t border-outline-variant/30">
                 <span className="text-xs text-on-surface-variant">
                   Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, entries.length)} of {entries.length}
                 </span>

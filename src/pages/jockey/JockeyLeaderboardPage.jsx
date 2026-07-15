@@ -104,7 +104,7 @@ export default function JockeyLeaderboardPage() {
   const topHorses  = useMemo(() => horses.slice(0, 20), [horses]);
 
   return (
-    <div className="p-8 max-w-3xl mx-auto">
+    <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8 max-w-3xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-8">
         <div className="w-10 h-10 rounded-xl bg-secondary/10 border border-secondary/20 flex items-center justify-center">

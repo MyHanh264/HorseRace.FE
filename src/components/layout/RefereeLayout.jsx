@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import NotificationBell from '../NotificationBell'
 import { useRefereeNotifications } from '../../hooks/useRefereeNotifications'
 import { useNotificationRead } from '../../hooks/useNotificationRead'
+import RoleShell from './RoleShell'
 
 const navItems = [
   { to: '/referee',             label: 'My Assigned Races', icon: ClipboardList, end: true },
@@ -21,10 +22,8 @@ export default function RefereeLayout() {
   const notifItems = useRefereeNotifications()
   const notifRead = useNotificationRead(notifItems, user?.userId)
 
-  return (
-    <div className="flex h-screen font-sans" style={{ background: '#0D1117', color: '#E6EDF3' }}>
-      {/* Sidebar */}
-      <aside className="w-[220px] h-screen fixed left-0 top-0 flex flex-col bg-[#111418] border-r border-white/10 flex-shrink-0">
+  const sidebar = (
+    <>
         {/* Logo */}
         <div className="flex items-center gap-3 px-4 py-5 border-b border-white/10">
           <div className="w-9 h-9 rounded-full bg-yellow-400/10 border border-yellow-400/25 flex items-center justify-center text-base flex-shrink-0">
@@ -83,17 +82,17 @@ export default function RefereeLayout() {
             Report Emergency
           </button>
         </div>
-      </aside>
+      </>
+  )
 
-      {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0 ml-[220px]">
-        <header className="h-14 px-6 flex items-center justify-end flex-shrink-0 sticky top-0 z-40 bg-[#111418] border-b border-white/10">
-          <NotificationBell items={notifItems} {...notifRead} />
-        </header>
-        <main className="flex-1 overflow-auto">
-          <Outlet />
-        </main>
-      </div>
-    </div>
+  return (
+    <RoleShell
+      sidebar={sidebar}
+      header={<div className="flex justify-end"><NotificationBell items={notifItems} {...notifRead} /></div>}
+      sidebarWidth={220}
+      menuButtonClassName="text-gray-400 hover:text-yellow-400 hover:bg-white/5"
+    >
+      <Outlet />
+    </RoleShell>
   )
 }

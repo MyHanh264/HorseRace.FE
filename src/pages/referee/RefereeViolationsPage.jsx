@@ -337,7 +337,7 @@ export default function RefereeViolationsPage() {
   ]
 
   return (
-    <div className="min-h-screen p-8">
+    <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
       <div className="max-w-[1100px] mx-auto">
 
         {/* Header */}
@@ -519,7 +519,7 @@ export default function RefereeViolationsPage() {
           )}
 
           {!loading && filtered.length > 0 && (
-            <div className="flex items-center justify-between px-5 py-3 border-t border-outline-variant/40">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 py-3 border-t border-outline-variant/40">
               <span className="text-xs text-on-surface-variant">
                 Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length} items
               </span>

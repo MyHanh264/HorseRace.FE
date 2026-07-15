@@ -34,12 +34,25 @@ export default function NotificationBell({
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (!open) return undefined;
+
+    function onKeyDown(e) {
+      if (e.key === "Escape") setOpen(false);
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open]);
+
   return (
     <div className="relative" ref={wrapRef}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-label="Notifications"
+        aria-expanded={open}
+        aria-controls="notification-menu"
         className="relative w-9 h-9 rounded-lg hover:bg-white/8 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
       >
         <Bell size={17} />
@@ -51,7 +64,10 @@ export default function NotificationBell({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 max-h-[70vh] overflow-y-auto bg-[#161b22] border border-white/10 rounded-xl shadow-2xl z-50">
+        <div
+          id="notification-menu"
+          className="absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-1rem)] max-h-[70vh] overflow-y-auto bg-[#161b22] border border-white/10 rounded-xl shadow-2xl z-50"
+        >
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
             <p className="text-sm font-semibold text-white">Notifications</p>
             {unreadCount > 0 && (

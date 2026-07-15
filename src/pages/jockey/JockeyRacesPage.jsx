@@ -407,7 +407,7 @@ export default function JockeyRacesPage() {
   const [featured, ...rest] = filtered;
 
   return (
-    <div className="p-8">
+    <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold text-white">My Races</h1>
@@ -452,7 +452,7 @@ export default function JockeyRacesPage() {
         <div className="space-y-4">
           {/* Row 1: featured (large) + first small */}
           {featured && (
-            <div className="grid grid-cols-[1.4fr_1fr] gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-4">
               <FeaturedRaceCard race={featured} onViewResults={setResultsRace} onViewDetails={setDetailsRace} />
               {rest[0] &&
                 (activeTab === "Completed" ? (
@@ -465,7 +465,7 @@ export default function JockeyRacesPage() {
 
           {/* Row 2+: remaining in 2-col grid */}
           {rest.length > 1 && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {rest
                 .slice(1)
                 .map((race) =>

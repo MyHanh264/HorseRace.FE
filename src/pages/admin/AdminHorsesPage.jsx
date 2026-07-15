@@ -390,10 +390,10 @@ export default function AdminHorsesPage() {
   const rejectedCount = horses.filter((h) => h.status === "Rejected").length;
 
   return (
-    <div className="max-w-[1280px] mx-auto px-6 sm:px-8 py-8">
+    <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
       {/* ── Header ───────────────────────────────────────── */}
       <div className="mb-8 animate-fade-in-up" style={{ opacity: 0, animationFillMode: "forwards" }}>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-secondary/10 border border-secondary/20 flex items-center justify-center text-lg">
               🐴
@@ -409,7 +409,7 @@ export default function AdminHorsesPage() {
           </div>
           <button
             onClick={loadHorses}
-            className="gs-btn gs-btn-ghost gs-btn-sm flex items-center gap-1.5"
+            className="gs-btn gs-btn-ghost gs-btn-sm flex items-center justify-center gap-1.5 w-full sm:w-auto"
             title="Refresh"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
@@ -846,7 +846,7 @@ export default function AdminHorsesPage() {
 
           {/* ── Pagination ── */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4 px-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4 px-2">
               <p className="text-xs text-on-surface-variant">
                 Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length} horses
               </p>

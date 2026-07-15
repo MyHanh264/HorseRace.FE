@@ -1,16 +1,18 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import {
   LayoutDashboard, Target, BookOpen, Wallet,
-  BarChart2, User, LogOut,
+  BarChart2, User, LogOut, Radio,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import NotificationBell from '../NotificationBell'
 import { useSpectatorNotifications } from '../../hooks/useSpectatorNotifications'
 import { useNotificationRead } from '../../hooks/useNotificationRead'
+import RoleShell from './RoleShell'
 
 const navItems = [
   { to: '/spectator',             label: 'Dashboard',       icon: LayoutDashboard, end: true },
   { to: '/spectator/races',       label: 'Races & Betting', icon: Target },
+  { to: '/spectator/live',        label: 'Live Race',       icon: Radio },
   { to: '/spectator/predictions', label: 'My Predictions',  icon: BookOpen },
   { to: '/spectator/wallet',      label: 'Point Wallet',    icon: Wallet },
   { to: '/spectator/leaderboard', label: 'Leaderboard',     icon: BarChart2 },
@@ -27,10 +29,8 @@ export default function SpectatorLayout() {
   const notifItems = useSpectatorNotifications()
   const notifRead = useNotificationRead(notifItems, user?.userId)
 
-  return (
-    <div className="flex h-screen font-sans" style={{ background: '#0D1117', color: '#E6EDF3' }}>
-      {/* Sidebar */}
-      <aside className="w-[200px] h-screen fixed left-0 top-0 flex flex-col bg-[#111418] border-r border-white/10 flex-shrink-0">
+  const sidebar = (
+    <>
         {/* Logo */}
         <div className="flex items-center gap-3 px-4 py-5 border-b border-white/10">
           <div className="w-9 h-9 rounded-full bg-primary-container/50 border border-primary/20 flex items-center justify-center text-base flex-shrink-0">
@@ -82,17 +82,16 @@ export default function SpectatorLayout() {
             Logout
           </button>
         </div>
-      </aside>
+      </>
+  )
 
-      {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0 ml-[200px]">
-        <header className="h-14 px-6 flex items-center justify-end flex-shrink-0 sticky top-0 z-40 bg-[#111418] border-b border-white/10">
-          <NotificationBell items={notifItems} {...notifRead} />
-        </header>
-        <main className="flex-1 overflow-auto">
-          <Outlet />
-        </main>
-      </div>
-    </div>
+  return (
+    <RoleShell
+      sidebar={sidebar}
+      header={<div className="flex justify-end"><NotificationBell items={notifItems} {...notifRead} /></div>}
+      sidebarWidth={200}
+    >
+      <Outlet />
+    </RoleShell>
   )
 }

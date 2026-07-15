@@ -122,11 +122,11 @@ export default function MyPredictionsPage() {
   }
 
   return (
-    <div className="min-h-screen p-8">
+    <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
       <div className="max-w-[1100px] mx-auto">
 
         {/* Header */}
-        <div className="flex items-start justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
           <div className="animate-fade-in-up" style={{ opacity: 0, animationFillMode: 'forwards' }}>
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
@@ -143,12 +143,12 @@ export default function MyPredictionsPage() {
           </div>
 
           {/* Tab toggle */}
-          <div className="flex items-center gap-1 bg-surface-container-low border border-outline-variant/40 rounded-xl p-1">
+          <div className="flex items-center gap-1 bg-surface-container-low border border-outline-variant/40 rounded-xl p-1 overflow-x-auto w-full sm:w-auto">
             {['Active', 'History'].map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
                   activeTab === tab
                     ? 'bg-surface-container-highest text-on-surface shadow-sm'
                     : 'text-on-surface-variant hover:text-on-surface'
@@ -180,7 +180,7 @@ export default function MyPredictionsPage() {
 
         {/* Table */}
         <div className="gs-card overflow-hidden">
-          <div className="px-5 py-4 border-b border-outline-variant/40 flex items-center justify-between">
+          <div className="px-5 py-4 border-b border-outline-variant/40 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <h2 className="font-semibold text-on-surface text-sm">
               {activeTab === 'Active' ? 'Active Slips' : 'Prediction History'}
               <span className="ml-2 text-on-surface-variant font-normal">({displayed.length})</span>

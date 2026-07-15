@@ -165,11 +165,11 @@ export default function HorseDetailPage() {
 
   const recentForm = results.slice(0, 5);
 
-  if (loading) return <div className="p-8 text-gray-400">Loading...</div>;
-  if (!horse) return <div className="p-8 text-red-400">Horse not found.</div>;
+  if (loading) return <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8 text-gray-400">Loading...</div>;
+  if (!horse) return <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8 text-red-400">Horse not found.</div>;
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
+    <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8 max-w-4xl mx-auto">
       {/* Back */}
       <button
         onClick={() => navigate("/horse-owner/horses")}
@@ -239,7 +239,7 @@ export default function HorseDetailPage() {
           <span className="w-1 h-5 bg-emerald-500 rounded-full inline-block" />
           Career Stats
         </h2>
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {[
             {
               label: "TOTAL RACES",
@@ -312,7 +312,7 @@ export default function HorseDetailPage() {
       </div>
 
       {/* Bottom grid */}
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Upcoming Races */}
         <div className="bg-[#1a2035] rounded-xl border border-white/10 p-6">
           <h3 className="text-white font-bold mb-4">

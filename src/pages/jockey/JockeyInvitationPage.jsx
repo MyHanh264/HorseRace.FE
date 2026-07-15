@@ -7,6 +7,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { getJockeyInvitations, updateJockeyInvitation } from "../../api/jockey";
+import ModalShell from "../../components/layout/ModalShell";
 
 const TABS = ["Pending", "All History"];
 
@@ -54,7 +55,7 @@ function InvitationCard({ inv, onAccept, onDeclineClick, actioning }) {
 
   return (
     <div
-      className={`bg-[#0f1628] rounded-xl overflow-hidden flex
+      className={`bg-[#0f1628] rounded-xl overflow-hidden flex flex-col md:flex-row
       border border-white/8
       ${isPending   ? "border-l-[3px] border-l-yellow-500" : ""}
       ${isAccepted  ? "border-l-[3px] border-l-emerald-500" : ""}
@@ -63,7 +64,7 @@ function InvitationCard({ inv, onAccept, onDeclineClick, actioning }) {
     `}
     >
       {/* ── FROM ── */}
-      <div className="flex flex-col items-center justify-center gap-1.5 px-5 py-5 w-[130px] flex-shrink-0 border-r border-white/8">
+      <div className="flex flex-row md:flex-col items-center justify-start md:justify-center gap-3 md:gap-1.5 px-5 py-4 md:py-5 w-full md:w-[130px] md:flex-shrink-0 border-b md:border-b-0 md:border-r border-white/8">
         <p className="text-gray-500 text-[10px] uppercase tracking-widest mb-0.5">
           From
         </p>
@@ -72,14 +73,14 @@ function InvitationCard({ inv, onAccept, onDeclineClick, actioning }) {
         >
           {abbr}
         </div>
-        <p className="text-white text-xs font-bold text-center leading-tight">
+        <p className="text-white text-xs font-bold md:text-center leading-tight">
           {ownerLabel}
         </p>
         <p className="text-emerald-400 text-[10px] font-medium">Owner</p>
       </div>
 
       {/* ── HORSE ── */}
-      <div className="flex items-center gap-3 px-5 py-5 w-[220px] flex-shrink-0 border-r border-white/8">
+      <div className="flex items-center gap-3 px-5 py-4 md:py-5 w-full md:w-[220px] md:flex-shrink-0 border-b md:border-b-0 md:border-r border-white/8 min-w-0">
         {/* Horse image placeholder */}
         <div className="w-16 h-16 rounded-xl bg-gray-700/60 flex items-center justify-center text-3xl flex-shrink-0 overflow-hidden">
           🐎
@@ -92,7 +93,7 @@ function InvitationCard({ inv, onAccept, onDeclineClick, actioning }) {
       </div>
 
       {/* ── RACE DETAILS ── */}
-      <div className="flex-1 px-5 py-5 border-r border-white/8 min-w-0">
+      <div className="flex-1 px-5 py-4 md:py-5 border-b md:border-b-0 md:border-r border-white/8 min-w-0">
         <p className="text-gray-500 text-[10px] uppercase tracking-widest mb-1.5">
           Race Details
         </p>
@@ -108,7 +109,7 @@ function InvitationCard({ inv, onAccept, onDeclineClick, actioning }) {
       </div>
 
       {/* ── ACTIONS ── */}
-      <div className="flex flex-col items-stretch justify-center gap-2 px-5 py-5 w-[140px] flex-shrink-0">
+      <div className="flex flex-col sm:flex-row md:flex-col items-stretch justify-center gap-2 px-5 py-4 md:py-5 w-full md:w-[140px] md:flex-shrink-0">
         {isPending ? (
           <>
             <button
@@ -215,7 +216,7 @@ export default function JockeyInvitationsPage() {
       : invitations;
 
   return (
-    <div className="p-8">
+    <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
       {/* Header */}
       <div className="mb-2">
         <h1 className="text-2xl font-bold text-white">My Invitations</h1>
@@ -282,9 +283,9 @@ export default function JockeyInvitationsPage() {
 
       {/* Decline reason modal */}
       {declineInv && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+        <ModalShell onClose={() => { setDeclineInv(null); setDeclineError(""); }} labelledBy="decline-invitation-title">
           <div className="bg-[#111827] border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl p-6">
-            <h2 className="text-white font-bold text-lg mb-2">Decline Invitation?</h2>
+            <h2 id="decline-invitation-title" className="text-white font-bold text-lg mb-2">Decline Invitation?</h2>
             <p className="text-gray-400 text-sm leading-relaxed mb-4">
               Let{" "}
               <span className="text-white font-semibold">
@@ -329,7 +330,7 @@ export default function JockeyInvitationsPage() {
               </button>
             </div>
           </div>
-        </div>
+        </ModalShell>
       )}
     </div>
   );

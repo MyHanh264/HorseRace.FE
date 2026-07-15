@@ -368,10 +368,10 @@ export default function AdminPointManagementPage() {
   const paginatedTransactions = transactions;
 
   return (
-    <div className="max-w-[1280px] mx-auto px-6 sm:px-8 py-8">
+    <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
       {/* Header */}
       <div className="mb-8 animate-fade-in-up" style={{ opacity: 0, animationFillMode: "forwards" }}>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
               <Coins className="w-5 h-5 text-blue-400" />
@@ -383,7 +383,7 @@ export default function AdminPointManagementPage() {
               </p>
             </div>
           </div>
-          <button onClick={() => setShowAdjust(true)} className="gs-btn gs-btn-primary gs-btn-sm flex items-center gap-1.5">
+          <button onClick={() => setShowAdjust(true)} className="gs-btn gs-btn-primary gs-btn-sm flex items-center justify-center gap-1.5 w-full sm:w-auto">
             <Coins className="w-4 h-4" />
             Adjust Points
           </button>
@@ -444,12 +444,12 @@ export default function AdminPointManagementPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1.5 mb-5">
+      <div className="flex gap-1.5 mb-5 overflow-x-auto pb-1">
         {TABS.map(({ key, label }) => (
           <button
             key={key}
             onClick={() => setActiveTab(key)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all flex items-center gap-1.5
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0
               ${activeTab === key ? "bg-secondary text-black" : "bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest"}`}
           >
             {label}
@@ -539,7 +539,7 @@ export default function AdminPointManagementPage() {
               </div>
 
               {totalPagesBal > 1 && (
-                <div className="flex items-center justify-between mt-4 px-2">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4 px-2">
                   <p className="text-xs text-on-surface-variant">
                     Showing {(pageBalances - 1) * PAGE_SIZE_BALANCES + 1}–{Math.min(pageBalances * PAGE_SIZE_BALANCES, totalBalances)} of {totalBalances} users
                   </p>
@@ -684,7 +684,7 @@ export default function AdminPointManagementPage() {
               </div>
 
               {totalPagesTx > 1 && (
-                <div className="flex items-center justify-between mt-4 px-2">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4 px-2">
                   <p className="text-xs text-on-surface-variant">
                     Showing {(pageTransactions - 1) * PAGE_SIZE_TRANSACTIONS + 1}–{Math.min(pageTransactions * PAGE_SIZE_TRANSACTIONS, totalTransactions)} of {totalTransactions} transactions
                   </p>

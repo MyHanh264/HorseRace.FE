@@ -212,7 +212,7 @@ export default function OwnerProfilePage() {
 
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-[400px]">
+      <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8 flex items-center justify-center min-h-[400px]">
         <div className="text-gray-500 text-sm animate-pulse">Loading profile…</div>
       </div>
     );
@@ -220,7 +220,7 @@ export default function OwnerProfilePage() {
 
   if (loadError) {
     return (
-      <div className="p-8 max-w-5xl">
+      <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8 max-w-5xl">
         <h1 className="text-2xl font-bold text-white mb-6">Owner Profile</h1>
         <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3">
           {loadError}
@@ -230,7 +230,7 @@ export default function OwnerProfilePage() {
   }
 
   return (
-    <div className="p-8 max-w-5xl">
+    <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8 max-w-5xl">
       {/* Page title */}
       <h1 className="text-2xl font-bold text-white mb-6">Owner Profile</h1>
 

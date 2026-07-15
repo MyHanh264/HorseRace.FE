@@ -66,10 +66,10 @@ export default function AdminDiscrepanciesPage() {
   const paginated = visibleConflicts.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE);
 
   return (
-    <div className="max-w-[1280px] mx-auto px-6 sm:px-8 py-8">
+    <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
       {/* Header */}
       <div className="mb-8 animate-fade-in-up" style={{ opacity: 0, animationFillMode: "forwards" }}>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
               <ShieldAlert className="w-5 h-5 text-amber-400" />
@@ -81,7 +81,7 @@ export default function AdminDiscrepanciesPage() {
               </p>
             </div>
           </div>
-          <button onClick={pollConflicts} className="gs-btn gs-btn-ghost gs-btn-sm flex items-center gap-1.5">
+          <button onClick={pollConflicts} className="gs-btn gs-btn-ghost gs-btn-sm flex items-center justify-center gap-1.5 w-full sm:w-auto">
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </button>
@@ -120,7 +120,7 @@ export default function AdminDiscrepanciesPage() {
             {paginated.map((conflict) => (
               <div
                 key={`${conflict.raceId}-${conflict.legIndex}`}
-                className="gs-card p-5 flex items-center justify-between gap-4"
+                className="gs-card p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
               >
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center shrink-0">
@@ -153,7 +153,7 @@ export default function AdminDiscrepanciesPage() {
           </div>
 
           {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
               <p className="text-xs text-on-surface-variant">
                 Showing {(pageSafe - 1) * PAGE_SIZE + 1}–{Math.min(pageSafe * PAGE_SIZE, visibleConflicts.length)} of {visibleConflicts.length} conflicts
               </p>

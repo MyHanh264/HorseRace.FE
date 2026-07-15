@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Flag, Search, Clock, AlertCircle, X, CheckCircle, ChevronRight, Trophy,
+  Radio,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -63,7 +64,7 @@ function Countdown({ target }) {
 
 // ─── Bet Panel ────────────────────────────────────────────────────────────────
 
-function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, onBetPlaced }) {
+function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, onBetPlaced, onWatchLive }) {
 
   const [selectedEntryId, setSelectedEntryId] = useState('')
   const [betAmount, setBetAmount]             = useState('')
@@ -118,22 +119,32 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
   if (!race) return null
 
   return (
-    <div className="gs-card p-5 flex flex-col gap-5">
+    <div className="gs-card p-4 sm:p-5 flex flex-col gap-5">
       {/* Race info */}
       <div>
-        <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-2">
           <h3 className="font-serif font-bold text-on-surface text-lg leading-snug">{race.name}</h3>
           {race.status === 'Scheduled' && raceDetail?.scheduledStartTime && (
             <Countdown target={raceDetail.scheduledStartTime} />
           )}
-          {race.status === 'Finished' && (
-            <button
-              onClick={() => setShowResults(true)}
-              className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-yellow-400/10 text-yellow-400 border border-yellow-400/25 hover:bg-yellow-400/20 transition-all"
-            >
-              <Trophy size={13} /> View Results
-            </button>
-          )}
+          <div className="shrink-0 flex items-center gap-2">
+            {['InProgress', 'Paused', 'PendingResult'].includes(race.status) && (
+              <button
+                onClick={onWatchLive}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-400/10 text-amber-400 border border-amber-400/25 hover:bg-amber-400/20 transition-all"
+              >
+                <Radio size={13} /> Xem trực tiếp
+              </button>
+            )}
+            {race.status === 'Finished' && (
+              <button
+                onClick={() => setShowResults(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-yellow-400/10 text-yellow-400 border border-yellow-400/25 hover:bg-yellow-400/20 transition-all"
+              >
+                <Trophy size={13} /> View Results
+              </button>
+            )}
+          </div>
         </div>
         <p className="text-xs text-on-surface-variant">
           {raceDetail?.numberOfLegs ?? '—'} Legs · {raceDetail?.roundType ?? '—'} · Max {raceDetail?.maxHorses ?? '—'} horses
@@ -275,6 +286,8 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
 export default function RacesBettingPage() {
   const { user }  = useAuth()
   const location  = useLocation()
+  const navigate  = useNavigate()
+  const userId    = user?.userId
 
   const [allRaces,     setAllRaces]     = useState([])
   const [raceDetails,  setRaceDetails]  = useState({})   // raceId → detail
@@ -299,8 +312,8 @@ export default function RacesBettingPage() {
         getAllEntries(),
         getAllHorses(),
         getAllTournaments(),
-        getMyWallet(user?.userId),
-        getMyPredictions(user?.userId),
+        getMyWallet(userId),
+        getMyPredictions(userId),
       ])
       setAllRaces(Array.isArray(races) ? races : [])
       setAllEntries(Array.isArray(entries) ? entries : [])
@@ -319,9 +332,12 @@ export default function RacesBettingPage() {
     } finally {
       setLoading(false)
     }
-  }, [user?.userId, selectedId])
+  }, [userId, selectedId])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    const timer = setTimeout(() => { load() }, 0)
+    return () => clearTimeout(timer)
+  }, [load])
 
   // Fetch detail when a race is selected
   const handleSelectRace = async (race) => {
@@ -355,7 +371,7 @@ export default function RacesBettingPage() {
     : []
 
   return (
-    <div className="min-h-screen p-8">
+    <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
       <div className="max-w-[1200px] mx-auto">
 
         {/* Header */}
@@ -374,12 +390,12 @@ export default function RacesBettingPage() {
         )}
 
         {/* Tabs */}
-        <div className="flex items-center gap-1 mb-6 bg-surface-container-low border border-outline-variant/40 rounded-xl p-1 w-fit">
+        <div className="flex items-center gap-1 mb-6 bg-surface-container-low border border-outline-variant/40 rounded-xl p-1 w-full overflow-x-auto sm:w-fit">
           {TABS.map(tab => (
             <button
               key={tab}
               onClick={() => { setActiveTab(tab); setSelectedId(null) }}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
                 activeTab === tab
                   ? 'bg-surface-container-highest text-on-surface shadow-sm'
                   : 'text-on-surface-variant hover:text-on-surface'
@@ -390,9 +406,9 @@ export default function RacesBettingPage() {
           ))}
         </div>
 
-        <div className="flex gap-6">
+        <div className="flex flex-col lg:flex-row gap-6">
           {/* Left: race list */}
-          <div className="w-[380px] shrink-0">
+          <div className="w-full lg:w-[380px] lg:shrink-0">
             <div className="gs-card overflow-hidden">
               <div className="px-4 py-3.5 border-b border-outline-variant/40">
                 <p className="font-semibold text-on-surface text-sm mb-3">Upcoming Meets</p>
@@ -417,7 +433,7 @@ export default function RacesBettingPage() {
                   No races found.
                 </div>
               ) : (
-                <div className="divide-y divide-outline-variant/30 max-h-[520px] overflow-y-auto">
+                <div className="divide-y divide-outline-variant/30 max-h-[420px] lg:max-h-[520px] overflow-y-auto">
                   {filteredRaces.map(race => {
                     const detail   = raceDetails[race.raceId]
                     const tournId  = detail?.tournamentId
@@ -461,9 +477,10 @@ export default function RacesBettingPage() {
                 wallet={wallet}
                 myPredictions={myPredictions}
                 onBetPlaced={load}
+                onWatchLive={() => navigate(`/spectator/live/${selectedRace.raceId}`)}
               />
             ) : (
-              <div className="gs-card p-12 text-center h-full flex flex-col items-center justify-center gap-3">
+              <div className="gs-card p-8 sm:p-12 text-center h-full flex flex-col items-center justify-center gap-3">
                 <div className="w-14 h-14 rounded-full bg-surface-container-high flex items-center justify-center">
                   <Flag className="w-7 h-7 text-on-surface-variant/40" />
                 </div>

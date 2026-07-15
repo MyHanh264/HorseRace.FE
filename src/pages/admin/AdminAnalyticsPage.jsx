@@ -66,9 +66,9 @@ export default function DashboardAdmin() {
   ];
 
   return (
-    <div className="p-8">
+    <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
       {/* Section header */}
-      <div className="flex items-start justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
         <div>
           <h2 className="text-3xl font-bold text-white">Platform Overview</h2>
           <p className="text-gray-400 text-sm mt-1">
@@ -77,12 +77,12 @@ export default function DashboardAdmin() {
         </div>
 
         {/* Time filters — only affects the Races stat (the only one with a real date to filter on) */}
-        <div className="flex bg-white/5 border border-white/10 rounded-xl p-1 gap-1">
+        <div className="flex bg-white/5 border border-white/10 rounded-xl p-1 gap-1 overflow-x-auto w-full sm:w-auto">
           {TIME_FILTERS.map((f) => (
             <button
               key={f}
               onClick={() => setActiveFilter(f)}
-              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors
+              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap
                 ${
                   activeFilter === f
                     ? "bg-primary-container text-on-primary-container"
@@ -102,7 +102,7 @@ export default function DashboardAdmin() {
       )}
 
       {/* Stat cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {STATS.map((stat) => {
           const Icon = stat.icon;
           return (

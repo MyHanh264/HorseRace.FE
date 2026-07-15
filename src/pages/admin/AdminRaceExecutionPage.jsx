@@ -499,7 +499,7 @@ export default function AdminRaceExecutionPage() {
   // ═══════════════════════════════════════════════════════════════════════════
   if (view === 'list') {
     return (
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
         <PageHeader view={view} loading={loading} selectedRaceName={selectedRace?.name}
           onBack={backToList}
           onRefreshList={() => { setLoading(true); loadRaces() }}
@@ -537,7 +537,7 @@ export default function AdminRaceExecutionPage() {
               </div>
 
               {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
                   <p className="text-xs text-on-surface-variant">
                     Showing {(pageSafe - 1) * LIST_PAGE_SIZE + 1}–{Math.min(pageSafe * LIST_PAGE_SIZE, allRaces.length)} of {allRaces.length} races
                   </p>
@@ -575,7 +575,7 @@ export default function AdminRaceExecutionPage() {
       : 'text-on-surface-variant'
 
     return (
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
         <PageHeader view={view} loading={loading} selectedRaceName={selectedRace?.name}
           onBack={backToList}
           onRefreshList={() => { setLoading(true); loadRaces() }}
@@ -594,7 +594,7 @@ export default function AdminRaceExecutionPage() {
           <div className="gs-card p-6 mb-5 animate-pulse h-52" />
         ) : (
           <div className="gs-card p-6 mb-5">
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-secondary font-semibold uppercase tracking-widest mb-1 flex items-center gap-1.5">
                   <Flag className="w-3 h-3" />
@@ -636,10 +636,10 @@ export default function AdminRaceExecutionPage() {
                 )}
               </div>
               {isRegOpen && (
-                <div className="flex flex-col items-end gap-1 shrink-0">
+                <div className="flex flex-col items-stretch lg:items-end gap-1 shrink-0 w-full lg:w-auto">
                   <button onClick={handleCloseReg} disabled={regLoading || entryStats.approved < 2}
                     title={entryStats.approved < 2 ? `Needs at least 2 approved entries to close registration (currently ${entryStats.approved}).` : ''}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                    className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                     {regLoading ? <Loader2 size={13} className="animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
                     Close Registration
                   </button>
@@ -673,7 +673,7 @@ export default function AdminRaceExecutionPage() {
             )}
 
             {/* Stats */}
-            <div className="grid grid-cols-4 gap-3 mt-5 pt-4 border-t border-outline-variant/25">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-4 border-t border-outline-variant/25">
               {[
                 { label: 'CAPACITY', value: `${entryStats.filled}/${entryStats.total}` },
                 { label: 'APPROVED', value: entryStats.approved },
@@ -818,7 +818,7 @@ export default function AdminRaceExecutionPage() {
   const hasConflict = execution?.legs?.some(l => l.status === 'Conflicted')
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
       <PageHeader view={view} loading={loading} selectedRaceName={selectedRace?.name}
         onBack={backToList}
         onRefreshList={() => { setLoading(true); loadRaces() }}
@@ -908,8 +908,8 @@ export default function AdminRaceExecutionPage() {
             </div>
             <div className="divide-y divide-white/5">
               {execution.legs?.map((leg, idx) => (
-                <div key={idx} className="px-5 py-4 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
+                <div key={idx} className="px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="flex flex-wrap items-center gap-4">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
                       leg.status === 'Confirmed'  ? 'bg-emerald-500 text-white'
                       : leg.status === 'Conflicted' ? 'bg-orange-500 text-white animate-pulse'

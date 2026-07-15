@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { X, Trophy, AlertTriangle } from 'lucide-react'
+import ModalShell from './layout/ModalShell'
 
 // Cross-role "final results" view for a Finished/published race. Combines two sources:
 //   - GET /api/races/{id}/standings — has HorseName/JockeyName/GateNumber (not owner-scoped,
@@ -67,17 +68,22 @@ export default function RaceResultsModal({ raceId, raceName, onClose, fetchStand
   const medalFor = (pos) => (pos === 1 ? '🥇' : pos === 2 ? '🥈' : pos === 3 ? '🥉' : null)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
+    <ModalShell
+      onClose={onClose}
+      labelledBy="race-results-title"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
+      closeOnBackdrop
+    >
       <div className="w-full max-w-[560px] gs-card overflow-hidden animate-fade-in-up max-h-[85vh] flex flex-col" style={{ opacity: 0, animationFillMode: 'forwards' }}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-outline-variant/40 shrink-0">
           <div className="flex items-center gap-2.5">
             <Trophy size={17} className="text-yellow-400" />
             <div>
-              <h2 className="font-bold text-on-surface text-sm">Race Results</h2>
+              <h2 id="race-results-title" className="font-bold text-on-surface text-sm">Race Results</h2>
               {raceName && <p className="text-xs text-on-surface-variant">{raceName}</p>}
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant transition-colors">
+          <button aria-label="Close race results" onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant transition-colors">
             <X size={16} />
           </button>
         </div>
@@ -94,6 +100,7 @@ export default function RaceResultsModal({ raceId, raceName, onClose, fetchStand
           ) : rows.length === 0 ? (
             <div className="p-6 text-sm text-on-surface-variant text-center">No results found for this race.</div>
           ) : (
+            <div className="overflow-x-auto">
             <table className="admin-table">
               <thead>
                 <tr>
@@ -122,9 +129,10 @@ export default function RaceResultsModal({ raceId, raceName, onClose, fetchStand
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>
-    </div>
+    </ModalShell>
   )
 }

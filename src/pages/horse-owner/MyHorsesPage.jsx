@@ -86,7 +86,7 @@ export default function MyHorsesPage() {
   const totalRejected = horses.filter((h) => h.status === "Rejected").length;
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
+    <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>

@@ -406,9 +406,9 @@ export default function AdminTournamentsPage() {
   };
 
   return (
-    <div className="max-w-[1280px] mx-auto px-6 sm:px-8 py-8">
+    <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
       {/* ── Page Header ── */}
-      <div className="flex items-start justify-between mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
         <div
           className="animate-fade-in-up"
           style={{ opacity: 0, animationFillMode: "forwards" }}
@@ -432,7 +432,7 @@ export default function AdminTournamentsPage() {
 
         <button
           onClick={openCreate}
-          className="gs-btn gs-btn-secondary flex items-center gap-2 shrink-0"
+          className="gs-btn gs-btn-secondary flex items-center justify-center gap-2 shrink-0 w-full sm:w-auto"
         >
           <Plus className="w-4 h-4" />
           Create Tournament
@@ -456,8 +456,8 @@ export default function AdminTournamentsPage() {
       {/* ── Table Card ── */}
       <div className="gs-card overflow-hidden">
         {/* Tabs + Search */}
-        <div className="flex items-center justify-between px-5 border-b border-outline-variant/40">
-          <div className="flex">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between px-5 border-b border-outline-variant/40">
+          <div className="flex overflow-x-auto">
             {TABS.map((tab) => (
               <button
                 key={tab}
@@ -465,7 +465,7 @@ export default function AdminTournamentsPage() {
                   setActiveTab(tab);
                   setPage(1);
                 }}
-                className={`px-4 py-3.5 text-sm font-medium transition-colors border-b-2 ${
+                className={`px-4 py-3.5 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
                   activeTab === tab
                     ? "text-secondary border-secondary"
                     : "text-on-surface-variant border-transparent hover:text-on-surface"
@@ -476,7 +476,7 @@ export default function AdminTournamentsPage() {
             ))}
           </div>
 
-          <div className="relative py-3">
+          <div className="relative py-3 w-full lg:w-auto">
             <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant/50" />
             <input
               type="text"
@@ -486,7 +486,7 @@ export default function AdminTournamentsPage() {
                 setSearchQuery(e.target.value);
                 setPage(1);
               }}
-              className="bg-surface-container-lowest border border-outline-variant/40 rounded-lg pl-9 pr-4 py-2 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40 w-52"
+              className="bg-surface-container-lowest border border-outline-variant/40 rounded-lg pl-9 pr-4 py-2 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40 w-full lg:w-52"
             />
           </div>
         </div>
@@ -651,7 +651,7 @@ export default function AdminTournamentsPage() {
 
         {/* Pagination */}
         {!loading && filtered.length > PAGE_SIZE && (
-          <div className="flex items-center justify-between px-5 py-3 border-t border-outline-variant/40">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 py-3 border-t border-outline-variant/40">
             <span className="text-xs text-on-surface-variant">
               Showing {(page - 1) * PAGE_SIZE + 1}–
               {Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}{" "}

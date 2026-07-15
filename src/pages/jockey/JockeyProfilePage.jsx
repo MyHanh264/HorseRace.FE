@@ -287,7 +287,7 @@ export default function JockeyProfilePage() {
 
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-[400px]">
+      <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8 flex items-center justify-center min-h-[400px]">
         <div className="text-gray-500 text-sm animate-pulse">
           Loading profile…
         </div>
@@ -296,7 +296,7 @@ export default function JockeyProfilePage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="px-4 sm:px-6 lg:px-8 py-4 lg:py-8">
       <h1 className="text-2xl font-bold text-white mb-6">Jockey Profile</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-5 items-start">
