@@ -14,10 +14,12 @@ import {
 } from '../../api/referee'
 import { validateLegPositions } from '../../utils/legValidation'
 
-// Store a session key for each (raceId, legIndex) that has been submitted, to prevent
+// Store a session key for each (userId, raceId, legIndex) that has been submitted, to prevent
 // duplicates when the user opens multiple tabs. Key resets when the tab closes (sessionStorage).
-function getSubmitSessionKey(raceId, legIndex) {
-  return `referee-submitted-${raceId}-${legIndex}`
+// BUG FIX: Include userId in the key so two different referees using the same browser
+// (e.g. testing on the same machine) do NOT share the same submitted flag.
+function getSubmitSessionKey(raceId, legIndex, userId) {
+  return `referee-submitted-${userId ?? 'anon'}-${raceId}-${legIndex}`
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -56,10 +58,16 @@ function PositionBadge({ value, size = 'sm' }) {
 
 // ─── Drag and Drop Entry Item ────────────────────────────────────────────────
 
-function DraggableEntryItem({ entry, position, isDragging, isLocked, onPositionChange, onDNF, onDQ }) {
+// BUG FIX: totalEntries is passed so the select can generate position options 1..n
+function DraggableEntryItem({ entry, position, totalEntries, isDragging, isLocked, onPositionChange, onDNF, onDQ }) {
   const handleSelect = (e) => {
     if (isLocked) return
-    onPositionChange(Number(e.target.value))
+    const val = e.target.value
+    if (val === '') {
+      onPositionChange(null)
+    } else {
+      onPositionChange(Number(val))
+    }
   }
 
   return (
@@ -79,7 +87,7 @@ function DraggableEntryItem({ entry, position, isDragging, isLocked, onPositionC
       )}
 
       <div className="w-12 h-12 rounded-lg bg-surface-container-high flex items-center justify-center font-mono text-lg font-bold text-yellow-400 border border-yellow-400/20">
-        {position ? `#${position}` : '—'}
+        {position && position > 0 ? `#${position}` : position === -1 ? 'DNF' : position === -2 ? 'DQ' : '—'}
       </div>
 
       <div className="flex-1 min-w-0">
@@ -92,7 +100,7 @@ function DraggableEntryItem({ entry, position, isDragging, isLocked, onPositionC
       </div>
 
       <div className="flex items-center gap-2">
-        {position && (
+        {position && position > 0 && (
           <span className="text-xs font-mono text-yellow-400/70">
             {getLegPoints(position)} pts
           </span>
@@ -102,12 +110,16 @@ function DraggableEntryItem({ entry, position, isDragging, isLocked, onPositionC
           <PositionBadge value={position} />
         ) : (
           <>
+            {/* BUG FIX: Generate numeric positions 1..n dynamically based on number of entries */}
             <select
               value={position ?? ''}
               onChange={handleSelect}
               className="bg-surface-container-lowest border border-outline-variant/50 rounded-lg px-2 py-1.5 text-sm font-mono text-on-surface focus:outline-none focus:border-yellow-400/60 transition-all"
             >
-              <option value="">—</option>
+              <option value="">— Select —</option>
+              {Array.from({ length: totalEntries }, (_, i) => i + 1).map(pos => (
+                <option key={pos} value={String(pos)}>P{pos}</option>
+              ))}
               <option value="-1">DNF</option>
               <option value="-2">DQ</option>
             </select>
@@ -355,11 +367,23 @@ export default function LegSubmissionPage() {
   const [submitResult, setSubmitResult] = useState(null)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
 
+  // BUG FIX: Read userId from localStorage token to include in sessionStorage key.
+  // Without this, two different referees using the same browser share the same flag.
+  const currentUserId = (() => {
+    try {
+      const token = localStorage.getItem('auth_access_token')
+      if (!token) return null
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      return payload.userId ?? payload.sub ?? payload.nameid ?? null
+    } catch { return null }
+  })()
+
   // Local lock flag — set immediately when the user clicks submit (before the API responds).
   // Needed to prevent double-click & multi-tab duplicate submission.
+  // BUG FIX: Use userId-scoped key so referee A and referee B don't share the flag.
   const [hasSubmitted, setHasSubmitted] = useState(() => {
     if (typeof window === 'undefined') return false
-    return Boolean(sessionStorage.getItem(getSubmitSessionKey(raceId, legIndex)))
+    return Boolean(sessionStorage.getItem(getSubmitSessionKey(raceId, legIndex, currentUserId)))
   })
 
   // Positions state: { [entryId]: position | -1 | -2 | null }
@@ -386,8 +410,9 @@ export default function LegSubmissionPage() {
 
       // Sync hasSubmitted from sessionStorage + server (in case
       // another tab already submitted before polling picks up the update).
+      // BUG FIX: Use userId-scoped key to avoid false-positive for the other referee.
       const sessionFlag = typeof window !== 'undefined'
-        && Boolean(sessionStorage.getItem(getSubmitSessionKey(raceId, legIndex)))
+        && Boolean(sessionStorage.getItem(getSubmitSessionKey(raceId, legIndex, currentUserId)))
       if ((sessionFlag || viewData?.mySubmitted) && isMountedRef.current) {
         setHasSubmitted(true)
       }
@@ -451,8 +476,9 @@ export default function LegSubmissionPage() {
         if (!isMountedRef.current) return
 
         // Only update the fields that are needed, don't reset the entire legView
+        // BUG FIX: Use userId-scoped key
         const sessionFlag = Boolean(
-          sessionStorage.getItem(getSubmitSessionKey(raceId, legIndex)),
+          sessionStorage.getItem(getSubmitSessionKey(raceId, legIndex, currentUserId)),
         )
         if (view?.mySubmitted || sessionFlag) {
           setHasSubmitted(true)
@@ -564,13 +590,13 @@ export default function LegSubmissionPage() {
       return
     }
 
-    const sessionKey = getSubmitSessionKey(raceId, legIndex)
+    // BUG FIX: Use userId-scoped sessionStorage key
+    const sessionKey = getSubmitSessionKey(raceId, legIndex, currentUserId)
     setHasSubmitted(true)
     sessionStorage.setItem(sessionKey, String(Date.now()))
     setSubmitting(true)
     setSubmitError('')
 
-    const entries = legView?.entries ?? []
     const payload = Object.entries(positions)
       .filter(([_, pos]) => pos !== null && pos !== undefined)
       .map(([entryId, position]) => ({ entryId: Number(entryId), position }))
@@ -594,11 +620,9 @@ export default function LegSubmissionPage() {
         }
       }
     } catch (err) {
-      const msg = err?.response?.data?.error === 'ALREADY_SUBMITTED'
-        ? 'You have already submitted results for this leg.'
-        : err?.response?.data?.message || err?.message || 'Submission failed.'
+      const msg = err?.response?.data?.message || err?.message || 'Submission failed.'
       setSubmitError(msg)
-      // Submit failed → reopen the UI so the user can retry (Bug #1)
+      // Submit failed → reopen the UI so the user can retry
       setHasSubmitted(false)
       sessionStorage.removeItem(sessionKey)
     } finally {
@@ -870,6 +894,7 @@ export default function LegSubmissionPage() {
                       key={entry.entryId}
                       entry={entry}
                       position={position}
+                      totalEntries={entries.length}
                       isDragging={false}
                       isLocked={false}
                       onPositionChange={(pos) => handlePositionChange(entry.entryId, pos)}

@@ -24,17 +24,20 @@ export function validateLegPositions(entries, positionsMap) {
     }
   }
 
-  // 2. No 2 entries can share the same position (including DNF/DQ)
-  const usedBy = {}
+  // 2. Only POSITIVE positions must be unique.
+  // DNF (-1) and DQ (-2) are special statuses — multiple horses can share them.
+  const usedPositions = {}
   for (const entry of entries) {
     const pos = positionsMap[entry.entryId]
-    if (usedBy[pos] !== undefined) {
+    // Skip DNF and DQ — multiple horses can DNF or DQ in the same leg
+    if (pos === -1 || pos === -2) continue
+    if (usedPositions[pos] !== undefined) {
       return {
         valid: false,
-        error: `Position ${formatPosition(pos)} is duplicated across multiple entries.`,
+        error: `Position ${formatPosition(pos)} is assigned to more than one entry.`,
       }
     }
-    usedBy[pos] = entry.entryId
+    usedPositions[pos] = entry.entryId
   }
 
   return { valid: true, error: null }
