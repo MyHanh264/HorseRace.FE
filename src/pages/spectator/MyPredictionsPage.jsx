@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import {
   getMyPredictions, cancelPrediction, getAllRaces, getAllTournaments, getMyWallet,
   getPredictionDetail, getAllEntries, getAllHorses, getRaceStandings, getRaceResults,
+  getRaceLive,
 } from '../../api/spectator'
 import RaceResultsModal from '../../components/RaceResultsModal'
 
@@ -40,6 +41,7 @@ export default function MyPredictionsPage() {
   const [horseMap,     setHorseMap]     = useState({})
   const [entryMap,     setEntryMap]     = useState({})
   const [wallet,       setWallet]       = useState(null)
+  const [legOpenMap,   setLegOpenMap]   = useState({}) // `${raceId}:${legNumber}` → cửa cược còn mở?
   const [loading,      setLoading]      = useState(true)
   const [error,        setError]        = useState('')
   const [activeTab,    setActiveTab]    = useState('Active')
@@ -68,6 +70,7 @@ export default function MyPredictionsPage() {
       )
       const preds = (Array.isArray(predsBasic) ? predsBasic : []).map((p, i) => ({
         ...p,
+        legNumber:    p.legNumber ?? details[i]?.legNumber,
         firstEntryId: details[i]?.firstEntryId,
         oddsLocked1:  details[i]?.oddsLocked1,
       }))
@@ -78,6 +81,17 @@ export default function MyPredictionsPage() {
       setWallet(w)
       setEntryMap(Object.fromEntries((entries ?? []).map(e => [e.entryId, e])))
       setHorseMap(Object.fromEntries((horses ?? []).map(h => [h.horseId, h])))
+
+      // Cửa cược từng leg — để biết cược nào còn hủy được (BE cho hủy khi leg chưa bắt đầu).
+      // Chỉ hỏi live cho race có cược Pending → giới hạn số request.
+      const pendingRaceIds = [...new Set(preds.filter(p => p.status === 'Pending').map(p => p.raceId))]
+      const lives = await Promise.all(pendingRaceIds.map(id => getRaceLive(id).catch(() => null)))
+      const openMap = {}
+      lives.forEach(lv => {
+        if (!lv) return
+        ;(lv.legs ?? []).forEach(leg => { openMap[`${lv.raceId}:${leg.legNumber}`] = !!leg.isBettingOpen })
+      })
+      setLegOpenMap(openMap)
     } catch (err) {
       setError(err?.message || 'Failed to load data')
     } finally {
@@ -209,6 +223,7 @@ export default function MyPredictionsPage() {
                 <thead>
                   <tr>
                     <th>Race Event</th>
+                    <th>Leg</th>
                     <th>Your Picks</th>
                     <th>Stake</th>
                     <th>Locked Odds</th>
@@ -221,7 +236,13 @@ export default function MyPredictionsPage() {
                   {displayed.map((pred, i) => {
                     const race   = raceMap[pred.raceId]
                     const meta   = PRED_STATUS_META[pred.status] ?? PRED_STATUS_META.Pending
-                    const canCancel = pred.status === 'Pending' && race?.status === 'Scheduled'
+                    // Hủy được khi leg của cược CHƯA bắt đầu. Ưu tiên cửa cược thật từ live;
+                    // thiếu dữ liệu thì fallback về "race còn Scheduled".
+                    const legKey = `${pred.raceId}:${pred.legNumber}`
+                    const legOpen = pred.legNumber != null && legKey in legOpenMap
+                      ? legOpenMap[legKey]
+                      : race?.status === 'Scheduled'
+                    const canCancel = pred.status === 'Pending' && legOpen
 
                     return (
                       <tr
@@ -241,6 +262,11 @@ export default function MyPredictionsPage() {
                               </span>
                             ) : '—'}
                           </div>
+                        </td>
+
+                        {/* Leg */}
+                        <td className="text-sm text-on-surface-variant whitespace-nowrap">
+                          {pred.legNumber != null ? `Leg ${pred.legNumber}` : '—'}
                         </td>
 
                         {/* Picks */}

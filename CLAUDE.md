@@ -619,16 +619,15 @@ server: {
 
 ---
 
-## 13. Tình trạng & việc cần làm (FE) — cập nhật 2026-07-08
+## 13. Tình trạng & việc cần làm (FE) — cập nhật 2026-07-19
 
-> Đối chiếu FE với BE (báo cáo `.claude/BE_MISSING_APIS (1).md`). Danh sách đầy đủ + tiến độ ở [`.claude/TASKS.md`](../.claude/TASKS.md). Tổng quan dự án: [`../CLAUDE.md`](../CLAUDE.md).
+> Đối chiếu FE với BE (verify trực tiếp code base 2026-07-19). Nhật ký task BE đã hoàn tất: [`.claude/TASKS.md`](../.claude/TASKS.md). Tổng quan dự án: [`../CLAUDE.md`](../CLAUDE.md).
 
-### ✅ Đã khớp BE (không còn là gap)
-- **Prediction (Flow 7):** `api/spectator.js` dùng đúng route mới — `placePrediction` → `POST /api/predictions/races/{raceId}` body `{EntryId, BetAmount}`; `cancelPrediction` → `DELETE /api/predictions/{id}/cancel`. (Docs cũ ghi "còn lệch route cũ" — **đã lỗi thời**.)
-
-### ⚠️ FE đã sẵn nhưng chờ BE fix
-- **`AdminUsersPage` / `getAllUser`** đã gửi `page, pageSize, search, role, status, sort, sortDirection` nhưng **BE `GET /api/users` chưa phân trang/filter** và response chỉ có `{ userId, email, fullName, roleId, isActive }` → FE đang tự `slice` client-side + thiếu field (`phoneNumber, avatarUrl, lockedUntil, createdAt, licenseNumber, weight, bio`). Chờ BE Task 5-6.
-- **`createUser` (`api/admin.js`)** gửi payload `PasswordHash: data.password` (**plaintext**). BE hiện lưu thẳng không hash (bug) → khi BE sửa (Task 7) đổi field thành `Password`.
+### ✅ BE đã fix hết các bug FE từng chờ
+- **User Management:** `GET /api/users` nay **phân trang + filter** trả `{ items, total, page, pageSize }` (FE đọc đúng shape này, bỏ `slice` client-side). `POST /api/users` **hash BCrypt** → payload đổi field `PasswordHash` → **`Password`** (plaintext, BE tự hash). `PUT /api/users/{id}` ADMIN-only.
+- **Prediction (Flow 7) — nay PER-LEG:** BE đổi sang cược **theo từng Leg**. FE cần gọi `GET /api/predictions/races/{raceId}/legs/{n}/odds`, `POST /api/predictions/races/{raceId}/legs/{n}` body `{EntryId, BetAmount}`, `DELETE /api/predictions/{id}/cancel`. (Route per-race cũ đã lỗi thời.)
+- **Race:** form Tạo/Sửa Race cần gửi **`scheduledEndTime`** (ISO, bắt buộc — thiếu → 400). BE chống trùng lịch (đè giờ trong cùng giải / 1 trọng tài 2 race đè giờ) trả lỗi ở `error.response.data.detail`.
+- **Message BE đổi sang tiếng Anh** — nếu FE match chuỗi tiếng Việt ở đâu thì cập nhật; nếu chỉ hiển thị `detail`/`message` thì tự động đúng.
 
 ### 🟡 Dọn dẹp FE (không cần BE)
 - **9 helper mồ côi trong `api/admin.js`** (không page nào dùng) — nên xóa: `getAllInvalidUser`, `getInvalidUserById`, `approveInvalidUser`, `rejectInvalidUser`, `getUserHistory`, `getUsersByStatus`, `approveRace`, `rejectRace`, `finishRace`. (Việc FE thuần — `.claude/TASKS.md` chỉ chứa task BE.)
@@ -636,7 +635,32 @@ server: {
 
 ### 🔗 Endpoint BE có sẵn nhưng FE chưa nối
 - `GET /api/admin/review-history` (audit trail duyệt hồ sơ) — chưa có UI gọi.
-- `RacesBettingPage` odds — nên đọc `Entry.Odds` / `GET /api/predictions/races/{id}/odds` thay vì hardcode `1.0` / hiển thị "—".
+- `RacesBettingPage` odds — nên đọc odds thật qua `GET /api/predictions/races/{raceId}/legs/{n}/odds` (per-leg) thay vì hardcode `1.0` / hiển thị "—".
+- `GET /api/jockeys/search` (tìm nài mới) + `GET`/`PUT /api/admin/points/{userId}` (xem/đặt số dư ví) — BE đã có, FE có thể nối khi cần.
+
+### ✅ Thêm 2026-07-19 — Live Race + mô phỏng đua (Spectator)
+
+> Trang này **chưa từng tồn tại** trước 2026-07-19, dù `../CLAUDE.md` §5 đánh dấu ✅ từ 2026-07-15 — chỉ backend được làm. `@microsoft/signalr` khi đó nằm trong `node_modules` nhưng **không có trong `package.json`** (mất khi `npm ci`); nay đã khai báo đúng.
+
+**File mới**
+
+| File | Vai trò |
+|---|---|
+| `src/hooks/useRaceLiveHub.js` | SignalR + poll dự phòng 30s. BE đẩy **đúng** payload của `GET /api/races/{id}/live` nên một setter dùng chung cho cả hai nguồn. |
+| `src/utils/raceSim.js` | Lõi mô phỏng thuần hàm: PRNG tất định, `decodePosition`, dựng quỹ đạo, bảng màu áo nài + màu lông. |
+| `src/components/live/RaceTrack.jsx` | Đường đua SVG: cột tên **cố định** bên trái + vùng đua trượt theo camera (clip riêng nên tên không bao giờ bị ngựa đè). |
+| `src/components/live/HorseSprite.jsx` | Ngựa + nài, gốc tọa độ ở **mũi ngựa** ngang mặt đất; `SPRITE_SCALE = 0.6` để vừa một lane (`LANE_H = 66`). |
+| `src/components/live/RaceReplayPlayer.jsx` | Máy trạng thái + vòng lặp `rAF`. |
+| `src/pages/spectator/LiveRacesPage.jsx`, `LiveRaceDetailPage.jsx` | Danh sách + chi tiết (`/spectator/live`, `/spectator/live/:raceId`). |
+
+**Ràng buộc phải giữ khi sửa về sau**
+- **Không có telemetry.** BE không lưu bất kỳ thời gian/vị trí per-entry nào — Blind Double-Entry khiến server mù trong lúc leg chạy. Animation là **phát lại dựng lại**, phải gắn nhãn đúng như vậy trên UI.
+- **Seed tất định** `(raceId, legNumber)` — mọi khán giả phải thấy cùng một cuộc đua. Đừng thay bằng `Math.random()`.
+- **Chế độ `pack`** (leg đang chạy): ngựa sát nhau, `showRanks={false}`. Đừng "cải tiến" cho ngựa tách xa nhau — khán giả đang cược sẽ đọc thành thứ hạng thật.
+- `Position` là **mã hóa** (`-1` DNF, `-2` DQ) — luôn `decodePosition` trước khi sort/animate.
+- Ngựa DNF chỉ lộ (mờ + nhãn) **từ `dropoutTime`**, không phải từ giây 0.
+- `vite.config.js` phải giữ **`ws: true`** ở proxy `/api`, nếu không SignalR âm thầm tụt xuống long-polling.
+- Bảng `standings` từ `GetRaceLive` là **tạm tính** (không xử lý DQ, không tie-break chặng cuối) — BE yêu cầu FE gắn nhãn rõ.
 
 ### ✅ Đã sửa 2026-07-15 — hồ sơ & career stats (bỏ mock/fake-save)
 > Module dùng chung mới: **`src/api/profile.js`** (`getMyProfile`, `updateMyProfile`, `changeMyPassword`, `profileErrorMessage`). Dùng axios instance — **không** đặt trong `api/auth.js` vì `services/api.js` đã import từ đó (vòng lặp import).
@@ -647,5 +671,5 @@ server: {
 - **`AdminAnalyticsPage` KHÔNG phải mock** (báo cáo cũ đã lỗi thời): từ commit `4f1804c` trang này gọi API thật (`getAllUser`, `/api/horses`, `getRaces`, `/api/admin/points/balances`); filter 7d/30d/90d có tác dụng thật lên stat "Races".
 
 ### 📁 File doc FE
-- Doc FE = **file này (`HorseRace.FE/CLAUDE.md`)**. (Trước 2026-07-08 doc FE nằm ở `cursor.md` — đã đổi tên thành `CLAUDE.md`, nội dung giữ nguyên.)
-- Ở gốc FE còn `README.md` (mặc định Vite). Spec cho AI tool nằm ở `.claude/API_SPEC_FOR_CLAUDE_CODE.md`, `.claude/API_SPEC_FOR_CURSOR.md`.
+- Doc FE = **file này (`HorseRace.FE/CLAUDE.md`)**. (Bản `cursor.md` trùng lặp cũ đã bị xóa 2026-07-19.)
+- Ở gốc FE còn `README.md` (mặc định Vite). Đặc tả API cho AI tool: `.claude/API_SPEC_FOR_CLAUDE_CODE.md`.

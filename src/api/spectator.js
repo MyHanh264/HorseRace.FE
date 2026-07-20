@@ -23,8 +23,19 @@ export async function getPredictionDetail(predictionId) {
   return res.data
 }
 
-export async function placePrediction(raceId, payload) {
-  const res = await api.post(`/api/predictions/races/${raceId}`, payload)
+// ─── Cược PER-LEG (Flow 7 hiện hành) ────────────────────────────────────────────
+// Spectator cược 1 Entry về 1st của MỘT Leg cụ thể; được cược cả leg chưa diễn ra.
+
+// Odds + tình trạng ngựa (horseStamina/horseHealthStatus) của một leg. Kèm isBettingOpen theo leg.
+// BE throw nếu leg đã Completed/Cancelled → dùng làm chốt chặn ở FE.
+export async function getLegOdds(raceId, legNumber) {
+  const res = await api.get(`/api/predictions/races/${raceId}/legs/${legNumber}/odds`)
+  return res.data
+}
+
+// Đặt cược cho một leg. Body {entryId, betAmount} (binding BE case-insensitive).
+export async function placeLegPrediction(raceId, legNumber, payload) {
+  const res = await api.post(`/api/predictions/races/${raceId}/legs/${legNumber}`, payload)
   return res.data
 }
 
@@ -42,6 +53,12 @@ export async function getAllRaces() {
 
 export async function getRaceDetail(raceId) {
   const res = await api.get(`/api/races/${raceId}`)
+  return res.data
+}
+
+// Snapshot trực tiếp: legs[].executionStatus / legs[].isBettingOpen dùng cho bộ chọn leg khi cược.
+export async function getRaceLive(raceId) {
+  const res = await api.get(`/api/races/${raceId}/live`)
   return res.data
 }
 
@@ -68,6 +85,12 @@ export async function getAllEntries() {
 export async function getAllHorses() {
   const res = await api.get('/api/horses')
   return Array.isArray(res.data) ? res.data : []
+}
+
+// Thống kê + thể lực của 1 ngựa: stamina, healthStatus, totalRaces, totalWins, winRate, recentForm...
+export async function getHorseStatistics(horseId) {
+  const res = await api.get(`/api/horses/${horseId}/statistics`)
+  return res.data
 }
 
 export async function getAllTournaments() {
