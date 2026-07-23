@@ -12,15 +12,12 @@ import {
   resumeRace,
 } from '../../api/admin'
 import { validateOverrideReason } from '../../utils/validation'
+import { getLegPoints } from '../../utils/legValidation'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const LEG_POINTS = { 1: 6, 2: 5, 3: 4, 4: 3, 5: 2, 6: 1 }
-
-function getLegPoints(pos) {
-  if (!pos || pos < 1) return 0
-  return LEG_POINTS[pos] ?? 0
-}
+// Leg Points tính TUYẾN TÍNH theo sĩ số (N - hạng + 1) — dùng chung với trang submit của
+// referee, khớp RaceExecutionConstants.LegPointsFor bên BE.
 
 function fmtDateTime(dt) {
   if (!dt) return '—'
@@ -131,7 +128,8 @@ function ConflictTable({ comparison, decisions, onDecisionChange }) {
                     onChange={(e) => onDecisionChange(item.entryId, Number(e.target.value))}
                     className="bg-surface-container-lowest border border-yellow-400/30 rounded-lg px-3 py-2 text-sm font-mono text-on-surface focus:outline-none focus:border-yellow-400/60 text-center min-w-[80px]"
                   >
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                    {/* Vị trí sinh theo ĐÚNG sĩ số của race (trước đây hardcode 1..10). */}
+                    {Array.from({ length: comparison.length }, (_, i) => i + 1).map(n => (
                       <option key={n} value={n}>{n}</option>
                     ))}
                     <option value="-1">DNF</option>
@@ -140,7 +138,7 @@ function ConflictTable({ comparison, decisions, onDecisionChange }) {
                 </td>
                 <td className="px-3 py-4 text-center">
                   <span className="font-mono font-bold text-yellow-400">
-                    {getLegPoints(decisions[item.entryId] ?? item.referee1Position)} pts
+                    {getLegPoints(decisions[item.entryId] ?? item.referee1Position, comparison.length)} pts
                   </span>
                 </td>
               </tr>
@@ -185,7 +183,7 @@ function ResolutionSummary({ comparison, decisions }) {
   const conflictedPositions = totalEntries - matchedPositions
 
   const totalPoints = comparison.reduce((sum, item) => {
-    return sum + getLegPoints(decisions[item.entryId] ?? item.referee1Position)
+    return sum + getLegPoints(decisions[item.entryId] ?? item.referee1Position, comparison.length)
   }, 0)
 
   return (

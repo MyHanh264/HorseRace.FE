@@ -8,7 +8,10 @@ import {
   getMyEntries,
   getRaceResults,
   getRaces,
+  getHorseStatistics,
 } from "../../api/horseOwner";
+import { StaminaBar, HorseHealthBadge } from "../../components/StaminaBar";
+import { deriveStrength } from "../../utils/horseCondition";
 
 const STATUS_STYLE = {
   Approved: "bg-emerald-500/20 text-emerald-400 border border-emerald-700",
@@ -41,6 +44,7 @@ export default function HorseDetailPage() {
   const [entries, setEntries] = useState([]);
   const [raceResults, setRaceResults] = useState([]);
   const [races, setRaces] = useState([]);
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [resubmitting, setResubmitting] = useState(false);
 
@@ -55,12 +59,17 @@ export default function HorseDetailPage() {
       getMyEntries(),
       getRaceResults(),
       getRaces(),
+      getHorseStatistics(horseId),
     ])
-      .then(([horseRes, entriesRes, resultsRes, racesRes]) => {
+      .then(([horseRes, entriesRes, resultsRes, racesRes, statsRes]) => {
         if (!active) return;
 
         if (horseRes.status === "fulfilled") setHorse(horseRes.value);
         else console.error("Fetch horse failed:", horseRes.reason);
+
+        // Thể lực + số liệu sự nghiệp (server-authoritative). Hỏng thì fallback ghép client-side.
+        if (statsRes.status === "fulfilled") setStats(statsRes.value);
+        else console.error("Fetch horse statistics failed:", statsRes.reason);
 
         // Stats là phụ — hỏng thì trang vẫn hiện, chỉ mất số liệu.
         if (entriesRes.status === "fulfilled")
@@ -165,6 +174,22 @@ export default function HorseDetailPage() {
 
   const recentForm = results.slice(0, 5);
 
+  // Ưu tiên số liệu từ endpoint /statistics (khớp cách BE tính, kể cả DQ); fallback client-side.
+  const totalRacesStat = stats?.totalRaces ?? totalRaces;
+  const winsStat = stats?.totalWins ?? wins;
+  const top3Stat = stats?.totalTop3 ?? top3;
+  const winRateStat = stats?.winRate ?? winRate;
+
+  const strength = stats
+    ? deriveStrength({ health: stats.healthStatus, winRate: stats.winRate })
+    : null;
+  const strengthCls =
+    strength === "Strong"
+      ? "bg-emerald-500/15 text-emerald-400 border-emerald-700"
+      : strength === "Weak"
+        ? "bg-red-500/15 text-red-400 border-red-700"
+        : "bg-yellow-500/15 text-yellow-400 border-yellow-700";
+
   if (loading) return <div className="p-8 text-gray-400">Loading...</div>;
   if (!horse) return <div className="p-8 text-red-400">Horse not found.</div>;
 
@@ -233,6 +258,42 @@ export default function HorseDetailPage() {
         )}
       </div>
 
+      {/* Condition · Thể lực */}
+      {stats && (
+        <div className="bg-[#1a2035] rounded-xl border border-white/10 p-5 mb-8">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">
+                Condition · Thể lực
+              </p>
+              <div className="flex items-center gap-3">
+                <StaminaBar
+                  stamina={stats.stamina}
+                  health={stats.healthStatus}
+                  size="md"
+                  showValue
+                />
+                <HorseHealthBadge
+                  stamina={stats.stamina}
+                  health={stats.healthStatus}
+                  size="md"
+                />
+                {strength && (
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-full border ${strengthCls}`}
+                  >
+                    {strength}
+                  </span>
+                )}
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 max-w-[220px] text-right">
+              Tụt 1 vạch mỗi trận đua · hồi đầy khi nghỉ 1 trận
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Career Stats */}
       <div className="mb-8">
         <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
@@ -243,25 +304,25 @@ export default function HorseDetailPage() {
           {[
             {
               label: "TOTAL RACES",
-              value: totalRaces,
+              value: totalRacesStat,
               sub: "races entered",
               icon: <BarChart2 size={16} />,
             },
             {
               label: "WINS",
-              value: wins,
+              value: winsStat,
               sub: "1st place finishes",
               icon: <Trophy size={16} />,
             },
             {
               label: "TOP 3",
-              value: top3,
+              value: top3Stat,
               sub: "podium finishes",
               icon: <Target size={16} />,
             },
             {
               label: "WIN RATE",
-              value: `${winRate}%`,
+              value: `${winRateStat}%`,
               sub: "",
               icon: <TrendingUp size={16} />,
             },

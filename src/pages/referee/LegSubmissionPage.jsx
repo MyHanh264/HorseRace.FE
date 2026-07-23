@@ -12,7 +12,7 @@ import {
   getRaceExecutionStatus,
   getRaceStandings,
 } from '../../api/referee'
-import { validateLegPositions } from '../../utils/legValidation'
+import { validateLegPositions, getLegPoints } from '../../utils/legValidation'
 
 // Store a session key for each (userId, raceId, legIndex) that has been submitted, to prevent
 // duplicates when the user opens multiple tabs. Key resets when the tab closes (sessionStorage).
@@ -24,12 +24,8 @@ function getSubmitSessionKey(raceId, legIndex, userId) {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const LEG_POINTS = { 1: 6, 2: 5, 3: 4, 4: 3, 5: 2, 6: 1 }
-
-function getLegPoints(pos) {
-  if (!pos || pos < 1) return 0
-  return LEG_POINTS[pos] ?? 0
-}
+// Leg Points tính TUYẾN TÍNH theo sĩ số (N - hạng + 1) — công thức dùng chung ở
+// utils/legValidation.js, khớp RaceExecutionConstants.LegPointsFor bên BE.
 
 function fmtDateTime(dt) {
   if (!dt) return '—'
@@ -102,7 +98,7 @@ function DraggableEntryItem({ entry, position, totalEntries, isDragging, isLocke
       <div className="flex items-center gap-2">
         {position && position > 0 && (
           <span className="text-xs font-mono text-yellow-400/70">
-            {getLegPoints(position)} pts
+            {getLegPoints(position, totalEntries)} pts
           </span>
         )}
 
@@ -143,7 +139,8 @@ function SubmissionSummary({ positions, entries, isLocked }) {
   const dnfEntries = entries.filter(e => positions[e.entryId] === -1)
   const dqEntries = entries.filter(e => positions[e.entryId] === -2)
 
-  const totalPoints = rankedEntries.reduce((sum, e) => sum + getLegPoints(positions[e.entryId]), 0)
+  const totalPoints = rankedEntries.reduce(
+    (sum, e) => sum + getLegPoints(positions[e.entryId], entries.length), 0)
 
   return (
     <div className="space-y-4">
@@ -169,7 +166,7 @@ function SubmissionSummary({ positions, entries, isLocked }) {
                 <span className="text-sm text-on-surface flex-1 truncate">
                   {entry.horseName || `Horse #${entry.horseId}`}
                 </span>
-                <span className="text-xs font-mono text-yellow-400">{getLegPoints(positions[entry.entryId])} pts</span>
+                <span className="text-xs font-mono text-yellow-400">{getLegPoints(positions[entry.entryId], entries.length)} pts</span>
               </div>
             ))}
           </div>
@@ -976,7 +973,9 @@ export default function LegSubmissionPage() {
         <div className="mt-4 p-4 rounded-xl bg-white/5 border border-white/10">
           <p className="text-xs text-on-surface-variant text-center">
             <span className="font-semibold">Points:</span>{' '}
-            1st=6 · 2nd=5 · 3rd=4 · 4th=3 · 5th=2 · 6th=1 · DNF/DQ=0
+            scaled to the field of {entries.length} horses — 1st={entries.length}
+            {entries.length > 1 && <> · 2nd={entries.length - 1}</>}
+            {' '}· last=1 · DNF/DQ=0
           </p>
         </div>
       </div>
