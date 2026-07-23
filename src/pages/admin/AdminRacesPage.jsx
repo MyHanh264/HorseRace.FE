@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   Flag, Plus, ChevronDown, ChevronLeft, ChevronRight, Edit2, Trash2, X, AlertCircle,
   Users, CheckCircle, XCircle, ArrowLeft, UserCheck, Eye,
@@ -493,6 +493,9 @@ export default function AdminRacesPage() {
   const [formError, setFormError]   = useState('')
   const [deletingId, setDeletingId] = useState(null)
   const [openMenuId, setOpenMenuId] = useState(null)
+  const [openMenuPos, setOpenMenuPos] = useState(null) // { top, left } fixed-position coords for overflow menu — escapes <table> stacking context
+  const menuButtonRef = useRef(null)  // current ⋮ button (so a second click on it can toggle-closed)
+  const menuPopupRef  = useRef(null)  // current dropdown panel (so clicks inside it don't close it)
   const [unpublishTarget, setUnpublishTarget] = useState(null)
   const [unpublishError, setUnpublishError] = useState('')
 
@@ -581,9 +584,31 @@ export default function AdminRacesPage() {
 
   useEffect(() => {
     if (!openMenuId) return
-    const close = () => setOpenMenuId(null)
-    document.addEventListener('click', close)
-    return () => document.removeEventListener('click', close)
+
+    const close = () => {
+      setOpenMenuId(null)
+    }
+
+    // Use mousedown so this fires BEFORE the trigger button's onClick, and check
+    // the target against the menu refs so clicks inside the menu (or on the trigger)
+    // don't immediately re-close it.
+    const handleDocMouseDown = (e) => {
+      const target = e.target
+      if (menuButtonRef.current?.contains(target)) return
+      if (menuPopupRef.current?.contains(target))  return
+      close()
+    }
+    const handleScroll = () => close()
+
+    document.addEventListener('mousedown', handleDocMouseDown)
+    window.addEventListener('scroll', handleScroll, true)
+    window.addEventListener('resize', handleScroll)
+
+    return () => {
+      document.removeEventListener('mousedown', handleDocMouseDown)
+      window.removeEventListener('scroll', handleScroll, true)
+      window.removeEventListener('resize', handleScroll)
+    }
   }, [openMenuId])
 
   // ── Derived data ──────────────────────────────────────────────────────────
@@ -871,7 +896,7 @@ export default function AdminRacesPage() {
                       <tr
                         key={race.raceId}
                         onClick={() => openEntriesView(race)}
-                        className={`animate-fade-in-up delay-row-${(i % 4)+1} cursor-pointer hover:bg-surface-container/60`}
+                        className={`animate-fade-in-up delay-row-${(i % 4)+1} cursor-pointer hover:bg-surface-container/60 ${openMenuId === race.raceId ? 'relative z-50' : ''}`}
                         style={{ opacity: 0, animationFillMode: 'forwards' }}
                       >
 
@@ -980,16 +1005,31 @@ export default function AdminRacesPage() {
                               </button>
                             )}
 
-                            {/* ⋮ overflow menu */}
+                            {/* ⋮ overflow menu — dropdown renders relative to this <td>; the parent <tr>
+                                gets z-50 while its menu is open so it stacks above neighbouring rows
+                                (Unpublish buttons etc.) without expanding the table layout. */}
                             <div className="relative">
                               <button
-                                onClick={e => { e.stopPropagation(); setOpenMenuId(openMenuId === race.raceId ? null : race.raceId) }}
+                                ref={openMenuId === race.raceId ? menuButtonRef : null}
+                                onClick={e => {
+                                  e.stopPropagation()
+                                  if (openMenuId === race.raceId) {
+                                    setOpenMenuId(null)
+                                    return
+                                  }
+                                  setOpenMenuId(race.raceId)
+                                }}
                                 className="w-8 h-8 rounded-lg border border-outline-variant/40 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors"
                               >
                                 <MoreVertical className="w-4 h-4" />
                               </button>
                               {openMenuId === race.raceId && (
-                                <div className="absolute right-0 mt-1 bg-surface-container border border-outline-variant/40 rounded-xl shadow-xl z-20 min-w-[130px] py-1 overflow-hidden">
+                                <div
+                                  ref={menuPopupRef}
+                                  onClick={e => e.stopPropagation()}
+                                  onMouseDown={e => e.stopPropagation()}
+                                  className="absolute right-0 top-full mt-1 bg-surface-container border border-outline-variant/40 rounded-xl shadow-2xl min-w-[144px] py-1 overflow-hidden z-[60]"
+                                >
                                   <button
                                     onClick={() => { openEdit(race); setOpenMenuId(null) }}
                                     className="w-full text-left px-3 py-2 text-sm text-on-surface hover:bg-surface-container-high flex items-center gap-2 transition-colors"
