@@ -389,6 +389,90 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
   )
 }
 
+// ─── Delete Confirm Modal ──────────────────────────────────────────────────────
+// Soft-delete — BE handles the IsDeleted flag internally.
+// No reason required since this is reversible (admin can ask BE to restore).
+
+function DeleteConfirmModal({ race, entryCount, onClose, onConfirm, submitting, error }) {
+  const CAN_DELETE_STATUSES = ['Scheduled', 'Cancelled', 'Finished']
+  const canDelete = CAN_DELETE_STATUSES.includes(race.status)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+         style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}>
+      <div className="gs-card w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/40">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-error/10 border border-error/20 flex items-center justify-center">
+              <Trash2 className="w-4 h-4 text-error" />
+            </div>
+            <h2 className="font-serif font-bold text-on-surface">Delete Race</h2>
+          </div>
+          <button onClick={onClose} className="text-on-surface-variant hover:text-on-surface transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          {/* Race info */}
+          <div className="bg-surface-container-high border border-outline-variant/30 rounded-lg px-4 py-3 space-y-1.5">
+            <p className="text-sm font-semibold text-on-surface">{race.name}</p>
+            <div className="flex items-center gap-3 text-xs text-on-surface-variant">
+              <span className="font-mono">{fmtRaceId(race.raceId)}</span>
+              <span>·</span>
+              <span>Status: <span className="text-on-surface">{race.status}</span></span>
+              <span>·</span>
+              <span>{entryCount} entr{entryCount === 1 ? 'y' : 'ies'}</span>
+            </div>
+          </div>
+
+          {!canDelete ? (
+            <div className="p-3 rounded-lg bg-error/10 border border-error/25 text-error text-sm flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>
+                Cannot delete a race that is <strong>In Progress</strong> or <strong>Paused</strong>.
+                Please cancel or finish the race first.
+              </span>
+            </div>
+          ) : entryCount > 0 ? (
+            <div className="p-3 rounded-lg bg-error/10 border border-error/25 text-error text-sm flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>
+                This race has <strong>{entryCount} entr{entryCount === 1 ? 'y' : 'ies'}</strong>.
+                Please remove all entries before deleting.
+              </span>
+            </div>
+          ) : (
+            <p className="text-sm text-on-surface-variant">
+              Are you sure you want to delete this race? This is a{' '}
+              <strong className="text-amber-400">soft delete</strong> — the race
+              will be hidden but can be restored if needed.
+            </p>
+          )}
+
+          {error && (
+            <div className="p-3 rounded-lg bg-error/10 border border-error/25 text-error text-sm flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />{error}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={onClose} className="gs-btn gs-btn-ghost">Cancel</button>
+            <button
+              onClick={onConfirm}
+              disabled={submitting || !canDelete || entryCount > 0}
+              className="gs-btn gs-btn-danger flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {submitting && <div className="w-3 h-3 border-2 border-error/30 border-t-error rounded-full animate-spin" />}
+              Delete Race
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Unpublish Confirm Modal ───────────────────────────────────────────────────
 // Requires a reason so unpublishing a race is a deliberate, explainable action rather
 // than a silent one-click toggle — closes the transparency gap around Publish/Unpublish.
@@ -492,6 +576,8 @@ export default function AdminRacesPage() {
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError]   = useState('')
   const [deletingId, setDeletingId] = useState(null)
+  const [deleteTarget, setDeleteTarget] = useState(null) // race object for the modal
+  const [deleteError, setDeleteError] = useState('')
   const [openMenuId, setOpenMenuId] = useState(null)
   const [openMenuPos, setOpenMenuPos] = useState(null) // { top, left } fixed-position coords for overflow menu — escapes <table> stacking context
   const menuButtonRef = useRef(null)  // current ⋮ button (so a second click on it can toggle-closed)
@@ -667,14 +753,28 @@ export default function AdminRacesPage() {
   const openCreate = () => { setEditingRace(null); setFormError(''); setShowModal(true) }
   const openEdit   = (r)  => { setEditingRace(r);   setFormError(''); setShowModal(true) }
 
-  const handleDelete = async (id) => {
-    setError('')
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setDeletingId(deleteTarget.raceId)
+    setDeleteError('')
     try {
-      await deleteRace(id)
-      setDeletingId(null)
+      await deleteRace(deleteTarget.raceId)
+      setDeleteTarget(null)
       await loadAll()
     } catch (err) {
-      setError(err?.message || 'Failed to delete race')
+      const status = err?.response?.status
+      const detail = err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message
+
+      let friendly = detail
+      if (status === 409) {
+        // Check if race has entries for a more specific message
+        const raceEntryCount = entries.filter(e => e.raceId === deleteTarget.raceId).length
+        friendly = raceEntryCount > 0
+          ? `This race has ${raceEntryCount} entry/entries. Remove all entries before deleting.`
+          : `Cannot delete this race (${detail}). It may have related data that prevents deletion.`
+      }
+      setDeleteError(friendly)
+    } finally {
       setDeletingId(null)
     }
   }
@@ -1037,22 +1137,12 @@ export default function AdminRacesPage() {
                                     <Edit2 className="w-3.5 h-3.5" /> Edit
                                   </button>
                                   <div className="border-t border-outline-variant/30 my-1" />
-                                  {deletingId === race.raceId ? (
-                                    <div className="px-3 py-2">
-                                      <p className="text-xs text-error mb-1.5">Confirm delete?</p>
-                                      <div className="flex gap-1.5">
-                                        <button onClick={() => handleDelete(race.raceId)} className="gs-btn gs-btn-danger gs-btn-sm flex-1">Delete</button>
-                                        <button onClick={() => setDeletingId(null)} className="gs-btn gs-btn-ghost gs-btn-sm">Cancel</button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <button
-                                      onClick={() => setDeletingId(race.raceId)}
-                                      className="w-full text-left px-3 py-2 text-sm text-error hover:bg-error/10 flex items-center gap-2 transition-colors"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" /> Delete
-                                    </button>
-                                  )}
+                                  <button
+                                    onClick={() => { setDeleteTarget(race); setOpenMenuId(null) }}
+                                    className="w-full text-left px-3 py-2 text-sm text-error hover:bg-error/10 flex items-center gap-2 transition-colors"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" /> Delete
+                                  </button>
                                 </div>
                               )}
                             </div>
@@ -1100,6 +1190,17 @@ export default function AdminRacesPage() {
           onSubmit={handleRaceSubmit}
           submitting={submitting}
           error={formError}
+        />
+      )}
+
+      {deleteTarget && (
+        <DeleteConfirmModal
+          race={deleteTarget}
+          entryCount={entries.filter(e => e.raceId === deleteTarget.raceId).length}
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={handleDelete}
+          submitting={deletingId === deleteTarget.raceId}
+          error={deleteError}
         />
       )}
 

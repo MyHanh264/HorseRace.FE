@@ -5,7 +5,7 @@ let roleCache = null
 let rolePromise = null
 
 // Fallback roleId when caller supplies an unknown roleCode.
-// Keep in sync with backend Role seed (SPECTATOR = 5).
+// Keep in sync with backend Role seed (ADMIN = 5).
 const FALLBACK_ROLE_ID = 5
 
 export async function getAllRoles() {
@@ -20,8 +20,14 @@ export async function getRoleMap() {
   rolePromise = (async () => {
     try {
       const roles = await getAllRoles()
-      roleCache = roles
-      return roles
+      // Normalize BE PascalCase ({ RoleId, Code, Name }) to camelCase
+      // so the rest of the FE can use a single consistent shape.
+      roleCache = (roles || []).map((r) => ({
+        roleId: r.roleId ?? r.RoleId,
+        code: r.code ?? r.Code,
+        name: r.name ?? r.Name,
+      }))
+      return roleCache
     } catch {
       roleCache = []
       return []
@@ -128,21 +134,26 @@ export async function updateUser(id, data) {
 export async function createUser(data) {
   const roleMap = await getRoleMap()
   let roleId = data.roleId
-  if (typeof data.roleCode === 'string' && roleMap.length > 0) {
-    roleId = roleMap.find((r) => r.code === data.roleCode)?.roleId || data.roleId
+  const code = data.RoleCode ?? data.roleCode
+  if (typeof code === 'string' && roleMap.length > 0) {
+    const match = roleMap.find((r) => r.code === code)
+    if (match) roleId = match.roleId
   }
   if (!roleId) roleId = FALLBACK_ROLE_ID
 
+  // Payload mirrors Application.Usecases.Users.CreateUser.CreateUserCommand.
+  // PascalCase fields bound by ASP.NET model binding; `Password` is hashed by
+  // the handler via IPasswordHasher before persistence.
   const payload = {
-    Email: data.email,
-    PasswordHash: data.password,
-    FullName: data.fullName,
-    PhoneNumber: data.phoneNumber || null,
-    AvatarUrl: data.avatarUrl || null,
+    Email: data.Email ?? data.email,
+    Password: data.Password ?? data.password,
+    FullName: data.FullName ?? data.fullName,
+    PhoneNumber: data.PhoneNumber ?? data.phoneNumber ?? null,
+    AvatarUrl: data.AvatarUrl ?? data.avatarUrl ?? null,
     RoleId: roleId,
-    LicenseNumber: data.licenseNumber || null,
-    Weight: data.weight || null,
-    Bio: data.bio || null,
+    LicenseNumber: data.LicenseNumber ?? data.licenseNumber ?? null,
+    Weight: data.Weight ?? data.weight ?? null,
+    Bio: data.Bio ?? data.bio ?? null,
   }
   const res = await api.post('/api/users', payload)
   return res.data
