@@ -72,8 +72,12 @@ export async function rejectUser(userId, reason) {
   return res.data
 }
 
-// Get all users - Backend returns flat array: [{ userId, email, fullName, roleId, isActive }, ...]
-// GET /api/users
+// Get all users — BE GET /api/users is paginated.
+// Response shape: { items: [...], total, page, pageSize } (PagedUserListResponse).
+// FE consumers that need a flat list (e.g. AdminRacesPage dropdown) should pass
+// { page: 1, pageSize: 1000 } explicitly so the page size lives at the call site.
+// Tabs in AdminUsersPage rely on this + client-side filtering for now
+// (see AdminUsersPage plan — phương án B will move filter/search/pagination to BE).
 export async function getAllUser({ page = 1, pageSize = 10, search = "", sort = "createdAt", sortDirection = "desc", role = "", status = "" } = {}) {
   const params = { page, pageSize, search, sort, sortDirection }
   if (role) params.role = role
