@@ -502,7 +502,7 @@ function UserDetailModal({
               {(user.fullName || "U").charAt(0).toUpperCase()}
             </div>
             <div>
-              <h2 className="font-serif font-bold text-on-surface">
+              <h2 className="font-bold text-on-surface">
                 {user.fullName || "—"}
               </h2>
               <p className="text-xs text-on-surface-variant">User Profile</p>

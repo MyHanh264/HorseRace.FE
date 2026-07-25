@@ -28,7 +28,7 @@ export async function startRace(raceId, payload = {}) {
 /**
  * GET /api/races/{raceId}/legs/{legIndex}/referee-view
  * Get the current LEG data for the logged-in referee.
- * Response: { raceId, legIndex, legNumber, entries, mySubmittedData,
+ * Response: { raceId, legIndex, legNumber, entries, mySubmittedData, myDraftData,
  *             opponentSubmitted, bothSubmitted, legStatus }
  */
 export async function getRefereeLegView(raceId, legIndex) {

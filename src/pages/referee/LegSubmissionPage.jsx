@@ -414,7 +414,7 @@ export default function LegSubmissionPage() {
         setHasSubmitted(true)
       }
 
-      // Initialize positions from mySubmittedData if available
+      // Initialize positions: submitted > draft > empty
       if (viewData.mySubmittedData && Array.isArray(viewData.mySubmittedData)) {
         setPositions(prev => {
           const newPos = { ...prev }
@@ -423,6 +423,15 @@ export default function LegSubmissionPage() {
           })
           return newPos
         })
+      } else if (viewData.myDraftData && Array.isArray(viewData.myDraftData) && viewData.myDraftData.length > 0) {
+        setPositions(prev => {
+          const newPos = { ...prev }
+          viewData.myDraftData.forEach(item => {
+            newPos[item.entryId] = item.position ?? null
+          })
+          return newPos
+        })
+        setDraftSaved(true)
       } else {
         // Only reset to empty when NO entry has been assigned a position yet.
         // Avoids a stale-closure reset wiping out data the user is mid-typing.

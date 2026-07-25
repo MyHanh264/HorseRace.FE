@@ -27,13 +27,6 @@ export async function getHorseById(horseId) {
   return res.data;
 }
 
-// Thống kê + thể lực ngựa: stamina, healthStatus, totalRaces, totalWins, totalTop3, winRate,
-// recentRacePosition, recentRaceName, recentForm[]. Nguồn thật cho Career Stats + thanh thể lực.
-export async function getHorseStatistics(horseId) {
-  const res = await api.get(`/api/horses/${horseId}/statistics`);
-  return res.data;
-}
-
 // POST /api/horses/{id}/resubmit — resubmits a Rejected horse for Admin to review again.
 // ⚠️ Endpoint did not exist on BE at time of writing (BE has been asked to add it — spec:
 // requires current Status to be Rejected, resets to Pending, clears RejectionReason,

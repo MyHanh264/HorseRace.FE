@@ -143,7 +143,7 @@ export default function RaceReplayPlayer({ raceId, leg, entries, highlightEntryI
       return
     }
 
-    if (leg.executionStatus === 'InProgress') {
+    if (leg.startedAt && !isConfirmed && !leg.isConflicted) {
       setPhase('pack')
       return
     }

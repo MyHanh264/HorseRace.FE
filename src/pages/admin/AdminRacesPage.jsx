@@ -1102,6 +1102,10 @@ export default function AdminRacesPage() {
                             )}
                             {race.status === 'Finished' && (
                               <>
+                                <button onClick={e => { e.stopPropagation(); navigate(`/admin/race-execution?raceId=${race.raceId}`) }}
+                                  className="gs-btn gs-btn-ghost gs-btn-sm flex items-center gap-1 text-on-surface-variant">
+                                  <Eye className="w-3.5 h-3.5" /> Leg history
+                                </button>
                                 <button onClick={e => { e.stopPropagation(); setResultsRace(race) }}
                                   className="gs-btn gs-btn-ghost gs-btn-sm flex items-center gap-1 text-secondary">
                                   <Trophy className="w-3.5 h-3.5" /> Full Results

@@ -13,6 +13,8 @@ import {
   publishRace, getAllViolations, getViolationsWithEntryDetail,
 } from '../../api/admin'
 
+const EXECUTION_RACE_STATUSES = ['Scheduled', 'InProgress', 'Paused', 'PendingResult', 'Finished']
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtDate(s) {
@@ -84,6 +86,7 @@ function LegStatusChip({ status }) {
 
 function RaceListCard({ race, onViewEntries, onMonitor, onStartRace, onViewConflict, pendingViolationCount = 0 }) {
   const navigate = useNavigate()
+  const isFinished   = race.status === 'Finished'
   const isScheduled  = race.status === 'Scheduled'
   const isInProgress = race.status === 'InProgress'
   const isPaused     = race.status === 'Paused'
@@ -142,10 +145,10 @@ function RaceListCard({ race, onViewEntries, onMonitor, onStartRace, onViewConfl
             </button>
           </>
         )}
-        {(isInProgress || isPending) && (
+        {(isInProgress || isPending || isFinished) && (
           <button onClick={() => onMonitor(race)}
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-white/20 text-xs text-gray-300 hover:bg-white/10 transition-all">
-            <Eye size={13} /> Monitor
+            <Eye size={13} /> {isFinished ? 'Leg history' : 'Monitor'}
           </button>
         )}
         {isPaused && (
@@ -262,7 +265,7 @@ export default function AdminRaceExecutionPage() {
       ])
       if (!isMountedRef.current) return
       setAllRaces(races.filter(r =>
-        ['Scheduled', 'InProgress', 'Paused', 'PendingResult'].includes(r.status),
+        EXECUTION_RACE_STATUSES.includes(r.status),
       ))
       const violationItems = Array.isArray(violationsRes?.items) ? violationsRes.items : []
       const counts = {}
@@ -327,7 +330,7 @@ export default function AdminRaceExecutionPage() {
         ])
         if (!active) return
         const filtered = races.filter(r =>
-          ['Scheduled', 'InProgress', 'Paused', 'PendingResult'].includes(r.status),
+          EXECUTION_RACE_STATUSES.includes(r.status),
         )
         setAllRaces(filtered)
         const violationItems = Array.isArray(violationsRes?.items) ? violationsRes.items : []
@@ -908,7 +911,8 @@ export default function AdminRaceExecutionPage() {
             </div>
             <div className="divide-y divide-white/5">
               {execution.legs?.map((leg, idx) => (
-                <div key={idx} className="px-5 py-4 flex items-center justify-between gap-4">
+                <div key={leg.legNumber ?? idx}>
+                <div className="px-5 py-4 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
                       leg.status === 'Confirmed'  ? 'bg-emerald-500 text-white'
@@ -937,6 +941,19 @@ export default function AdminRaceExecutionPage() {
                     </div>
                     <LegStatusChip status={leg.status} />
                   </div>
+                </div>
+                {leg.results?.length > 0 && (
+                  <div className="px-5 pb-4 -mt-2">
+                    <p className="text-[10px] text-on-surface-variant uppercase tracking-wider mb-1.5">Official results</p>
+                    <div className="flex flex-wrap gap-2">
+                      {leg.results.map((r) => (
+                        <span key={r.entryId} className="text-xs px-2 py-0.5 rounded bg-surface-container-high text-on-surface">
+                          Entry #{r.entryId}: {r.position === -1 ? 'DNF' : r.position === -2 ? 'DQ' : `#${r.position}`} ({r.points}p)
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 </div>
               ))}
             </div>

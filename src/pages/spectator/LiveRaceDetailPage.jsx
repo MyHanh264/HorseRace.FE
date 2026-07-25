@@ -18,8 +18,12 @@ const RACE_STATUS_META = {
 function legTone(leg) {
   if (leg.isConflicted) return 'border-orange-500/40 text-orange-400'
   if (leg.isConfirmed) return 'border-primary/40 text-primary'
-  if (leg.executionStatus === 'InProgress') return 'border-amber-500/40 text-amber-400'
+  if (leg.startedAt && !leg.isConfirmed) return 'border-amber-500/40 text-amber-400'
   return 'border-outline-variant/50 text-on-surface-variant'
+}
+
+function legIsRunning(leg) {
+  return Boolean(leg?.startedAt && !leg?.isConfirmed && !leg?.isConflicted)
 }
 
 export default function LiveRaceDetailPage() {
@@ -54,9 +58,9 @@ export default function LiveRaceDetailPage() {
   const activeLeg = legs.find((l) => l.legNumber === activeLegNumber) ?? null
 
   const highlightEntryId = useMemo(() => {
-    const bet = myBets.find((b) => b.legNumber === activeLegNumber) ?? myBets[0]
+    const bet = myBets.find((b) => b.status === 'Pending' || b.status === 'Locked') ?? myBets[0]
     return bet?.firstEntryId ?? null
-  }, [myBets, activeLegNumber])
+  }, [myBets])
 
   if (error && !snapshot) {
     return (
@@ -130,7 +134,7 @@ export default function LiveRaceDetailPage() {
           >
             Chặng {l.legNumber}
             {l.isConfirmed && ' ✓'}
-            {l.executionStatus === 'InProgress' && !l.isConfirmed && ' •'}
+            {legIsRunning(l) && ' •'}
           </button>
         ))}
         {selectedLeg != null && (

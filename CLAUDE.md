@@ -28,6 +28,7 @@ HorseRace.FE/
 ├── src/
 │   ├── api/                    # API call functions
 │   │   ├── auth.js            # Login, register, logout, profile
+│   │   ├── profile.js         # getMyProfile / updateMyProfile / changeMyPassword
 │   │   ├── admin.js           # Admin operations
 │   │   ├── spectator.js       # Spectator operations
 │   │   ├── referee.js         # Referee operations
@@ -48,13 +49,28 @@ HorseRace.FE/
 │   │   │   ├── Footer.jsx
 │   │   │   ├── DashboardLayout.jsx
 │   │   │   └── AuthLayout.jsx
+│   │   ├── live/             # Live Race simulation (2026-07-19)
+│   │   │   ├── RaceTrack.jsx
+│   │   │   ├── HorseSprite.jsx
+│   │   │   └── RaceReplayPlayer.jsx
 │   │   ├── AuthSessionSync.jsx    # Sync auth state with tab
 │   │   ├── RequireRole.jsx        # Role-based route guard
+│   │   ├── NotificationBell.jsx   # Dropdown chuông thông báo (mọi role)
+│   │   ├── StaminaBar.jsx         # 🔴 code chết — BE đã gỡ Horse.Stamina (T-19)
+│   │   ├── RaceResultsModal.jsx   # Modal xem kết quả race
 │   │   └── RaceCard.jsx          # Race card component
 │   ├── constants/
 │   │   └── index.js           # Constants (mock data)
 │   ├── context/
 │   │   └── AuthContext.jsx    # Auth state management
+│   ├── hooks/
+│   │   ├── useRaceLiveHub.js          # SignalR + poll dự phòng 30s
+│   │   ├── useNotificationRead.js     # trạng thái đã đọc (localStorage)
+│   │   ├── useAdminNotifications.js
+│   │   ├── useRefereeNotifications.js
+│   │   ├── useJockeyNotifications.js
+│   │   ├── useHorseOwnerNotifications.js
+│   │   └── useSpectatorNotifications.js
 │   ├── pages/
 │   │   ├── admin/            # Admin pages
 │   │   │   ├── AdminAnalyticsPage.jsx
@@ -67,10 +83,13 @@ HorseRace.FE/
 │   │   │   ├── AdminPointManagementPage.jsx
 │   │   │   ├── AdminRaceExecutionPage.jsx
 │   │   │   ├── AdminRaceEntriesPage.jsx
+│   │   │   ├── AdminAuditLogPage.jsx        # GET /api/admin/review-history
 │   │   │   └── AdminConflictResolutionPage.jsx
 │   │   ├── spectator/       # Spectator pages
 │   │   │   ├── SpectatorDashboard.jsx
 │   │   │   ├── RacesBettingPage.jsx
+│   │   │   ├── LiveRacesPage.jsx
+│   │   │   ├── LiveRaceDetailPage.jsx
 │   │   │   ├── MyPredictionsPage.jsx
 │   │   │   ├── PointWalletPage.jsx
 │   │   │   ├── LeaderboardPage.jsx
@@ -85,7 +104,7 @@ HorseRace.FE/
 │   │   │   ├── RefereeAssignedRacesPage.jsx
 │   │   │   ├── RefereeRaceDashboard.jsx
 │   │   │   ├── LegSubmissionPage.jsx
-│   │   │   ├── RefereeResultEntryPage.jsx
+│   │   │   ├── RefereeDashboard.jsx        # ⚠️ MỒ CÔI — không import ở đâu
 │   │   │   ├── RefereeViolationsPage.jsx
 │   │   │   └── RefereeProfilePage.jsx
 │   │   ├── horse-owner/     # Horse owner pages
@@ -116,6 +135,8 @@ HorseRace.FE/
 │   │   ├── token.js        # Token management (localStorage)
 │   │   ├── validation.js   # Form validation
 │   │   ├── legValidation.js
+│   │   ├── raceSim.js      # Lõi mô phỏng đua (PRNG tất định, decodePosition)
+│   │   ├── horseCondition.js # 🔴 code chết — cùng lý do StaminaBar (T-19)
 │   │   └── horse.js
 │   ├── App.jsx             # Main app with routes
 │   ├── main.jsx            # Entry point
@@ -161,12 +182,15 @@ Routes được định nghĩa trong `src/App.jsx` sử dụng React Router v7:
       <Route path="races/:raceId/entries" element={<AdminRaceEntriesPage />} />
       <Route path="race-execution" element={<AdminRaceExecutionPage />} />
       <Route path="races/:id/conflict" element={<AdminConflictResolutionPage />} />
+      <Route path="audit-log" element={<AdminAuditLogPage />} />
     </Route>
 
     {/* Spectator */}
     <Route path="/spectator" element={<RequireRole role="SPECTATOR"><SpectatorLayout /></RequireRole>}>
       <Route index element={<SpectatorDashboard />} />
       <Route path="races" element={<RacesBettingPage />} />
+      <Route path="live" element={<LiveRacesPage />} />
+      <Route path="live/:raceId" element={<LiveRaceDetailPage />} />
       <Route path="predictions" element={<MyPredictionsPage />} />
       <Route path="wallet" element={<PointWalletPage />} />
       <Route path="leaderboard" element={<LeaderboardPage />} />
@@ -187,7 +211,6 @@ Routes được định nghĩa trong `src/App.jsx` sử dụng React Router v7:
       <Route index element={<RefereeAssignedRacesPage />} />
       <Route path="races/:id" element={<RefereeRaceDashboard />} />
       <Route path="races/:id/legs/:legId" element={<LegSubmissionPage />} />
-      <Route path="result-entry" element={<RefereeResultEntryPage />} />
       <Route path="violations" element={<RefereeViolationsPage />} />
       <Route path="profile" element={<RefereeProfilePage />} />
     </Route>
@@ -433,12 +456,15 @@ return (
 | `AdminDiscrepanciesPage` | Xem discrepancies |
 | `AdminViolationsPage` | Review violations |
 | `AdminPointManagementPage` | Points management |
+| `AdminAuditLogPage` | Audit trail — `GET /api/admin/review-history` |
 
 ### Spectator Pages
 | Page | Mô tả |
 |------|--------|
 | `SpectatorDashboard` | Dashboard chính |
-| `RacesBettingPage` | Xem race & đặt cược |
+| `RacesBettingPage` | Xem race & đặt cược. 🔴 **Đang hỏng** — UI còn theo mô hình per-leg, BE đã về race-level ([T-19](../.claude/TASKS.md)) |
+| `LiveRacesPage` | Danh sách race đang diễn ra |
+| `LiveRaceDetailPage` | Theo dõi trực tiếp + mô phỏng đua (SignalR) |
 | `MyPredictionsPage` | Lịch sử predictions |
 | `PointWalletPage` | Quản lý ví điểm |
 | `LeaderboardPage` | Bảng xếp hạng |
@@ -458,9 +484,10 @@ return (
 | `RefereeAssignedRacesPage` | Races được assign |
 | `RefereeRaceDashboard` | Race detail view |
 | `LegSubmissionPage` | Submit leg results |
-| `RefereeResultEntryPage` | Entry results |
 | `RefereeViolationsPage` | Report violations |
 | `RefereeProfilePage` | Profile |
+| ~~`RefereeResultEntryPage`~~ | **Đã xóa** cùng route `/referee/result-entry` |
+| `RefereeDashboard` | ⚠️ File tồn tại nhưng **không được import ở đâu** (mồ côi) |
 
 ### Horse Owner Pages
 | Page | Mô tả |
@@ -553,6 +580,8 @@ import { useAuth } from '@/context/AuthContext'
 
 ## 10. Chạy & Build
 
+> ⛔ **Không viết test tự động cho FE** (không Vitest/Jest/RTL/Playwright). Nhóm test thủ công theo [`.claude/TEST_PLAN_2026-07-22.md`](../.claude/TEST_PLAN_2026-07-22.md). Kiểm chứng bằng `npm run build` + mô tả cách test tay (vào trang nào, bấm gì, kỳ vọng gì). Đừng đề xuất bổ sung test như một việc cần làm.
+
 ### Development
 ```bash
 cd HorseRace.FE
@@ -619,24 +648,42 @@ server: {
 
 ---
 
-## 13. Tình trạng & việc cần làm (FE) — cập nhật 2026-07-19
+## 13. Tình trạng & việc cần làm (FE) — cập nhật 2026-07-25
 
-> Đối chiếu FE với BE (verify trực tiếp code base 2026-07-19). Nhật ký task BE đã hoàn tất: [`.claude/TASKS.md`](../.claude/TASKS.md). Tổng quan dự án: [`../CLAUDE.md`](../CLAUDE.md).
+> **T-19 đã đóng:** FE khớp BE race-level (`getRaceOdds`/`placeRacePrediction`), gỡ Start Leg/statistics, Live dùng `startedAt`/`confirmedAt`, xóa `StaminaBar`/`horseCondition.js`. Việc còn lại: [T-13…T-16](../.claude/TASKS.md).
 
-### ✅ BE đã fix hết các bug FE từng chờ
-- **User Management:** `GET /api/users` nay **phân trang + filter** trả `{ items, total, page, pageSize }` (FE đọc đúng shape này, bỏ `slice` client-side). `POST /api/users` **hash BCrypt** → payload đổi field `PasswordHash` → **`Password`** (plaintext, BE tự hash). `PUT /api/users/{id}` ADMIN-only.
-- **Prediction (Flow 7) — nay PER-LEG:** BE đổi sang cược **theo từng Leg**. FE cần gọi `GET /api/predictions/races/{raceId}/legs/{n}/odds`, `POST /api/predictions/races/{raceId}/legs/{n}` body `{EntryId, BetAmount}`, `DELETE /api/predictions/{id}/cancel`. (Route per-race cũ đã lỗi thời.)
-- **Race:** form Tạo/Sửa Race cần gửi **`scheduledEndTime`** (ISO, bắt buộc — thiếu → 400). BE chống trùng lịch (đè giờ trong cùng giải / 1 trọng tài 2 race đè giờ) trả lỗi ở `error.response.data.detail`.
-- **Message BE đổi sang tiếng Anh** — nếu FE match chuỗi tiếng Việt ở đâu thì cập nhật; nếu chỉ hiển thị `detail`/`message` thì tự động đúng.
+### ✅ Vẫn đồng bộ với BE
+- **User Management:** `getAllUser` đọc đúng shape phân trang `{ items, total, page, pageSize }` (bỏ `slice` client-side). `createUser` gửi field **`Password`** (plaintext, BE hash BCrypt) — không còn `PasswordHash`. `getRoleMap` nay normalize PascalCase của BE (`RoleId/Code/Name`) về camelCase.
+- **Audit trail** — `AdminAuditLogPage` + route `/admin/audit-log`, nối `GET /api/admin/review-history`.
+- **Race:** form Tạo/Sửa Race gửi **`scheduledEndTime`** (ISO, bắt buộc — thiếu → 400). BE chống trùng lịch trả lỗi ở `error.response.data.detail`.
+- **Live Race:** `GET /api/races/{id}/live` + SignalR; replay dùng `startedAt`/`confirmedAt` (không còn `executionStatus`).
+
+### ⚠️ Lệch FE↔BE cũ (vẫn còn)
+**Điều kiện xóa/hủy Race** — `AdminRacesPage.jsx:399`, `DeleteConfirmModal`:
+- FE cho phép xóa khi `status ∈ ['Scheduled', 'Cancelled', 'Finished']` (`CAN_DELETE_STATUSES`), comment ở dòng 395 ghi *"Soft-delete — BE handles the IsDeleted flag internally"*.
+- **BE thực tế:** `DELETE /api/races/{id}` là **soft-cancel** — chỉ chấp nhận khi `Status == Scheduled`, set `Status = Cancelled`. **Không có** cột `IsDeleted` nào trong domain.
+- Hậu quả: bấm Delete trên race `Finished`/`Cancelled` → 400 *"Only scheduled races can be cancelled."* Xem [T-13](../.claude/TASKS.md).
 
 ### 🟡 Dọn dẹp FE (không cần BE)
-- **9 helper mồ côi trong `api/admin.js`** (không page nào dùng) — nên xóa: `getAllInvalidUser`, `getInvalidUserById`, `approveInvalidUser`, `rejectInvalidUser`, `getUserHistory`, `getUsersByStatus`, `approveRace`, `rejectRace`, `finishRace`. (Việc FE thuần — `.claude/TASKS.md` chỉ chứa task BE.)
-- **Mock data còn lại:** `customer/Dashboard.jsx`, `customer/LandingDashboard.jsx` (landing tĩnh); `EditHorseModal` upload ảnh còn TODO. (`OwnerProfilePage` đã bỏ `MOCK_PROFILE` — xem mục "Đã sửa 2026-07-15".)
+- **9 helper mồ côi trong `api/admin.js`** (verify 2026-07-25 vẫn còn, không page nào dùng): `getAllInvalidUser`, `getInvalidUserById`, `approveInvalidUser`, `rejectInvalidUser`, `getUserHistory`, `getUsersByStatus`, `approveRace`, `rejectRace`, `finishRace`. Các endpoint BE tương ứng (Task 12/13/14 cũ) cũng chưa page nào dùng → cân nhắc gỡ **cả 2 phía**.
+- **File mồ côi:** `src/pages/referee/RefereeDashboard.jsx` không được import ở đâu.
+- **Mock data còn lại:** `customer/Dashboard.jsx`, `customer/LandingDashboard.jsx` (landing tĩnh); `EditHorseModal` upload ảnh còn TODO (BE chưa có endpoint upload).
 
 ### 🔗 Endpoint BE có sẵn nhưng FE chưa nối
-- `GET /api/admin/review-history` (audit trail duyệt hồ sơ) — chưa có UI gọi.
-- `RacesBettingPage` odds — nên đọc odds thật qua `GET /api/predictions/races/{raceId}/legs/{n}/odds` (per-leg) thay vì hardcode `1.0` / hiển thị "—".
-- `GET /api/jockeys/search` (tìm nài mới) + `GET`/`PUT /api/admin/points/{userId}` (xem/đặt số dư ví) — BE đã có, FE có thể nối khi cần.
+- `GET /api/jockeys/search` (tìm nài) + `GET`/`PUT /api/admin/points/{userId}` (xem/đặt số dư ví).
+- `POST /api/horses/{id}/resubmit` (ngựa `Rejected` → `Pending`).
+- `POST /api/admin/points/daily-topup` (nạp bù ví < 10 điểm lên 10 — chỉ trigger thủ công).
+- `GET /api/admin/races/{id}/publication-review` — trả `pendingViolationCount` + `hasUnresolvedTie`. ⚠️ BE **không còn** chặn Publish khi còn vi phạm Pending, nên nếu muốn khóa nút Publish thì FE phải tự dùng cờ này.
+- *(`GET /api/horses/{id}/statistics` đã bị BE gỡ — bỏ khỏi danh sách này.)*
+
+### ✅ Thêm 2026-07-20 → 25
+
+| File | Vai trò |
+|---|---|
+| `src/pages/admin/AdminAuditLogPage.jsx` | Audit trail — tab lọc theo entity (User/Horse/Entry/Race/Violation), search, phân trang |
+| `src/components/NotificationBell.jsx` + `src/hooks/use*Notifications.js` (5 role) + `useNotificationRead.js` | Chuông thông báo per-role; trạng thái đã đọc lưu localStorage. Gắn ở `AdminHeader` + 4 layout còn lại |
+| `src/components/RaceResultsModal.jsx` | Modal xem kết quả race |
+| `AdminRacesPage` — `DeleteConfirmModal` | Xóa/hủy race (⚠️ lệch điều kiện với BE — xem trên) |
 
 ### ✅ Thêm 2026-07-19 — Live Race + mô phỏng đua (Spectator)
 
@@ -661,6 +708,33 @@ server: {
 - Ngựa DNF chỉ lộ (mờ + nhãn) **từ `dropoutTime`**, không phải từ giây 0.
 - `vite.config.js` phải giữ **`ws: true`** ở proxy `/api`, nếu không SignalR âm thầm tụt xuống long-polling.
 - Bảng `standings` từ `GetRaceLive` là **tạm tính** (không xử lý DQ, không tie-break chặng cuối) — BE yêu cầu FE gắn nhãn rõ.
+
+**Payload `GET /api/races/{id}/live` (cũng là payload push SignalR) — cập nhật 2026-07-25 sau revert BE**
+
+```jsonc
+{
+  "entries": [{
+    "entryId": 1, "horseId": 7, "gateNumber": 3,
+    "horseName": "…", "jockeyName": "…",
+    "color": "Bay", "imageUrl": null,        // màu lông free-text
+    "odds": 4.20                             // đã khóa lúc đóng đăng ký
+    // ❌ ĐÃ BỊ GỠ: "stamina", "healthStatus"
+  }],
+  "legs": [{
+    "legIndex": 0, "legNumber": 1,
+    "status": "Confirmed",            // blind: Pending|AwaitingSecondReferee|Confirmed|Conflicted|Resolved
+    "isConfirmed": true, "isConflicted": false,
+    "confirmationType": "AutoMatched",
+    "startedAt": "…", "finishedAt": "…", "confirmedAt": "…",
+    "results": []                     // RỖNG nếu leg chưa Confirmed/Resolved
+    // ❌ ĐÃ BỊ GỠ: "executionStatus", "isBettingOpen"
+  }]
+}
+```
+
+- `startedAt` + `confirmedAt` cho phép mọi client **đồng bộ pha replay** và đếm giờ khi leg đang chạy.
+- 🔴 **`executionStatus` và `isBettingOpen` không còn tồn tại** — 4 chỗ FE đang đọc chúng sẽ nhận `undefined` ([T-19](../.claude/TASKS.md)). Cửa cược nay là race-level: `race.status === 'Scheduled' && race.oddsComputedAt != null`.
+- Payload **cố ý KHÔNG có** `referee1Submitted`/`referee2Submitted` (khác `GET /races/{id}/execution`) — giữ Blind Double-Entry.
 
 ### ✅ Đã sửa 2026-07-15 — hồ sơ & career stats (bỏ mock/fake-save)
 > Module dùng chung mới: **`src/api/profile.js`** (`getMyProfile`, `updateMyProfile`, `changeMyPassword`, `profileErrorMessage`). Dùng axios instance — **không** đặt trong `api/auth.js` vì `services/api.js` đã import từ đó (vòng lặp import).
