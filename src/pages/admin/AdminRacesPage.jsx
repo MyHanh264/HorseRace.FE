@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   Flag, Plus, ChevronDown, ChevronLeft, ChevronRight, Edit2, Trash2, X, AlertCircle,
-  Users, CheckCircle, XCircle, ArrowLeft, UserCheck, Eye,
+  Users, CheckCircle, XCircle, ArrowLeft, UserCheck, Eye, Trophy,
   LockOpen, Lock, RotateCcw, MoreVertical,
 } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -9,9 +9,11 @@ import {
   getAllTournaments, getRaces, getRaceDetail, createRace, updateRace, deleteRace,
   getAllUser, approveEntry, rejectEntry, openRegistration, closeRegistration, startRace,
   unpublishRace, getRoleMap, getRoleCodeById, getAllViolations,
+  getRaceStandings, getRaceResults,
 } from '../../api/admin'
 import api from '../../services/api'
 import { validateOverrideReason } from '../../utils/validation'
+import RaceResultsModal from '../../components/RaceResultsModal'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -584,6 +586,7 @@ export default function AdminRacesPage() {
   const menuPopupRef  = useRef(null)  // current dropdown panel (so clicks inside it don't close it)
   const [unpublishTarget, setUnpublishTarget] = useState(null)
   const [unpublishError, setUnpublishError] = useState('')
+  const [resultsRace, setResultsRace] = useState(null) // race object shown in RaceResultsModal
 
   // ── Entry approve/reject ──
   const [entryAction, setEntryAction]   = useState(null) // { id, type }
@@ -1098,11 +1101,17 @@ export default function AdminRacesPage() {
                               </button>
                             )}
                             {race.status === 'Finished' && (
-                              <button onClick={e => { e.stopPropagation(); setUnpublishError(''); setUnpublishTarget(race) }} disabled={regLoading === race.raceId}
-                                className="gs-btn gs-btn-ghost gs-btn-sm flex items-center gap-1 text-on-surface-variant">
-                                {regLoading === race.raceId ? <div className="w-3 h-3 border-2 border-on-surface-variant/30 border-t-on-surface-variant rounded-full animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
-                                Unpublish
-                              </button>
+                              <>
+                                <button onClick={e => { e.stopPropagation(); setResultsRace(race) }}
+                                  className="gs-btn gs-btn-ghost gs-btn-sm flex items-center gap-1 text-secondary">
+                                  <Trophy className="w-3.5 h-3.5" /> Full Results
+                                </button>
+                                <button onClick={e => { e.stopPropagation(); setUnpublishError(''); setUnpublishTarget(race) }} disabled={regLoading === race.raceId}
+                                  className="gs-btn gs-btn-ghost gs-btn-sm flex items-center gap-1 text-on-surface-variant">
+                                  {regLoading === race.raceId ? <div className="w-3 h-3 border-2 border-on-surface-variant/30 border-t-on-surface-variant rounded-full animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                                  Unpublish
+                                </button>
+                              </>
                             )}
 
                             {/* ⋮ overflow menu — dropdown renders relative to this <td>; the parent <tr>
@@ -1211,6 +1220,16 @@ export default function AdminRacesPage() {
           onConfirm={reason => handleUnpublishRace(unpublishTarget.raceId, reason)}
           submitting={regLoading === unpublishTarget.raceId}
           error={unpublishError}
+        />
+      )}
+
+      {resultsRace && (
+        <RaceResultsModal
+          raceId={resultsRace.raceId}
+          raceName={resultsRace.name}
+          onClose={() => setResultsRace(null)}
+          fetchStandings={getRaceStandings}
+          fetchResults={getRaceResults}
         />
       )}
       </div>

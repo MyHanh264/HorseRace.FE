@@ -68,7 +68,9 @@ function App() {
   return (
     <BrowserRouter>
       <AuthSessionSync /> {/* ← standalone, does not wrap Routes */}
-      <Toaster theme="dark" richColors position="top-right" />
+      {/* offset pushes the stack below the sticky header (tallest is AdminHeader at h-16/64px)
+          so a burst of toasts never covers the notification bell button underneath. */}
+      <Toaster theme="dark" richColors position="top-right" offset={{ top: 80 }} />
       <Routes>
         {/* Public */}
         <Route path="/" element={<LandingDashboard />} />

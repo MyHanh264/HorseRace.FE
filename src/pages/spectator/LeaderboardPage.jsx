@@ -128,8 +128,11 @@ export default function LeaderboardPage() {
         map[p.spectatorId] = { spectatorId: p.spectatorId, totalBets: 0, wonBets: 0, totalStaked: 0, totalWinnings: 0 }
       }
       const e = map[p.spectatorId]
+      // Cancelled predictions were voided/refunded — exclude them from both the bet
+      // count and the staked total so Win Rate reflects only decided bets.
+      if (p.status === 'Cancelled') continue
       e.totalBets++
-      if (p.status !== 'Cancelled') e.totalStaked += Number(p.betAmount)
+      e.totalStaked += Number(p.betAmount)
       if (p.status === 'Won') {
         e.wonBets++
         // Estimate winnings: betAmount × oddsLocked1 (simplified)

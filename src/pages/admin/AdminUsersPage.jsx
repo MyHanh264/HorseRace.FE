@@ -142,6 +142,10 @@ function StatCard({ icon: Icon, iconCls, label, value, sub }) {
 // ─── Role Options (for Create modal) ─────────────────────────────────────────
 // Aligned with RoleConfiguration.cs seed: HORSE_OWNER(1), JOCKEY(2), REFEREE(3),
 // SPECTATOR(4), ADMIN(5). REFEREE is admin-only creation (no public registration).
+// ADMIN is intentionally NOT selectable here — creating more admin accounts from
+// this self-service modal is too sensitive to leave as a one-click option; do it
+// via a direct DB/BE-side action instead. Editing an existing admin's own role is
+// unaffected since the role selector only renders in Create mode (see `!isEdit`).
 const ROLE_OPTIONS = [
   {
     code: "SPECTATOR",
@@ -166,12 +170,6 @@ const ROLE_OPTIONS = [
     title: "Referee",
     description: "Officiate races and submit leg results.",
     icon: "◈",
-  },
-  {
-    code: "ADMIN",
-    title: "Admin",
-    description: "Full system access and management capabilities.",
-    icon: "★",
   },
 ];
 
@@ -292,7 +290,7 @@ function UserModal({ user, onClose, onSubmit, submitting, error }) {
               </legend>
               <div
                 className="register-role-grid"
-                style={{ gridTemplateColumns: "repeat(5, minmax(0, 1fr))" }}
+                style={{ gridTemplateColumns: "repeat(4, minmax(0, 1fr))" }}
               >
                 {ROLE_OPTIONS.map((role) => (
                   <label

@@ -294,21 +294,33 @@ export default function RefereeAssignedRacesPage() {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
-    return races
+    const base = races
       .filter(r =>
         r.name?.toLowerCase().includes(q) ||
         tourneyMap[r.tournamentId]?.name?.toLowerCase().includes(q)
       )
       .filter(r => tourneyFilter === 'all' || String(r.tournamentId) === tourneyFilter)
       .filter(r => statusFilter === 'all' || r.status?.replace(/\s+/g, '') === statusFilter)
-      .sort((a, b) => {
-        const tA = tourneyMap[a.tournamentId]?.name ?? ''
-        const tB = tourneyMap[b.tournamentId]?.name ?? ''
-        if (tA !== tB) return tA.localeCompare(tB)
-        const dA = new Date(a.scheduledStartTime || a.scheduledAt || 0)
-        const dB = new Date(b.scheduledStartTime || b.scheduledAt || 0)
-        return sortOrder === 'asc' ? dA - dB : dB - dA
-      })
+
+    // Group order must follow the same Soonest/Newest toggle as the races themselves
+    // (CROSS-02: "grouped by tournament ... sorted by time") — not a fixed alphabetical
+    // order, otherwise the toggle only reorders races inside a group while the groups
+    // stay pinned by name regardless of how far away their races actually are.
+    const tourneyRepDate = {}
+    base.forEach(r => {
+      const t = new Date(r.scheduledStartTime || r.scheduledAt || 0).getTime()
+      const cur = tourneyRepDate[r.tournamentId]
+      if (cur === undefined || t < cur) tourneyRepDate[r.tournamentId] = t
+    })
+
+    return base.sort((a, b) => {
+      const tdA = tourneyRepDate[a.tournamentId] ?? 0
+      const tdB = tourneyRepDate[b.tournamentId] ?? 0
+      if (tdA !== tdB) return sortOrder === 'asc' ? tdA - tdB : tdB - tdA
+      const dA = new Date(a.scheduledStartTime || a.scheduledAt || 0)
+      const dB = new Date(b.scheduledStartTime || b.scheduledAt || 0)
+      return sortOrder === 'asc' ? dA - dB : dB - dA
+    })
   }, [races, search, tourneyFilter, statusFilter, sortOrder, tourneyMap])
 
   // Race count per tournament, computed over the full filtered list (not just the visible page)

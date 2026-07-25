@@ -68,7 +68,10 @@ export default function RaceResultsModal({ raceId, raceName, onClose, fetchStand
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
-      <div className="w-full max-w-[560px] gs-card overflow-hidden animate-fade-in-up max-h-[85vh] flex flex-col" style={{ opacity: 0, animationFillMode: 'forwards' }}>
+      {/* .admin-table (used below) carries a global min-width:820px — the modal must be at
+          least that wide, otherwise the table forces its own horizontal scrollbar and the
+          user can't see the full row at a glance. */}
+      <div className="w-full max-w-[880px] gs-card overflow-hidden animate-fade-in-up max-h-[85vh] flex flex-col" style={{ opacity: 0, animationFillMode: 'forwards' }}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-outline-variant/40 shrink-0">
           <div className="flex items-center gap-2.5">
             <Trophy size={17} className="text-yellow-400" />

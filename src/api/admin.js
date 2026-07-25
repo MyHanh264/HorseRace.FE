@@ -501,6 +501,15 @@ export async function getRaceStandings(raceId) {
   return res.data
 }
 
+/**
+ * GET /api/race-results — official post-publish record (FinalPosition, IsRaceDQ),
+ * unfiltered. Used together with getRaceStandings by RaceResultsModal.
+ */
+export async function getRaceResults() {
+  const res = await api.get('/api/race-results')
+  return Array.isArray(res.data) ? res.data : []
+}
+
 // ─── Review History (Audit Log) ────────────────────────────────────────────
 // GET /api/admin/review-history?entity=&entityId=
 // Records every time Admin Approves/Rejects a Horse|Entry|User (Reason, AdminName, CreatedAt).
