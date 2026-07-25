@@ -669,10 +669,16 @@ server: {
 - **File mồ côi:** `src/pages/referee/RefereeDashboard.jsx` không được import ở đâu.
 - **Mock data còn lại:** `customer/Dashboard.jsx`, `customer/LandingDashboard.jsx` (landing tĩnh); `EditHorseModal` upload ảnh còn TODO (BE chưa có endpoint upload).
 
+### 🔒 Scope dữ liệu cá nhân (BE đã siết 2026-07-26 — T-25)
+`GET /api/point-wallets`, `/api/wallet-transactions`, `/api/predictions` (list **và** `/{id}`) nay chỉ trả dữ liệu **của chính người gọi** (ADMIN vẫn thấy tất cả). Trước đây chúng trả toàn bộ bảng và FE tự lọc — tức mọi khán giả đọc được ví & lệnh cược của người khác.
+- `getMyWallet` / `getMyPredictions` / `getWalletTransactions` **giữ nguyên** — phần lọc client-side nay là no-op vô hại, cứ để lại làm lớp phòng thủ.
+- ⚠️ **Đừng viết trang nào dựa vào việc các endpoint này trả dữ liệu người khác.** Cần số liệu nhiều người → dùng endpoint tổng hợp.
+- `LeaderboardPage` đã chuyển sang **`GET /api/leaderboards/spectators`** (`getSpectatorBettingLeaderboard`) — trả sẵn `rank/fullName/totalBets/wonBets/winRate/totalStaked/totalWinnings`, không còn tự gom từ `/api/predictions` và không còn gọi `getAllUsers`.
+
 ### 🔗 Endpoint BE có sẵn nhưng FE chưa nối
 > Rà lại 2026-07-26. **Đã nối rồi** (bỏ khỏi danh sách này): `GET /api/jockeys/search` → `getJockeys` trong `api/horseOwner.js`; `POST /api/horses/{id}/resubmit` → `MyHorsesPage` + `HorseDetailPage`.
 - `GET`/`PUT /api/admin/points/{userId}` (xem ví + 20 giao dịch gần nhất / đặt thẳng số dư).
-- `GET /api/leaderboards/tournament/{tournamentId}` (chỉ `career` đang được dùng).
+- `GET /api/leaderboards/tournament/{tournamentId}` (chỉ `career` + `spectators` đang được dùng).
 - `POST /api/admin/points/daily-topup` (nạp bù ví < 10 điểm lên 10 — chỉ trigger thủ công).
 - `GET /api/admin/races/{id}/publication-review` — trả `pendingViolationCount` + `hasUnresolvedTie`. ⚠️ BE **không còn** chặn Publish khi còn vi phạm Pending, nên nếu muốn khóa nút Publish thì FE phải tự dùng cờ này.
 - *(`GET /api/horses/{id}/statistics` đã bị BE gỡ — bỏ khỏi danh sách này.)*

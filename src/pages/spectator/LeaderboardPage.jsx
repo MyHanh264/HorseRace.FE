@@ -1,7 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { BarChart2, Trophy, Medal, AlertCircle, Crown } from 'lucide-react'
-import { getAllUsers } from '../../api/spectator'
-import api from '../../services/api'
+import { getSpectatorBettingLeaderboard } from '../../api/spectator'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -84,12 +83,16 @@ function PodiumCard({ rank, entry, isMe }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function LeaderboardPage() {
-  const [allPredictions, setAllPredictions] = useState([])
-  const [users,          setUsers]          = useState([])
-  const [loading,        setLoading]        = useState(true)
-  const [error,          setError]          = useState('')
-  const [activeTab,      setActiveTab]      = useState('All Time')
+  const [leaderboard, setLeaderboard] = useState([])
+  const [loading,     setLoading]     = useState(true)
+  const [error,       setError]       = useState('')
+  const [activeTab,   setActiveTab]   = useState('All Time')
 
+  // GET /api/leaderboards/spectators — BE gom nhóm sẵn và CHỈ trả số liệu tổng hợp.
+  // Trước đây trang này tải cả `/api/predictions` + `/api/users` về rồi tự gom, tức mọi khán
+  // giả đọc được từng lệnh cược đang chờ của người khác; BE nay đã khóa hai endpoint đó lại.
+  // Kèm theo: tổng thắng nay tính đúng `bet × oddsLocked1` (response list cũ không có odds
+  // nên FE luôn nhân với 1 và báo thiếu tiền thắng).
   useEffect(() => {
     let active = true
 
@@ -97,15 +100,11 @@ export default function LeaderboardPage() {
       setLoading(true)
       setError('')
       try {
-        const [predsData, usersData] = await Promise.all([
-          api.get('/api/predictions').then(r => r.data),
-          getAllUsers(),
-        ])
+        const rows = await getSpectatorBettingLeaderboard()
         if (!active) return
-        setAllPredictions(Array.isArray(predsData) ? predsData : [])
-        setUsers(Array.isArray(usersData) ? usersData : [])
+        setLeaderboard(rows.map(r => ({ ...r, name: r.fullName })))
       } catch (err) {
-        if (active) setError(err?.message || 'Failed to load leaderboard')
+        if (active) setError(err?.response?.data?.detail || err?.message || 'Failed to load leaderboard')
       } finally {
         if (active) setLoading(false)
       }
@@ -114,40 +113,6 @@ export default function LeaderboardPage() {
     load()
     return () => { active = false }
   }, [])
-
-  const userMap = useMemo(
-    () => Object.fromEntries(users.map(u => [u.userId, u])),
-    [users],
-  )
-
-  // Aggregate predictions per spectator
-  const leaderboard = useMemo(() => {
-    const map = {}
-    for (const p of allPredictions) {
-      if (!map[p.spectatorId]) {
-        map[p.spectatorId] = { spectatorId: p.spectatorId, totalBets: 0, wonBets: 0, totalStaked: 0, totalWinnings: 0 }
-      }
-      const e = map[p.spectatorId]
-      // Cancelled predictions were voided/refunded — exclude them from both the bet
-      // count and the staked total so Win Rate reflects only decided bets.
-      if (p.status === 'Cancelled') continue
-      e.totalBets++
-      e.totalStaked += Number(p.betAmount)
-      if (p.status === 'Won') {
-        e.wonBets++
-        // Estimate winnings: betAmount × oddsLocked1 (simplified)
-        e.totalWinnings += Number(p.betAmount) * (Number(p.oddsLocked1) || 1)
-      }
-    }
-
-    return Object.values(map)
-      .map(e => ({
-        ...e,
-        name:    userMap[e.spectatorId]?.fullName ?? `User #${e.spectatorId}`,
-        winRate: e.totalBets > 0 ? Math.round((e.wonBets / e.totalBets) * 100) : 0,
-      }))
-      .sort((a, b) => b.totalWinnings - a.totalWinnings)
-  }, [allPredictions, userMap])
 
   const top3 = leaderboard.slice(0, 3)
 
