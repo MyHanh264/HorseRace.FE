@@ -894,7 +894,11 @@ export default function AdminUsersPage() {
       }
 
       const [allData, pendingData] = await Promise.allSettled([
-        getAllUser(),
+        // Fetch full list (pageSize=1000) for stats so counts are accurate.
+        // BE GET /api/users is paginated; the default pageSize=10 would otherwise
+        // cap stats at 10 users. Future: switch to BE-side aggregate counts
+        // (see AdminUsersPage plan — phương án B).
+        getAllUser({ page: 1, pageSize: 1000 }),
         getPendingUsers(),
       ]);
 
@@ -981,7 +985,9 @@ export default function AdminUsersPage() {
       // Read from ref (NOT state) so changing the cache doesn't recreate this callback.
       let all = allUsersCacheRef.current;
       if (all.length === 0) {
-        const data = await getAllUser();
+        // BE GET /api/users is paginated; pull the full list so client-side
+        // tab/search/pagination slices operate on the real dataset.
+        const data = await getAllUser({ page: 1, pageSize: 1000 });
         if (myId !== dataRequestIdRef.current) return;
         all = extractUsers(data);
         setAllUsersCache(all);
