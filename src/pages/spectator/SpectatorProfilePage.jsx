@@ -5,7 +5,12 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { getMyWallet, getMyPredictions } from '../../api/spectator'
-import api from '../../services/api'
+import {
+  getMyProfile,
+  updateMyProfile,
+  changeMyPassword,
+  profileErrorMessage,
+} from '../../api/profile'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -98,6 +103,7 @@ export default function SpectatorProfilePage() {
   const userId = user?.userId
 
   const [fullName,    setFullName]    = useState(user?.fullName ?? '')
+  const [phone,       setPhone]       = useState(null)
   const [wallet,      setWallet]      = useState(null)
   const [predictions, setPredictions] = useState([])
   const [loading,     setLoading]     = useState(true)
@@ -116,13 +122,20 @@ export default function SpectatorProfilePage() {
     async function load() {
       setLoading(true)
       try {
-        const [w, p] = await Promise.all([
+        // Nạp cả hồ sơ: PUT /api/auth/profile ghi đè CẢ PhoneNumber, nên phải biết
+        // số hiện tại trước — không thì lưu tên xong là mất SĐT.
+        const [w, p, me] = await Promise.all([
           getMyWallet(userId),
           getMyPredictions(userId),
+          getMyProfile().catch(() => null),
         ])
         if (!active) return
         setWallet(w)
         setPredictions(Array.isArray(p) ? p : [])
+        if (me) {
+          setPhone(me.phoneNumber ?? null)
+          setFullName((prev) => prev || (me.fullName ?? ''))
+        }
       } catch (err) {
         console.error('Profile load failed:', err)
       } finally {
@@ -145,15 +158,20 @@ export default function SpectatorProfilePage() {
 
   // ── Save profile ──
   const handleSave = async () => {
-    if (!userId || !fullName.trim()) return
+    if (!fullName.trim()) return
     setSaving(true)
     setSaveError('')
     try {
-      await api.put(`/api/users/${userId}`, { userId, fullName: fullName.trim() })
+      // Self-service: PUT /api/auth/profile (UserId resolve từ JWT).
+      // KHÔNG dùng PUT /api/users/{id} — endpoint đó [Authorize(Roles="ADMIN")] nên
+      // spectator luôn nhận 403, và nó là full-replace (thiếu Email/RoleId → 400).
+      const updated = await updateMyProfile({ fullName: fullName.trim(), phoneNumber: phone })
+      setFullName(updated?.fullName ?? fullName.trim())
+      setPhone(updated?.phoneNumber ?? null)
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     } catch (err) {
-      setSaveError(err?.response?.data?.message || err?.message || 'Failed to save')
+      setSaveError(profileErrorMessage(err, 'Failed to save'))
     } finally {
       setSaving(false)
     }
@@ -165,12 +183,13 @@ export default function SpectatorProfilePage() {
     setUpdatingPw(true)
     setPwMsg('')
     try {
-      await api.put(`/api/users/${userId}/change-password`, { currentPassword: currentPw, newPassword: newPw })
+      // BE lấy UserId từ JWT; route id chỉ cần khớp ràng buộc {userId:int}.
+      await changeMyPassword(userId, { currentPassword: currentPw, newPassword: newPw })
       setPwMsg('Password changed successfully!')
       setCurrentPw('')
       setNewPw('')
     } catch (err) {
-      setPwMsg(err?.response?.data?.message || 'Failed to change password.')
+      setPwMsg(profileErrorMessage(err, 'Failed to change password.'))
     } finally {
       setUpdatingPw(false)
     }

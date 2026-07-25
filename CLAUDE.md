@@ -580,7 +580,7 @@ import { useAuth } from '@/context/AuthContext'
 
 ## 10. Chạy & Build
 
-> ⛔ **Không viết test tự động cho FE** (không Vitest/Jest/RTL/Playwright). Nhóm test thủ công theo [`.claude/TEST_PLAN_2026-07-22.md`](../.claude/TEST_PLAN_2026-07-22.md). Kiểm chứng bằng `npm run build` + mô tả cách test tay (vào trang nào, bấm gì, kỳ vọng gì). Đừng đề xuất bổ sung test như một việc cần làm.
+> ⛔ **Không viết test tự động cho FE** (không Vitest/Jest/RTL/Playwright). Nhóm test thủ công theo [`.claude/TEST_PLAN_2026-07-26.md`](../.claude/TEST_PLAN_2026-07-26.md). Kiểm chứng bằng `npm run build` + mô tả cách test tay (vào trang nào, bấm gì, kỳ vọng gì). Đừng đề xuất bổ sung test như một việc cần làm.
 
 ### Development
 ```bash
@@ -670,8 +670,9 @@ server: {
 - **Mock data còn lại:** `customer/Dashboard.jsx`, `customer/LandingDashboard.jsx` (landing tĩnh); `EditHorseModal` upload ảnh còn TODO (BE chưa có endpoint upload).
 
 ### 🔗 Endpoint BE có sẵn nhưng FE chưa nối
-- `GET /api/jockeys/search` (tìm nài) + `GET`/`PUT /api/admin/points/{userId}` (xem/đặt số dư ví).
-- `POST /api/horses/{id}/resubmit` (ngựa `Rejected` → `Pending`).
+> Rà lại 2026-07-26. **Đã nối rồi** (bỏ khỏi danh sách này): `GET /api/jockeys/search` → `getJockeys` trong `api/horseOwner.js`; `POST /api/horses/{id}/resubmit` → `MyHorsesPage` + `HorseDetailPage`.
+- `GET`/`PUT /api/admin/points/{userId}` (xem ví + 20 giao dịch gần nhất / đặt thẳng số dư).
+- `GET /api/leaderboards/tournament/{tournamentId}` (chỉ `career` đang được dùng).
 - `POST /api/admin/points/daily-topup` (nạp bù ví < 10 điểm lên 10 — chỉ trigger thủ công).
 - `GET /api/admin/races/{id}/publication-review` — trả `pendingViolationCount` + `hasUnresolvedTie`. ⚠️ BE **không còn** chặn Publish khi còn vi phạm Pending, nên nếu muốn khóa nút Publish thì FE phải tự dùng cờ này.
 - *(`GET /api/horses/{id}/statistics` đã bị BE gỡ — bỏ khỏi danh sách này.)*

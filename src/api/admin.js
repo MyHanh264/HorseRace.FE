@@ -374,19 +374,15 @@ export async function rejectViolation(violationId, reason) {
 
 // ─── Point Management ────────────────────────────────────────────────────────
 
-export async function getJockeyLeaderboard({ page = 1, pageSize = 20, sort = "totalPoints", sortDirection = "desc" } = {}) {
-  const params = { page, pageSize, sort, sortDirection }
-  const res = await api.get('/api/admin/leaderboard', { params })
-  return res.data
-}
-
-export async function getPointAdjustmentHistory({ page = 1, pageSize = 20, targetType = "", targetId = "" } = {}) {
-  const params = { page, pageSize }
-  if (targetType) params.targetType = targetType
-  if (targetId) params.targetId = targetId
-  const res = await api.get('/api/admin/points/history', { params })
-  return res.data
-}
+// NOTE: `getJockeyLeaderboard` (GET /api/admin/leaderboard) và
+// `getPointAdjustmentHistory` (GET /api/admin/points/history) đã bị gỡ — **hai route đó
+// KHÔNG tồn tại trên BE**, gọi vào là 404 (AdminController chỉ có points/balances,
+// points/transactions, points/adjust, points/{userId}, points/*-topup). Không page nào
+// dùng chúng nên chưa ai thấy lỗi. Dùng endpoint thật thay thế:
+//   - bảng xếp hạng  → `getCareerLeaderboard(role)` trong `api/jockey.js`
+//                      (GET /api/leaderboards/career?role=JOCKEY)
+//   - lịch sử điểm   → GET /api/admin/points/transactions
+//                      (AdminPointManagementPage đang gọi thẳng, có search/type/paging)
 
 // NOTE: `getAllHorses` / `getHorseDetail` were duplicates of public horse APIs
 // in `api/horseOwner.js` / `api/spectator.js` and had no consumer inside
