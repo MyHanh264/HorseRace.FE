@@ -388,6 +388,18 @@ a, button { -webkit-tap-highlight-color: transparent; }
   border: 1px solid rgba(255, 71, 87, 0.3);
 }
 
+.gs-badge-info {
+  background: rgba(96, 165, 250, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(96, 165, 250, 0.3);
+}
+
+.gs-badge-warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
 .gs-badge-neutral {
   background: var(--color-surface-container-high);
   color: var(--color-on-surface-variant);

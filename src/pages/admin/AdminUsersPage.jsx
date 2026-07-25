@@ -54,6 +54,8 @@ function getRoleBadgeClass(role) {
       return "gs-badge gs-badge-secondary";
     case "JOCKEY":
       return "gs-badge gs-badge-primary";
+    case "REFEREE":
+      return "gs-badge gs-badge-info";
     case "ADMIN":
       return "gs-badge gs-badge-warning";
     case "SPECTATOR":
@@ -69,6 +71,8 @@ function getRoleLabel(role) {
       return "Horse Owner";
     case "JOCKEY":
       return "Jockey";
+    case "REFEREE":
+      return "Referee";
     case "ADMIN":
       return "Admin";
     case "SPECTATOR":
@@ -135,7 +139,9 @@ function StatCard({ icon: Icon, iconCls, label, value, sub }) {
   );
 }
 
-// ─── Role Options (for Create/Edit modal) ────────────────────────────────────
+// ─── Role Options (for Create modal) ─────────────────────────────────────────
+// Aligned with RoleConfiguration.cs seed: HORSE_OWNER(1), JOCKEY(2), REFEREE(3),
+// SPECTATOR(4), ADMIN(5). REFEREE is admin-only creation (no public registration).
 const ROLE_OPTIONS = [
   {
     code: "SPECTATOR",
@@ -156,6 +162,12 @@ const ROLE_OPTIONS = [
     icon: "⚑",
   },
   {
+    code: "REFEREE",
+    title: "Referee",
+    description: "Officiate races and submit leg results.",
+    icon: "◈",
+  },
+  {
     code: "ADMIN",
     title: "Admin",
     description: "Full system access and management capabilities.",
@@ -163,7 +175,10 @@ const ROLE_OPTIONS = [
   },
 ];
 
-// ─── User Modal (Create/Edit) - Similar to Registration Page ─────────────────
+// ─── User Modal (Create) ─────────────────────────────────────────────────────
+// Mirrors `CreateUserCommand` (UsersController.cs).
+// BE required: Email, Password (create-only), FullName, RoleId.
+// Everything else is optional — admin can fill later via Edit flow.
 function UserModal({ user, onClose, onSubmit, submitting, error }) {
   const isEdit = !!user;
   const [showPassword, setShowPassword] = useState(false);
@@ -175,7 +190,7 @@ function UserModal({ user, onClose, onSubmit, submitting, error }) {
     roleCode: user?.roleCode || user?.role || "SPECTATOR",
     phoneNumber: user?.phoneNumber || "",
     licenseNumber: user?.licenseNumber || "",
-    weight: user?.weight || "",
+    weight: user?.weight ?? "",
     bio: user?.bio || "",
   });
 
@@ -190,10 +205,7 @@ function UserModal({ user, onClose, onSubmit, submitting, error }) {
       if (form.password !== form.confirmPassword)
         return "Passwords do not match.";
     }
-    if (!form.phoneNumber?.trim()) return "Phone number is required.";
-    if (isJockey) {
-      if (!form.licenseNumber?.trim())
-        return "License number is required for jockeys.";
+    if (isJockey && form.weight !== "" && form.weight !== null) {
       const w = parseFloat(form.weight);
       if (Number.isNaN(w) || w <= 0)
         return "Weight must be a valid positive number.";
@@ -209,21 +221,29 @@ function UserModal({ user, onClose, onSubmit, submitting, error }) {
       return;
     }
 
+    // Payload matches CreateUserCommand (PascalCase). RoleId is resolved in
+    // admin.js `createUser` from roleMap[roleCode].
     const payload = {
-      fullName: form.fullName.trim(),
-      email: form.email.trim(),
-      phoneNumber: form.phoneNumber.trim(),
-      roleCode: form.roleCode,
+      FullName: form.fullName.trim(),
+      Email: form.email.trim(),
+      PhoneNumber: form.phoneNumber?.trim() || null,
+      RoleCode: form.roleCode,
+      AvatarUrl: null,
+      LicenseNumber: null,
+      Weight: null,
+      Bio: null,
     };
 
     if (!isEdit) {
-      payload.password = form.password;
+      payload.Password = form.password;
     }
 
     if (isJockey) {
-      payload.licenseNumber = form.licenseNumber.trim();
-      payload.weight = parseFloat(form.weight);
-      if (form.bio?.trim()) payload.bio = form.bio.trim();
+      if (form.licenseNumber?.trim())
+        payload.LicenseNumber = form.licenseNumber.trim();
+      if (form.weight !== "" && form.weight !== null)
+        payload.Weight = parseFloat(form.weight);
+      if (form.bio?.trim()) payload.Bio = form.bio.trim();
     }
 
     onSubmit({ data: { ...payload, userId: user?.userId } });
@@ -270,7 +290,10 @@ function UserModal({ user, onClose, onSubmit, submitting, error }) {
               <legend className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-3">
                 Select Role
               </legend>
-              <div className="register-role-grid">
+              <div
+                className="register-role-grid"
+                style={{ gridTemplateColumns: "repeat(5, minmax(0, 1fr))" }}
+              >
                 {ROLE_OPTIONS.map((role) => (
                   <label
                     key={role.code}
@@ -325,14 +348,13 @@ function UserModal({ user, onClose, onSubmit, submitting, error }) {
             </label>
 
             <label className="register-field">
-              <span>Phone Number</span>
+              <span>Phone Number <span className="text-on-surface-variant/60">(optional)</span></span>
               <input
                 type="tel"
                 name="phoneNumber"
                 placeholder="0900000000"
                 value={form.phoneNumber}
                 onChange={(e) => setField("phoneNumber", e.target.value)}
-                required
                 className={inputCls}
               />
             </label>
@@ -380,11 +402,11 @@ function UserModal({ user, onClose, onSubmit, submitting, error }) {
             )}
           </div>
 
-          {/* Jockey fields */}
+          {/* Jockey fields (optional — BE accepts null for non-jockey profiles) */}
           {isJockey && (
             <fieldset className="mt-4">
               <legend className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-3">
-                Jockey Profile
+                Jockey Profile <span className="text-on-surface-variant/60 normal-case font-normal">(optional)</span>
               </legend>
               <div className="register-grid">
                 <label className="register-field">
@@ -395,7 +417,6 @@ function UserModal({ user, onClose, onSubmit, submitting, error }) {
                     placeholder="e.g. JKY-2024-001"
                     value={form.licenseNumber}
                     onChange={(e) => setField("licenseNumber", e.target.value)}
-                    required={isJockey}
                     className={inputCls}
                   />
                 </label>
@@ -410,7 +431,6 @@ function UserModal({ user, onClose, onSubmit, submitting, error }) {
                     placeholder="53"
                     value={form.weight}
                     onChange={(e) => setField("weight", e.target.value)}
-                    required={isJockey}
                     className={inputCls}
                   />
                 </label>
