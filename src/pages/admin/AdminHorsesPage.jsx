@@ -27,6 +27,17 @@ import {
   getHorseBadgeClass,
 } from "../../utils/horse";
 
+// axios' own err.message is always the generic "Request failed with status code
+// NNN" — the real reason BE rejected the request lives in the ProblemDetails body.
+function getErrorDetail(err, fallback) {
+  return (
+    err?.response?.data?.detail ??
+    err?.response?.data?.title ??
+    (err instanceof Error ? err.message : fallback) ??
+    fallback
+  );
+}
+
 function formatDate(value) {
   if (!value) return "—";
   return new Date(value).toLocaleString("en-GB", {
@@ -248,11 +259,7 @@ export default function AdminHorsesPage() {
 
       setHorses(merged);
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to load horse list",
-      );
+      setError(getErrorDetail(err, "Failed to load horse list"));
     } finally {
       setLoading(false);
     }
@@ -274,7 +281,7 @@ export default function AdminHorsesPage() {
       await loadHorses();
       showSuccess("Horse approved successfully.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to approve horse");
+      setError(getErrorDetail(err, "Failed to approve horse"));
     } finally {
       setActionId(null);
     }
@@ -290,7 +297,7 @@ export default function AdminHorsesPage() {
       await loadHorses();
       showSuccess("Horse restored to Approved status.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to restore horse");
+      setError(getErrorDetail(err, "Failed to restore horse"));
     } finally {
       setActionId(null);
     }
@@ -312,7 +319,7 @@ export default function AdminHorsesPage() {
       await loadHorses();
       showSuccess("Horse rejected.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to reject horse");
+      setError(getErrorDetail(err, "Failed to reject horse"));
     } finally {
       setActionId(null);
     }
@@ -334,7 +341,7 @@ export default function AdminHorsesPage() {
         showSuccess("Horse revoked.");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to revoke horse");
+      setError(getErrorDetail(err, "Failed to revoke horse"));
     } finally {
       setActionId(null);
     }

@@ -40,8 +40,13 @@ function fmtRaceId(id) {
 }
 
 function fmtDateTime(dt) {
-  if (!dt) return '—'
+  // Always return the {date, time} shape callers expect — returning a bare '—' string
+  // here let `dt.time`/`dt.date` silently resolve to undefined (a string has no such
+  // properties) instead of visibly showing a placeholder, which is how a race with a
+  // missing scheduledStartTime rendered as a blank date/time instead of an obvious "—".
+  if (!dt) return { date: '—', time: '—' }
   const d = new Date(dt)
+  if (Number.isNaN(d.getTime())) return { date: '—', time: '—' }
   return {
     date: d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
     time: d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
@@ -101,7 +106,7 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
     if (form.referee1Id && form.referee2Id && form.referee1Id === form.referee2Id) {
       return
     }
-    if (dateOutOfRange || endBeforeStart || tournamentOverlap || refereeConflict) {
+    if (dateOutOfRange || endBeforeStart || startInPast || tournamentOverlap || refereeConflict) {
       return
     }
     onSubmit({
@@ -141,6 +146,13 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
   const endBeforeStart = !!(
     form.scheduledStartTime && form.scheduledEndTime &&
     new Date(form.scheduledEndTime) <= new Date(form.scheduledStartTime)
+  )
+
+  // Only meaningful for Create — editing a race that's already Scheduled but whose
+  // original slot has since slipped into the past shouldn't be force-blocked from
+  // otherwise-valid edits (e.g. just fixing the referee).
+  const startInPast = !isEdit && !!(
+    form.scheduledStartTime && new Date(form.scheduledStartTime) < new Date()
   )
 
   // Same tournament, overlapping time slot — BE hard-blocks this, so pre-check for immediate feedback.
@@ -259,7 +271,7 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
             <input
               required
               type="date"
-              value={form.scheduledStartTime?.split('T')[0] ?? form.scheduledEndTime?.split('T')[0] ?? ''}
+              value={(form.scheduledStartTime?.split('T')[0] || form.scheduledEndTime?.split('T')[0]) || ''}
               min={minDate}
               max={maxDate}
               onChange={e => {
@@ -296,7 +308,11 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
                 type="time"
                 value={form.scheduledStartTime?.split('T')[1]?.slice(0, 5) ?? ''}
                 onChange={e => {
-                  const date = form.scheduledStartTime?.split('T')[0] ?? form.scheduledEndTime?.split('T')[0] ?? '';
+                  // "" (date not picked yet) is not nullish, so `??` alone won't fall
+                  // through to the other field/today — use `||` first to treat it the
+                  // same as missing. Without this the saved value ends up "T10:00"
+                  // (no date at all) whenever Start/End Time is touched before Date.
+                  const date = (form.scheduledStartTime?.split('T')[0] || form.scheduledEndTime?.split('T')[0]) || todayStr;
                   setForm(f => ({ ...f, scheduledStartTime: `${date}T${e.target.value}` }));
                 }}
                 className={inputCls}
@@ -311,7 +327,7 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
                 type="time"
                 value={form.scheduledEndTime?.split('T')[1]?.slice(0, 5) ?? ''}
                 onChange={e => {
-                  const date = form.scheduledEndTime?.split('T')[0] ?? form.scheduledStartTime?.split('T')[0] ?? '';
+                  const date = (form.scheduledEndTime?.split('T')[0] || form.scheduledStartTime?.split('T')[0]) || todayStr;
                   setForm(f => ({ ...f, scheduledEndTime: `${date}T${e.target.value}` }));
                 }}
                 className={inputCls}
@@ -320,6 +336,9 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
           </div>
           {endBeforeStart && (
             <p className="text-xs text-error -mt-2">End time must be after start time.</p>
+          )}
+          {startInPast && !endBeforeStart && (
+            <p className="text-xs text-error -mt-2">Start time is already in the past — pick a time later than now.</p>
           )}
 
           {/* Legs + Max Horses */}
@@ -381,7 +400,7 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
 
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="gs-btn gs-btn-ghost">Cancel</button>
-            <button type="submit" disabled={submitting || refereeMismatch || dateOutOfRange || endBeforeStart || !!tournamentOverlap || !!refereeConflict}
+            <button type="submit" disabled={submitting || refereeMismatch || dateOutOfRange || endBeforeStart || startInPast || !!tournamentOverlap || !!refereeConflict}
               className="gs-btn gs-btn-primary flex items-center gap-2">
               {submitting && <div className="w-3 h-3 border-2 border-on-primary/30 border-t-on-primary rounded-full animate-spin" />}
               {isEdit ? 'Save Changes' : 'Create Race'}
@@ -633,9 +652,14 @@ export default function AdminRacesPage() {
       const raceList = Array.isArray(racesBasic) ? racesBasic : []
       setRaceRegMap(buildRegMap(raceList))
 
+      // getRaces() (the list) is missing scheduledStartTime for a freshly created race
+      // for reasons not yet understood, so this still fetches per-race detail — but uses
+      // allSettled instead of all: one race's detail request failing (transient 500 on a
+      // free-tier host, 20+ requests firing at once) no longer rejects the whole batch and
+      // blanks the entire page. That race is just skipped instead.
       if (raceList.length > 0) {
-        const details = await Promise.all(raceList.map(r => getRaceDetail(r.raceId)))
-        setRaceDetails(details.filter(Boolean))
+        const results = await Promise.allSettled(raceList.map(r => getRaceDetail(r.raceId)))
+        setRaceDetails(results.filter(r => r.status === 'fulfilled').map(r => r.value).filter(Boolean))
       } else {
         setRaceDetails([])
       }
@@ -663,9 +687,12 @@ export default function AdminRacesPage() {
         setPendingViolations(Array.isArray(violationsData?.items) ? violationsData.items : [])
         const raceList = Array.isArray(racesBasic) ? racesBasic : []
         setRaceRegMap(buildRegMap(raceList))
+        // Same reasoning as loadAll() above — allSettled so one bad race doesn't blank the page.
         if (raceList.length > 0) {
-          return Promise.all(raceList.map(r => getRaceDetail(r.raceId)))
-            .then(details => setRaceDetails(details.filter(Boolean)))
+          return Promise.allSettled(raceList.map(r => getRaceDetail(r.raceId)))
+            .then(results => setRaceDetails(
+              results.filter(r => r.status === 'fulfilled').map(r => r.value).filter(Boolean)
+            ))
         }
         setRaceDetails([])
       })
@@ -1022,7 +1049,7 @@ export default function AdminRacesPage() {
                         </td>
 
                         {/* Date/Time */}
-                        <td>
+                        <td className="min-w-[130px] whitespace-nowrap">
                           <div className="text-sm text-on-surface">{dt.date}</div>
                           <div className="text-xs text-on-surface-variant">
                             {dt.time}{race.scheduledEndTime ? ` – ${fmtDateTime(race.scheduledEndTime).time}` : ''}
