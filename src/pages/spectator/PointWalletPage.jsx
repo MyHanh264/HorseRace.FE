@@ -40,8 +40,13 @@ function fmtDate(dt) {
 function fmtTxDesc(tx) {
   if (tx.reason) return tx.reason
   switch (tx.type) {
-    case 'BetPlaced':   return `Prediction #${tx.predictionId ?? '—'}`
-    case 'Payout':      return `Winning payout — Prediction #${tx.predictionId ?? '—'}`
+    case 'BetPlaced':
+      return tx.predictionId ? `Prediction #${tx.predictionId}` : 'Bet placed on a prediction'
+    case 'Payout':
+      return tx.predictionId ? `Winning payout — Prediction #${tx.predictionId}` : 'Winning payout'
+    case 'BetRefunded':
+    case 'BetRefund':
+      return tx.predictionId ? `Refund — Prediction #${tx.predictionId}` : 'Bet refunded'
     case 'WeeklyTopUp': return 'Standard Weekly Allowance'
     case 'TopUp':       return 'Manual Top-Up'
     default:            return tx.type

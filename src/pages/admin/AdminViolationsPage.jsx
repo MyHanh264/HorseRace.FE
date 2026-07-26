@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import {
   Search,
   RefreshCw,
@@ -24,6 +24,7 @@ import {
   rejectViolation,
   updateViolation,
   getRaces,
+  getAllUser,
 } from "../../api/admin";
 
 // ─── Domain-aligned enums (Flow 6 — Violation Handling) ──────────────────────
@@ -98,9 +99,11 @@ function formatDate(v) {
   });
 }
 
-function ViolationDetailModal({ item, onClose }) {
+function ViolationDetailModal({ item, refereeNames, raceTournamentMap, onClose }) {
   if (!item) return null;
   const penalty = PENALTY_CONFIG[item.penalty] || null;
+  const { jockeyName, horseName } = parseViolator(item.violatorName);
+  const tournamentName = raceTournamentMap?.[item.raceId];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={onClose}>
@@ -144,7 +147,10 @@ function ViolationDetailModal({ item, onClose }) {
           <div className="bg-surface-container-lowest rounded-xl p-4 border border-white/5">
             <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-1">Race</p>
             <p className="text-sm font-semibold text-on-surface">{item.raceName || "—"}</p>
-            <p className="text-xs text-on-surface-variant mt-0.5">{formatDate(item.raceDate)}</p>
+            {tournamentName && <p className="text-xs text-on-surface-variant mt-0.5">{tournamentName}</p>}
+            <p className="text-xs text-on-surface-variant mt-0.5">
+              Leg {item.legNumber} · Reported {formatDate(item.createdAt)}
+            </p>
           </div>
 
           {/* Violator */}
@@ -152,13 +158,21 @@ function ViolationDetailModal({ item, onClose }) {
             <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-2">Violator</p>
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-surface-container-highest border border-outline-variant/50 flex items-center justify-center text-sm font-bold text-on-surface-variant">
-                {(item.violatorName || "U").charAt(0).toUpperCase()}
+                {(horseName || "U").charAt(0).toUpperCase()}
               </div>
               <div>
-                <p className="text-sm font-semibold text-on-surface">{item.violatorName || "—"}</p>
-                <p className="text-xs text-on-surface-variant">{item.violatorRole || ""}</p>
+                <p className="text-sm font-semibold text-on-surface">{horseName || "—"}</p>
+                <p className="text-xs text-on-surface-variant">{jockeyName}</p>
               </div>
             </div>
+          </div>
+
+          {/* Reported By */}
+          <div className="bg-surface-container-lowest rounded-xl p-4 border border-white/5">
+            <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-1">Reported By</p>
+            <p className="text-sm font-semibold text-on-surface">
+              {refereeNames?.[item.reportedByRefereeId] || `Referee #${item.reportedByRefereeId}`}
+            </p>
           </div>
 
           {/* Type + Description */}
@@ -208,6 +222,15 @@ function ViolationDetailModal({ item, onClose }) {
   );
 }
 
+// BE sends ViolatorName pre-formatted as "Jockey (Horse)" (GetAdminViolations.cs:142) —
+// split it back apart so the table/modal can label each clearly instead of one run-on
+// string that just gets truncated illegibly in a narrow column.
+function parseViolator(violatorName) {
+  const match = /^(.*?)\s*\((.+)\)\s*$/.exec(violatorName || "");
+  if (!match) return { jockeyName: violatorName || "—", horseName: "" };
+  return { jockeyName: match[1] || "—", horseName: match[2] || "" };
+}
+
 function getPageNumbers(current, total) {
   const pages = [];
   for (let i = 1; i <= total; i++) {
@@ -219,12 +242,19 @@ function getPageNumbers(current, total) {
 
 // ─── Approve Modal: select Penalty (REQUIRED) + AdminNote (optional) ─────────
 
-function ApproveViolationModal({ item, onClose, onApproved }) {
+function ApproveViolationModal({ item, siblings = [], onClose, onApproved }) {
   const [penalty,  setPenalty]  = useState("");
   const [adminNote,setAdminNote]= useState("");
   const [saving,   setSaving]   = useState(false);
   const [err,      setErr]      = useState("");
   const [confirmDQ,setConfirmDQ]= useState(false);
+
+  // Other reports targeting the SAME entry in the SAME leg — could be the same real-world
+  // incident described twice, or 2 genuinely separate violations. The system can't tell which,
+  // so it never auto-merges or blocks — it just makes sure Admin sees this before stacking a
+  // second penalty on top of one that already moved this entry's ranking.
+  const alreadyPenalized = siblings.filter(s => s.status === "Resolved" && s.penalty !== "Warning" && s.penalty !== "None");
+  const otherPending = siblings.filter(s => s.status === "Pending");
 
   const canSubmit = Boolean(penalty);
 
@@ -275,6 +305,28 @@ function ApproveViolationModal({ item, onClose, onApproved }) {
         </div>
 
         <div className="overflow-y-auto p-6 space-y-4 flex-1">
+          {alreadyPenalized.length > 0 && (
+            <div className="rounded-xl p-4 border border-red-500/30 bg-red-500/10 flex items-start gap-3">
+              <AlertOctagon className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-red-300">This entry was already penalized in this leg</p>
+                <p className="text-xs text-red-200/80 mt-1">
+                  {alreadyPenalized.map(s => `#${s.violationId} (${VIOLATION_TYPES[s.violationType] || s.violationType}) — ${s.penalty} applied`).join("; ")}.
+                  Approving this report will stack an <strong>additional</strong> penalty on top — only continue if this is genuinely a separate incident, not the same one reported twice.
+                </p>
+              </div>
+            </div>
+          )}
+          {otherPending.length > 0 && (
+            <div className="rounded-xl p-3 border border-amber-500/25 bg-amber-500/5 flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-200/80">
+                {otherPending.length} other report{otherPending.length > 1 ? "s" : ""} still pending for this same entry/leg
+                ({otherPending.map(s => `#${s.violationId}`).join(", ")}) — worth reviewing together before deciding.
+              </p>
+            </div>
+          )}
+
           <p className="text-xs text-on-surface-variant uppercase tracking-wider">Select Penalty <span className="text-red-400">*</span></p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {Object.entries(PENALTY_CONFIG).map(([key, cfg]) => {
@@ -650,6 +702,15 @@ export default function AdminViolationsPage() {
   // frozen; approving/rejecting/editing a violation after that would silently diverge
   // from what's shown to other roles, so those actions are disabled for those rows.
   const [raceStatusMap, setRaceStatusMap] = useState({});
+  const [raceTournamentMap, setRaceTournamentMap] = useState({});
+  // refereeUserId → full name — BE only returns ReportedByRefereeId (a bare int) on
+  // AdminViolationItem, no joined name, so resolve it client-side the same way other
+  // Admin pages already do for id→name lookups.
+  const [refereeNames, setRefereeNames] = useState({});
+  // Full unfiltered/unpaginated violation list, used only to detect "another report already
+  // targets this same (race, leg, entry)" when Approving — `items` above is paginated/filtered
+  // by the active tab, so it can't reliably answer that on its own.
+  const [allViolationsFlat, setAllViolationsFlat] = useState([]);
 
   // Action targets (single-item modal at a time).
   const [approveTarget, setApproveTarget] = useState(null);
@@ -694,11 +755,40 @@ export default function AdminViolationsPage() {
     getRaces()
       .then(races => {
         const map = {};
-        (Array.isArray(races) ? races : []).forEach(r => { map[r.raceId] = r.status; });
+        const tMap = {};
+        (Array.isArray(races) ? races : []).forEach(r => {
+          map[r.raceId] = r.status;
+          tMap[r.raceId] = r.tournamentName;
+        });
         setRaceStatusMap(map);
+        setRaceTournamentMap(tMap);
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    getAllUser({ page: 1, pageSize: 1000 })
+      .then(data => {
+        const list = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
+        const map = {};
+        list.forEach(u => { map[u.userId] = u.fullName; });
+        setRefereeNames(map);
+      })
+      .catch(() => {});
+  }, []);
+
+  const fetchAllViolationsFlat = useCallback(() => {
+    getAllViolations({ page: 1, pageSize: 500 })
+      .then(data => {
+        const list = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
+        setAllViolationsFlat(list);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetchAllViolationsFlat();
+  }, [fetchAllViolationsFlat]);
 
   const handleActionDone = (msg) => {
     setApproveTarget(null);
@@ -706,6 +796,7 @@ export default function AdminViolationsPage() {
     setEditTarget(null);
     setSuccessMsg(msg);
     fetchData();
+    fetchAllViolationsFlat();
     // Auto-clear toast after 3.5s.
     setTimeout(() => setSuccessMsg(""), 3500);
   };
@@ -917,21 +1008,17 @@ export default function AdminViolationsPage() {
       ) : (
         <>
           <div className="admin-table-wrap overflow-x-auto">
-            <table className="admin-table table-fixed w-full">
-              <colgroup>
-                <col className="w-[70px]" />
-                <col className="w-[18%]" />
-                <col className="w-[20%]" />
-                <col className="w-[16%]" />
-                <col className="w-[13%]" />
-                <col className="w-[13%]" />
-                <col className="w-[20%]" />
-              </colgroup>
+            {/* Auto layout (no table-fixed/colgroup) + whitespace-nowrap on every text cell —
+                columns size to their content and text stays on one line instead of wrapping
+                into a cramped multi-line mess. min-w gives enough room for that; overflow-x-auto
+                above handles horizontal scroll on narrower screens instead of wrapping/clipping. */}
+            <table className="admin-table w-full min-w-[1500px]">
               <thead>
                 <tr>
                   <th>ID</th>
                   <th>Race</th>
                   <th>Violator</th>
+                  <th>Reported By</th>
                   <th>Violation Type</th>
                   <th>Penalty</th>
                   <th>Status</th>
@@ -946,41 +1033,77 @@ export default function AdminViolationsPage() {
                   const isResolved  = v.status === "Resolved";
                   const isDismissed = v.status === "Dismissed";
                   const isRaceFinished = raceStatusMap[v.raceId] === "Finished";
+                  // Other reports for the same entry+leg — surfaced here so Admin notices
+                  // before even opening Approve, not just at the point of approving.
+                  const siblingCount = allViolationsFlat.filter(o =>
+                    o.violationId !== v.violationId &&
+                    o.raceId === v.raceId &&
+                    o.legNumber === v.legNumber &&
+                    o.entryId === v.entryId
+                  ).length;
+                  const { jockeyName, horseName } = parseViolator(v.violatorName);
+                  const tournamentName = raceTournamentMap[v.raceId];
                   return (
                     <tr key={v.violationId}>
-                      <td className="text-on-surface-variant font-mono text-xs whitespace-nowrap">#{v.violationId}</td>
-                      <td className="overflow-hidden">
-                        <p className="text-sm font-medium text-on-surface truncate" title={v.raceName || ""}>
-                          {v.raceName || "—"}
-                        </p>
+                      <td className="text-on-surface-variant font-mono text-xs whitespace-nowrap align-top py-3">#{v.violationId}</td>
+                      <td className="align-top py-3 pr-3 whitespace-nowrap">
+                        {v.raceName ? (
+                          <Link
+                            to={`/admin/race-execution?raceId=${v.raceId}`}
+                            className="text-sm font-medium text-primary hover:underline block leading-snug"
+                            title={`Open ${v.raceName} in Race Monitor`}
+                          >
+                            {v.raceName}
+                          </Link>
+                        ) : (
+                          <p className="text-sm font-medium text-on-surface">—</p>
+                        )}
+                        {tournamentName && (
+                          <p className="text-xs text-on-surface-variant mt-0.5 leading-snug">{tournamentName}</p>
+                        )}
                       </td>
-                      <td className="overflow-hidden">
-                        <div className="flex items-center gap-2 min-w-0">
+                      <td className="align-top py-3 pr-3 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
                           <div className="w-7 h-7 rounded-full bg-surface-container-highest border border-outline-variant/50 flex items-center justify-center text-xs font-bold text-on-surface-variant shrink-0">
-                            {(v.violatorName || "U").charAt(0).toUpperCase()}
+                            {(horseName || "U").charAt(0).toUpperCase()}
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm text-on-surface truncate" title={v.violatorName || ""}>{v.violatorName || "—"}</p>
-                            <p className="text-xs text-on-surface-variant truncate">{v.violatorRole || ""}</p>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-semibold text-on-surface leading-snug">{horseName || "—"}</p>
+                              {siblingCount > 0 && (
+                                <span
+                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 text-[10px] font-semibold border border-amber-500/30 shrink-0"
+                                  title={`${siblingCount} other report(s) for this same entry in Leg ${v.legNumber}`}
+                                >
+                                  <AlertTriangle className="w-2.5 h-2.5" /> {siblingCount}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-on-surface-variant leading-snug">{jockeyName}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="overflow-hidden">
-                        <span className="text-sm text-on-surface truncate block" title={VIOLATION_TYPES[v.violationType] || v.violationType || ""}>
+                      <td className="align-top py-3 pr-3 whitespace-nowrap">
+                        <span className="text-sm text-on-surface leading-snug">
+                          {refereeNames[v.reportedByRefereeId] || `Referee #${v.reportedByRefereeId}`}
+                        </span>
+                      </td>
+                      <td className="align-top py-3 pr-3 whitespace-nowrap">
+                        <span className="text-sm text-on-surface leading-snug">
                           {VIOLATION_TYPES[v.violationType] || v.violationType || "—"}
                         </span>
                       </td>
-                      <td className="overflow-hidden">
+                      <td className="align-top py-3 pr-3">
                         {penaltyMeta && v.penalty !== "None" ? (
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border whitespace-nowrap ${penaltyMeta.color}`}>
                             <PenaltyIcon className="w-3 h-3 shrink-0" />
-                            <span className="truncate">{penaltyMeta.label}</span>
+                            <span className="whitespace-nowrap">{penaltyMeta.label}</span>
                           </span>
                         ) : (
                           <span className="text-xs text-on-surface-variant">—</span>
                         )}
                       </td>
-                      <td className="overflow-hidden">
+                      <td className="align-top py-3 pr-3">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border whitespace-nowrap ${
                           isResolved
                             ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
@@ -991,7 +1114,7 @@ export default function AdminViolationsPage() {
                           {isResolved ? "Resolved" : isDismissed ? "Dismissed" : "Pending"}
                         </span>
                       </td>
-                      <td>
+                      <td className="align-top py-3">
                         <div className="flex items-center gap-1 whitespace-nowrap">
                           <button
                             type="button"
@@ -1090,10 +1213,16 @@ export default function AdminViolationsPage() {
         </>
       )}
 
-      {selected && <ViolationDetailModal item={selected} onClose={() => setSelected(null)} />}
+      {selected && <ViolationDetailModal item={selected} refereeNames={refereeNames} raceTournamentMap={raceTournamentMap} onClose={() => setSelected(null)} />}
       {approveTarget && (
         <ApproveViolationModal
           item={approveTarget}
+          siblings={allViolationsFlat.filter(v =>
+            v.violationId !== approveTarget.violationId &&
+            v.raceId === approveTarget.raceId &&
+            v.legNumber === approveTarget.legNumber &&
+            v.entryId === approveTarget.entryId
+          )}
           onClose={() => setApproveTarget(null)}
           onApproved={() => handleActionDone("Report approved and penalty applied.")}
         />

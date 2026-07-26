@@ -6,6 +6,7 @@ import {
   Trophy,
   Mail,
   ClipboardList,
+  BarChart2,
   User,
   LogOut,
 } from "lucide-react";
@@ -19,6 +20,7 @@ const navItems = [
   { to: "/horse-owner/tournaments", label: "Tournaments", icon: Trophy },
   { to: "/horse-owner/invitations", label: "Invitations", icon: Mail },
   { to: "/horse-owner/entries", label: "My Entries", icon: ClipboardList },
+  { to: "/horse-owner/leaderboard", label: "Leaderboard", icon: BarChart2 },
   { to: "/horse-owner/profile", label: "Profile", icon: User },
 ];
 

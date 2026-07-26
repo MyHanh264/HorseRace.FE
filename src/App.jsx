@@ -63,6 +63,7 @@ import HorseDetailPage from "./pages/horse-owner/HorseDetailPage";
 import InvitationsPage from "./pages/horse-owner/InvitationsPage";
 import OwnerProfilePage from "./pages/horse-owner/OwnerProfilePage";
 import HorseOwnerTournamentsPage from "./pages/horse-owner/HorseOwnerTournamentsPage";
+import HorseOwnerLeaderboardPage from "./pages/horse-owner/HorseOwnerLeaderboardPage";
 
 function App() {
   return (
@@ -177,6 +178,7 @@ function App() {
           <Route path="tournaments" element={<HorseOwnerTournamentsPage />} />
           <Route path="entries" element={<MyEntriesPage />} />
           <Route path="invitations" element={<InvitationsPage />} />
+          <Route path="leaderboard" element={<HorseOwnerLeaderboardPage />} />
           <Route path="profile" element={<OwnerProfilePage />} />
         </Route>
       </Routes>

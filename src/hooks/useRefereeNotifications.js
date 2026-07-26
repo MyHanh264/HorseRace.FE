@@ -118,14 +118,21 @@ export function useRefereeNotifications() {
           (v) => v.reportedByRefereeId === userId,
         );
         myViolations.forEach((v) => {
+          // BE's GetViolationList now returns ReviewedAt/CreatedAt (it didn't when this
+          // was first written) — use the real timestamp so this sorts correctly against
+          // every other notification type. The old `ts: v.violationId` trick sorted these
+          // to the very bottom (interpreted as milliseconds since 1970), silently pushing
+          // them past NotificationBell's MAX_VISIBLE=6 cutoff whenever a referee had a
+          // handful of race notifications — the bell never looked broken, it was just
+          // never showing them.
+          const ts = v.reviewedAt ?? v.createdAt;
           if (v.status === "Approved") {
             list.push({
               id: `violation-approved-${v.violationId}`,
               type: "success",
               msg: `Violation report #${v.violationId} was approved by Admin (${v.penalty ?? "—"}).`,
               path: "/referee/violations",
-              // BE doesn't return a timestamp for violations — use the ID as a recency proxy.
-              ts: v.violationId,
+              ts,
             });
           } else if (v.status === "Rejected") {
             list.push({
@@ -133,7 +140,7 @@ export function useRefereeNotifications() {
               type: "error",
               msg: `Violation report #${v.violationId} was rejected by Admin.`,
               path: "/referee/violations",
-              ts: v.violationId,
+              ts,
             });
           }
         });

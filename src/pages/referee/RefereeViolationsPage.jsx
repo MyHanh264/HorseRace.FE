@@ -301,7 +301,10 @@ export default function RefereeViolationsPage() {
         eByRace[e.raceId].push(e)
       }
 
-      setViolations(allV)
+      // GET /api/violations returns every violation in the system, not just this referee's
+      // own reports (BE doesn't scope it) — filter here so "Recent Reports"/the stat cards
+      // above only reflect what THIS referee personally filed, not every referee's reports.
+      setViolations(allV.filter(v => v.reportedByRefereeId === userId))
       setAssignedRaces(myRaces)
       setRaceMap(rMap)
       setTourneyMap(tMap)
@@ -460,7 +463,7 @@ export default function RefereeViolationsPage() {
                             </div>
                             <div>
                               <p className="font-bold text-on-surface text-sm">{horse?.name ?? `Entry #${v.entryId}`}</p>
-                              <p className="text-xs text-on-surface-variant">J: —</p>
+                              <p className="text-xs text-on-surface-variant">{entry?.jockeyName ?? 'J: —'}</p>
                             </div>
                           </div>
                         </td>
@@ -469,7 +472,7 @@ export default function RefereeViolationsPage() {
                             {VIOLATION_TYPE_LABELS[v.violationType] ?? v.violationType}
                           </p>
                           {v.description && (
-                            <p className="text-xs text-on-surface-variant mt-0.5 max-w-[220px] truncate">{v.description}</p>
+                            <p className="text-xs text-on-surface-variant mt-0.5 max-w-[280px] whitespace-normal break-words">{v.description}</p>
                           )}
                         </td>
                         <td className="text-sm text-on-surface-variant">
@@ -500,12 +503,19 @@ export default function RefereeViolationsPage() {
                           {v.status === 'Pending' ? (
                             <span className="text-xs text-on-surface-variant">—</span>
                           ) : penaltyMeta ? (
-                            <span
-                              className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold ${penaltyMeta.cls}`}
-                              title={v.adminNote || ''}
-                            >
-                              {penaltyMeta.label}
-                            </span>
+                            <>
+                              <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold ${penaltyMeta.cls}`}>
+                                {penaltyMeta.label}
+                              </span>
+                              {/* Admin's note used to only live inside a hover-only `title`
+                                  tooltip on the badge above — invisible unless you happened
+                                  to hover exactly on it. Show it outright instead. */}
+                              {v.adminNote && (
+                                <p className="text-xs text-on-surface-variant mt-1 max-w-[220px] whitespace-normal break-words italic">
+                                  "{v.adminNote}"
+                                </p>
+                              )}
+                            </>
                           ) : (
                             <span className="text-xs text-on-surface-variant">—</span>
                           )}
