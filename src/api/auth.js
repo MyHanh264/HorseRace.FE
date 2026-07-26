@@ -1,3 +1,14 @@
+// This file can't import the shared axios instance from services/api.js (it imports
+// refreshAuthToken from here, which would be a circular import) — so every request
+// here builds its own absolute URL the same way services/api.js's baseURL does.
+// Without this prefix, a production build (no dev-server proxy) sends the request to
+// whatever domain the page itself is hosted on instead of the real backend.
+const API_BASE = import.meta.env.VITE_API_BASE_URL || ''
+
+function apiUrl(path) {
+  return `${API_BASE}${path}`
+}
+
 function getErrorMessage(data, fallback) {
   return (
     data?.detail ||
@@ -9,7 +20,7 @@ function getErrorMessage(data, fallback) {
 }
 
 export async function loginUser({ email, password }) {
-  const res = await fetch('/api/auth/login', {
+  const res = await fetch(apiUrl('/api/auth/login'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
@@ -47,7 +58,7 @@ function authHeaders(accessToken) {
 }
 
 export async function getMyProfile(accessToken) {
-  const res = await fetch('/api/auth/profile', {
+  const res = await fetch(apiUrl('/api/auth/profile'), {
     headers: authHeaders(accessToken),
   })
 
@@ -57,7 +68,7 @@ export async function getMyProfile(accessToken) {
 }
 
 export async function refreshAuthToken(refreshToken) {
-  const res = await fetch('/api/auth/refresh-token', {
+  const res = await fetch(apiUrl('/api/auth/refresh-token'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refreshToken }),
@@ -78,7 +89,7 @@ export async function refreshAuthToken(refreshToken) {
 }
 
 export async function logoutUser({ accessToken, refreshToken }) {
-  const res = await fetch('/api/auth/logout', {
+  const res = await fetch(apiUrl('/api/auth/logout'), {
     method: 'POST',
     headers: authHeaders(accessToken),
     body: JSON.stringify({ refreshToken: refreshToken || undefined }),
@@ -89,7 +100,7 @@ export async function logoutUser({ accessToken, refreshToken }) {
 }
 
 export async function forgotPassword(email) {
-  const res = await fetch('/api/auth/forgot-password', {
+  const res = await fetch(apiUrl('/api/auth/forgot-password'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: email.trim() }),
@@ -110,7 +121,7 @@ export async function forgotPassword(email) {
 }
 
 export async function resetPassword(payload) {
-  const res = await fetch('/api/auth/reset-password', {
+  const res = await fetch(apiUrl('/api/auth/reset-password'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -140,7 +151,7 @@ export async function registerUser(payload) {
   const { roleCode, ...body } = payload;
   const url = REGISTER_ROUTES[roleCode] ?? REGISTER_ROUTES.SPECTATOR;
 
-  const res = await fetch(url, {
+  const res = await fetch(apiUrl(url), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
