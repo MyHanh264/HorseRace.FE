@@ -76,6 +76,17 @@ export async function getRaceStandings(raceId) {
   return res.data
 }
 
+/**
+ * GET /api/legs/{raceId}/{legNumber} — leg detail, has AdminOverrideReason/ConfirmedAt
+ * for a leg Admin resolved after a referee mismatch. LegsController allows REFEREE too,
+ * so this is safe to call from the referee flow (doesn't expose the other referee's
+ * blind submission — just the final decision, same as everyone else sees post-resolution).
+ */
+export async function getLegDetail(raceId, legNumber) {
+  const res = await api.get(`/api/legs/${raceId}/${legNumber}`)
+  return res.data
+}
+
 // ─── Legacy alias (kept for backward compatibility) ─────────────────────────
 
 /**

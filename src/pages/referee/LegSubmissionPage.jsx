@@ -3,14 +3,14 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   Flag, AlertCircle, CheckCircle2, ChevronLeft, Loader2,
   Save, Send, EyeOff, Lock, GripVertical, X, AlertTriangle,
-  Zap, Clock, Trophy,
+  Zap, Clock, Trophy, Shield,
 } from 'lucide-react'
 import {
   getRefereeLegView,
   saveLegDraft,
   submitLegResult,
   getRaceExecutionStatus,
-  getRaceStandings,
+  getLegDetail,
 } from '../../api/referee'
 import { validateLegPositions, getLegPoints } from '../../utils/legValidation'
 
@@ -278,9 +278,17 @@ function SubmitConfirmationModal({ entries, positions, onConfirm, onCancel, subm
   )
 }
 
+// Sort key that pushes DNF(-1)/DQ(-2) to the bottom instead of above 1st place.
+function positionSortKey(position) {
+  return position > 0 ? position : 1000 + Math.abs(position)
+}
+
 // ─── Waiting Panel ──────────────────────────────────────────────────────────
 
-function WaitingPanel({ legStatus, opponentSubmitted, legNumber }) {
+function WaitingPanel({
+  legStatus, opponentSubmitted, legNumber,
+  entries, officialResults, resolutionInfo, resolutionLoading, onContinue,
+}) {
   return (
     <div className="p-6 text-center">
       <div className="w-16 h-16 rounded-full bg-emerald-500/10 border-2 border-emerald-500/30 flex items-center justify-center mx-auto mb-4">
@@ -336,6 +344,64 @@ function WaitingPanel({ legStatus, opponentSubmitted, legNumber }) {
           </p>
         </div>
       )}
+
+      {legStatus === 'Resolved' && (
+        <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 text-left">
+          <p className="text-sm text-purple-300 font-semibold flex items-center gap-2 justify-center mb-1">
+            <Shield size={16} />
+            Resolved by Admin
+          </p>
+          <p className="text-xs text-on-surface-variant mb-3 text-center">
+            Your submission didn't match the other referee's. An Admin reviewed the case
+            and set the official result for Leg {legNumber} below.
+          </p>
+
+          <div className="p-3 rounded-lg bg-white/5 border border-white/10 mb-3">
+            <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-1">Admin's Reason</p>
+            {resolutionLoading ? (
+              <div className="flex items-center gap-2 text-xs text-on-surface-variant py-1">
+                <Loader2 size={12} className="animate-spin" /> Loading…
+              </div>
+            ) : (
+              <p className="text-sm text-on-surface italic">
+                {resolutionInfo?.adminOverrideReason || 'No reason recorded'}
+              </p>
+            )}
+          </div>
+
+          {officialResults?.length > 0 && (
+            <div className="space-y-1.5 mb-3">
+              <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-1">Official Result</p>
+              {[...officialResults]
+                .sort((a, b) => positionSortKey(a.position) - positionSortKey(b.position))
+                .map((r) => {
+                  const entry = entries?.find((e) => e.entryId === r.entryId)
+                  return (
+                    <div
+                      key={r.entryId}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10"
+                    >
+                      <PositionBadge value={r.position} />
+                      <span className="text-xs text-on-surface flex-1 truncate text-left">
+                        {entry?.horseName || `Entry #${r.entryId}`}
+                      </span>
+                      <span className="text-xs font-mono text-yellow-400">{r.points}pts</span>
+                    </div>
+                  )
+                })}
+            </div>
+          )}
+
+          {onContinue && (
+            <button
+              onClick={onContinue}
+              className="w-full mt-1 px-4 py-2 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-black text-sm font-bold transition-all"
+            >
+              Continue
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -353,7 +419,6 @@ export default function LegSubmissionPage() {
   // Data state
   const [legView, setLegView] = useState(null)
   const [execution, setExecution] = useState(null)
-  const [standings, setStandings] = useState([])
 
   // UI state
   const [loading, setLoading] = useState(true)
@@ -363,6 +428,10 @@ export default function LegSubmissionPage() {
   const [submitError, setSubmitError] = useState('')
   const [submitResult, setSubmitResult] = useState(null)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
+
+  // Admin's reason for a Resolved leg (see WaitingPanel's Resolved branch).
+  const [resolutionInfo, setResolutionInfo] = useState(null)
+  const [resolutionLoading, setResolutionLoading] = useState(false)
 
   // BUG FIX: Read userId from localStorage token to include in sessionStorage key.
   // Without this, two different referees using the same browser share the same flag.
@@ -393,17 +462,15 @@ export default function LegSubmissionPage() {
   // ── Load data ──
   const loadLegData = useCallback(async () => {
     try {
-      const [viewData, execData, standingsData] = await Promise.all([
+      const [viewData, execData] = await Promise.all([
         getRefereeLegView(raceId, legIndex),
         getRaceExecutionStatus(raceId),
-        getRaceStandings(raceId).catch(() => []),
       ])
 
       if (!isMountedRef.current) return
 
       setLegView(viewData)
       setExecution(execData)
-      setStandings(standingsData)
 
       // Sync hasSubmitted from sessionStorage + server (in case
       // another tab already submitted before polling picks up the update).
@@ -494,22 +561,29 @@ export default function LegSubmissionPage() {
         // the leg transitions to Confirmed/Resolved.
         const legStatus = view?.legStatus
         if (legStatus === 'Confirmed' || legStatus === 'Resolved') {
-          // Leg has been confirmed - check whether there's a next leg
-          // Fetch execution status to know if there's a next leg
-          getRaceExecutionStatus(raceId).then(execData => {
-            if (!isMountedRef.current) return
-            const nextLegIdx = execData?.currentLegIndex
-            if (nextLegIdx !== undefined && nextLegIdx !== legIndex) {
-              // There's a next leg - navigate to it
-              navigate(`/referee/races/${raceId}/legs/${nextLegIdx}`)
-            } else if (!view?.mySubmitted) {
-              // No more legs, or the leg is already complete - go back to dashboard
-              navigate(`/referee/races/${raceId}`)
-            }
-          }).catch(() => {
-            // If the fetch fails, still show the result
-            if (isMountedRef.current) setLegView(view)
-          })
+          const execData = await getRaceExecutionStatus(raceId).catch(() => null)
+          if (!isMountedRef.current) return
+
+          // Always sync legView/execution so the locked view reflects the final
+          // status — previously this only happened in the fetch's .catch(), so
+          // if this was the last leg (nextLegIdx === legIndex) AND mySubmitted
+          // was already true, neither branch below ran and the page silently
+          // never picked up the Resolved/Confirmed status at all.
+          if (execData) setExecution(execData)
+          setLegView(view)
+
+          // A Resolved leg means Admin just overrode a referee mismatch — stay on
+          // this page so WaitingPanel can show the official result + admin's
+          // reason. Auto-navigating here (like Confirmed does) would bounce the
+          // referee away before they could ever read what got decided.
+          if (legStatus === 'Resolved') return
+
+          const nextLegIdx = execData?.currentLegIndex
+          if (nextLegIdx !== undefined && nextLegIdx !== legIndex) {
+            navigate(`/referee/races/${raceId}/legs/${nextLegIdx}`)
+          } else if (!view?.mySubmitted) {
+            navigate(`/referee/races/${raceId}`)
+          }
           return
         }
 
@@ -545,6 +619,24 @@ export default function LegSubmissionPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [raceId, legIndex, navigate])
 
+  // ── Resolution info for a Resolved leg (admin's reason) ──
+  // GetLegDetail (LegsController) allows REFEREE too, unlike GetRacePauseInfo
+  // (Admin-only, would leak the other referee's blind submission) — this is
+  // safe because it only exposes the final decision, not either raw entry.
+  useEffect(() => {
+    if (legView?.legStatus !== 'Resolved') {
+      setResolutionInfo(null)
+      return
+    }
+    let active = true
+    setResolutionLoading(true)
+    getLegDetail(raceId, legNumber)
+      .then((detail) => { if (active) setResolutionInfo(detail) })
+      .catch(() => {})
+      .finally(() => { if (active) setResolutionLoading(false) })
+    return () => { active = false }
+  }, [raceId, legNumber, legView?.legStatus])
+
   // ── Position handlers ──
   function handlePositionChange(entryId, position) {
     setPositions(prev => ({ ...prev, [entryId]: position }))
@@ -558,6 +650,16 @@ export default function LegSubmissionPage() {
   function getValidation() {
     const entries = legView?.entries ?? []
     return validateLegPositions(entries, positions)
+  }
+
+  // ── Continue after reading a Resolved leg's admin decision ──
+  function handleContinueAfterResolution() {
+    const nextLegIdx = execution?.currentLegIndex
+    if (nextLegIdx !== undefined && nextLegIdx !== legIndex) {
+      navigate(`/referee/races/${raceId}/legs/${nextLegIdx}`)
+    } else {
+      navigate(`/referee/races/${raceId}`)
+    }
   }
 
   // ── Save Draft ──
@@ -813,6 +915,11 @@ export default function LegSubmissionPage() {
               legStatus={legView?.legStatus}
               opponentSubmitted={legView?.opponentSubmitted}
               legNumber={legNumber}
+              entries={entries}
+              officialResults={execution?.legs?.find((l) => l.legIndex === legIndex)?.results}
+              resolutionInfo={resolutionInfo}
+              resolutionLoading={resolutionLoading}
+              onContinue={handleContinueAfterResolution}
             />
           </div>
         </div>
