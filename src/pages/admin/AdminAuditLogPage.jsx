@@ -11,6 +11,8 @@ import {
   PawPrint,
   ClipboardList,
   User as UserIcon,
+  Flag,
+  Info,
 } from "lucide-react";
 import { getReviewHistory, getEntries, getAllUser } from "../../api/admin";
 import api from "../../services/api";
@@ -31,9 +33,19 @@ const ENTITY_TABS = [
   { key: "Horse", label: "Horses", icon: PawPrint },
   { key: "Entry", label: "Entry", icon: ClipboardList },
   { key: "User", label: "Accounts", icon: UserIcon },
+  { key: "Leg", label: "Leg Resolutions", icon: Flag },
 ];
 
-const ENTITY_LABEL = { Horse: "Horse", Entry: "Entry", User: "Account" };
+const ENTITY_LABEL = { Horse: "Horse", Entry: "Entry", User: "Account", Leg: "Leg" };
+
+// Action badge styles beyond plain Approve/Reject — Leg conflict resolution logs
+// as "AdminOverride", not Approved/Rejected, so it needs its own neutral look
+// instead of defaulting to a misleading red "Rejected" badge.
+const ACTION_BADGE = {
+  Approved: { cls: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30", icon: CircleCheck, label: "Approved" },
+  Rejected: { cls: "bg-red-500/15 text-red-400 border border-red-500/30", icon: XCircle, label: "Rejected" },
+  AdminOverride: { cls: "bg-sky-500/15 text-sky-400 border border-sky-500/30", icon: Info, label: "Resolved (Override)" },
+};
 
 const ROLE_LABEL = {
   ADMIN: "Admin",
@@ -148,7 +160,7 @@ export default function AdminAuditLogPage() {
             <div>
               <h1 className="font-serif text-2xl font-bold text-on-surface">Audit Log</h1>
               <p className="text-on-surface-variant text-sm">
-                Approval/rejection history for Horses · Entries · Accounts — with reasons and the admin who acted.
+                Approval/rejection history for Horses · Entries · Accounts · Leg conflict resolutions — with reasons and the admin who acted.
               </p>
             </div>
           </div>
@@ -278,17 +290,20 @@ export default function AdminAuditLogPage() {
                       })()}
                     </td>
                     <td>
-                      {h.action === "Approved" ? (
-                        <span className="gs-badge bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 w-fit">
-                          <CircleCheck className="w-3 h-3" />
-                          Approved
-                        </span>
-                      ) : (
-                        <span className="gs-badge bg-red-500/15 text-red-400 border border-red-500/30 flex items-center gap-1 w-fit">
-                          <XCircle className="w-3 h-3" />
-                          Rejected
-                        </span>
-                      )}
+                      {(() => {
+                        const badge = ACTION_BADGE[h.action] ?? {
+                          cls: "bg-surface-container-high text-on-surface-variant border border-outline-variant/40",
+                          icon: Info,
+                          label: h.action,
+                        };
+                        const Icon = badge.icon;
+                        return (
+                          <span className={`gs-badge ${badge.cls} flex items-center gap-1 w-fit`}>
+                            <Icon className="w-3 h-3" />
+                            {badge.label}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="text-sm text-on-surface-variant">
                       {h.reason || <span className="text-on-surface-variant/50">—</span>}

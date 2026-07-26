@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   Shield, AlertTriangle, CheckCircle2, ChevronLeft,
-  Loader2, AlertCircle, RotateCcw, ArrowRight,
+  Loader2, AlertCircle, RotateCcw, ArrowRight, History,
 } from 'lucide-react'
 import {
   getRaceDetail,
@@ -10,6 +10,8 @@ import {
   getRaceExecutionStatus,
   resolveRaceConflict,
   resumeRace,
+  getLegDetail,
+  getEntries,
 } from '../../api/admin'
 import { validateOverrideReason } from '../../utils/validation'
 import { getLegPoints } from '../../utils/legValidation'
@@ -204,6 +206,171 @@ function ResolutionSummary({ comparison, decisions }) {
   )
 }
 
+// ─── Resolution History ─────────────────────────────────────────────────────
+// Past legs of THIS race that were resolved via Admin override — read directly
+// from GetLegDetail (AdminOverrideReason/ConfirmedAt) since BE's audit trail
+// (ReviewHistory) doesn't cover Leg entities yet. Shown regardless of whether
+// there's a conflict active right now, so Admin can check back on this race's
+// history without leaving the page.
+
+// Sort key that pushes DNF(-1)/DQ(-2) to the bottom instead of above 1st place.
+function positionSortKey(position) {
+  return position > 0 ? position : 1000 + Math.abs(position)
+}
+
+function ResolutionHistory({ entries, loading, entryMap, onView }) {
+  if (loading) {
+    return (
+      <div className="gs-card p-5 mb-6 flex items-center gap-2 text-sm text-on-surface-variant">
+        <Loader2 size={14} className="animate-spin" /> Loading resolution history…
+      </div>
+    )
+  }
+  if (entries.length === 0) return null
+
+  return (
+    <div className="gs-card overflow-hidden mb-6">
+      <div className="px-5 py-4 border-b border-white/10 flex items-center gap-2">
+        <History size={15} className="text-sky-400" />
+        <h3 className="font-semibold text-on-surface text-sm">Resolution History — this race</h3>
+      </div>
+      <div className="divide-y divide-white/5">
+        {entries.map((e) => {
+          const results = [...(e.results ?? [])].sort(
+            (a, b) => positionSortKey(a.position) - positionSortKey(b.position)
+          )
+          return (
+            <div key={e.legNumber} className="px-5 py-4">
+              <div className="flex items-start justify-between gap-4 mb-3">
+                <div>
+                  <p className="text-sm font-semibold text-on-surface">Leg {e.legNumber}</p>
+                  <p className="text-xs text-on-surface-variant mt-0.5 italic">
+                    {e.adminOverrideReason || 'No reason recorded'}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <p className="text-xs text-on-surface-variant font-mono">
+                    {fmtDateTime(e.confirmedAt)}
+                  </p>
+                  <button
+                    onClick={() => onView(e)}
+                    className="px-3 py-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-xs font-semibold text-on-surface-variant hover:text-on-surface transition-all"
+                  >
+                    View
+                  </button>
+                </div>
+              </div>
+              {results.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {results.map((r) => {
+                    const info = entryMap?.[r.entryId]
+                    return (
+                      <div
+                        key={r.entryId}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10"
+                      >
+                        <PositionBadge value={r.position} />
+                        <span className="text-xs text-on-surface">
+                          {info?.horseName || `Entry #${r.entryId}`}
+                          {info?.gateNumber ? ` · Gate #${info.gateNumber}` : ''}
+                        </span>
+                        <span className="text-xs font-mono text-yellow-400">{r.points}pts</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ─── View Resolution Modal (read-only) ──────────────────────────────────────
+// Shows what's currently retrievable for a past override: reason, timestamp,
+// and the official per-entry result. The Referee A vs Referee B side-by-side
+// comparison that Admin actually saw while resolving is NOT included here —
+// GetRacePause.cs only ever exposes whichever leg is *currently* Conflicted,
+// so that data becomes unreachable the moment a leg is Resolved. Needs a BE
+// change (query by legNumber, not just "the Conflicted one") to add it back.
+
+function ViewResolutionModal({ raceName, entry, entryMap, onClose }) {
+  const results = [...(entry.results ?? [])].sort(
+    (a, b) => positionSortKey(a.position) - positionSortKey(b.position)
+  )
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="bg-[#1a2035] rounded-2xl w-full max-w-lg border border-white/10 shadow-2xl animate-fade-in-up">
+        <div className="px-6 py-4 border-b border-white/10 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-sky-500/10 border border-sky-500/30 flex items-center justify-center">
+            <History size={20} className="text-sky-400" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-white">Resolved Leg {entry.legNumber}</h2>
+            <p className="text-xs text-gray-400">{raceName} · Read-only</p>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div className="p-4 rounded-xl bg-surface-container-low border border-white/10">
+            <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-1.5">Override Reason</p>
+            <p className="text-sm text-on-surface italic">
+              {entry.adminOverrideReason || 'No reason provided'}
+            </p>
+            <p className="text-xs text-on-surface-variant mt-2 font-mono">
+              Resolved {fmtDateTime(entry.confirmedAt)}
+            </p>
+          </div>
+
+          <div>
+            <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-2">Official Result</p>
+            {results.length === 0 ? (
+              <p className="text-sm text-on-surface-variant">No results recorded.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {results.map((r) => {
+                  const info = entryMap?.[r.entryId]
+                  return (
+                    <div
+                      key={r.entryId}
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/5 border border-white/10"
+                    >
+                      <PositionBadge value={r.position} />
+                      <span className="text-sm text-on-surface flex-1">
+                        {info?.horseName || `Entry #${r.entryId}`}
+                        {info?.gateNumber ? ` · Gate #${info.gateNumber}` : ''}
+                      </span>
+                      <span className="text-xs font-mono text-yellow-400">{r.points}pts</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-xs text-on-surface-variant">
+            The side-by-side Referee A vs Referee B comparison shown while resolving this
+            conflict isn't available here yet — that needs a small backend change to keep
+            being retrievable after the leg is resolved.
+          </div>
+        </div>
+
+        <div className="px-6 py-4 border-t border-white/10 flex items-center justify-end">
+          <button
+            onClick={onClose}
+            className="px-5 py-2 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-black text-sm font-bold transition-all"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Confirm Override Modal ─────────────────────────────────────────────────
 
 function ConfirmOverrideModal({ raceName, legNumber, decisions, reason, onConfirm, onCancel, submitting }) {
@@ -287,18 +454,32 @@ export default function AdminConflictResolutionPage() {
   const [submitError, setSubmitError] = useState('')
   const [success, setSuccess] = useState(false)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [viewingEntry, setViewingEntry] = useState(null)
 
   // Decisions state: { [entryId]: position }
   const [decisions, setDecisions] = useState({})
   const [overrideReason, setOverrideReason] = useState('')
 
+  // Past Admin-resolved legs for this race (see ResolutionHistory component).
+  const [historyEntries, setHistoryEntries] = useState([])
+  const [historyLoading, setHistoryLoading] = useState(true)
+  const [entries, setEntries] = useState([])
+
+  // entryId -> { horseName, gateNumber }, used by ResolutionHistory to label results.
+  const entryMap = useMemo(() => {
+    const map = {}
+    entries.forEach((e) => { map[e.entryId] = { horseName: e.horseName, gateNumber: e.gateNumber } })
+    return map
+  }, [entries])
+
   // ── Load data ──
   const loadData = useCallback(async () => {
     try {
-      const [raceDetail, execData, pauseData] = await Promise.all([
+      const [raceDetail, execData, pauseData, entriesData] = await Promise.all([
         getRaceDetail(raceId),
         getRaceExecutionStatus(raceId),
         getRacePauseInfo(raceId),
+        getEntries(raceId),
       ])
 
       if (!isMountedRef.current) return
@@ -306,6 +487,7 @@ export default function AdminConflictResolutionPage() {
       setRace(raceDetail)
       setExecution(execData)
       setPauseInfo(pauseData)
+      setEntries(Array.isArray(entriesData) ? entriesData : [])
 
       // Initialize decisions from side-by-side comparison
       if (pauseData?.conflictedLeg?.comparison) {
@@ -331,6 +513,36 @@ export default function AdminConflictResolutionPage() {
     loadData()
     return () => { isMountedRef.current = false }
   }, [loadData])
+
+  // ── Resolution history: fetch AdminOverrideReason/ConfirmedAt for every leg
+  // of this race that's already Resolved (regardless of whether one is
+  // Conflicted right now too). ──
+  useEffect(() => {
+    const resolvedLegs = (execution?.legs ?? []).filter(l => l.status === 'Resolved')
+    if (resolvedLegs.length === 0) {
+      setHistoryEntries([])
+      setHistoryLoading(false)
+      return
+    }
+    let active = true
+    setHistoryLoading(true)
+    Promise.allSettled(resolvedLegs.map(l => getLegDetail(raceId, l.legNumber)))
+      .then(results => {
+        if (!active) return
+        const entries = results
+          .filter(r => r.status === 'fulfilled')
+          .map(r => r.value)
+          .filter(Boolean)
+          .map(e => ({
+            ...e,
+            results: execution?.legs?.find(l => l.legNumber === e.legNumber)?.results ?? [],
+          }))
+          .sort((a, b) => new Date(b.confirmedAt ?? 0) - new Date(a.confirmedAt ?? 0))
+        setHistoryEntries(entries)
+      })
+      .finally(() => { if (active) setHistoryLoading(false) })
+    return () => { active = false }
+  }, [raceId, execution])
 
   // ── Polling ──
   useEffect(() => {
@@ -389,11 +601,9 @@ export default function AdminConflictResolutionPage() {
 
       setSuccess(true)
       setShowConfirmModal(false)
-
-      // Redirect after success
-      setTimeout(() => {
-        navigate('/admin/race-execution')
-      }, 2000)
+      // No auto-redirect — admin was getting bounced to Race Execution before they
+      // could even read the confirmation, let alone the reason they just typed in.
+      // They leave via the button below whenever they're ready.
     } catch (err) {
       setSubmitError(err?.response?.data?.message || err?.message || 'Override failed')
       setShowConfirmModal(false)
@@ -458,9 +668,18 @@ export default function AdminConflictResolutionPage() {
           <p className="text-on-surface-variant mb-4">
             The race has been resumed with the official results.
           </p>
-          <p className="text-sm text-on-surface-variant">
-            Redirecting to Race Execution...
-          </p>
+          <div className="p-4 rounded-xl bg-surface-container-low border border-white/10 text-left mb-6">
+            <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-1.5">Your reason (logged)</p>
+            <p className="text-sm text-on-surface italic">{overrideReason || 'No reason provided'}</p>
+          </div>
+          <div className="flex items-center justify-center gap-3">
+            <button onClick={() => navigate('/admin/discrepancies')} className="gs-btn gs-btn-ghost">
+              Back to Race Conflicts
+            </button>
+            <button onClick={() => navigate('/admin/race-execution')} className="gs-btn gs-btn-primary">
+              Go to Race Execution
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -479,7 +698,7 @@ export default function AdminConflictResolutionPage() {
               <ChevronLeft size={16} />
             </button>
           </div>
-          <div className="gs-card p-8 text-center">
+          <div className="gs-card p-8 text-center mb-6">
             <CheckCircle2 className="w-12 h-12 text-emerald-400 mx-auto mb-4" />
             <h2 className="text-xl font-bold text-on-surface mb-2">No Active Conflicts</h2>
             <p className="text-on-surface-variant mb-4">
@@ -492,7 +711,23 @@ export default function AdminConflictResolutionPage() {
               Back to Race Execution
             </button>
           </div>
+
+          <ResolutionHistory
+            entries={historyEntries}
+            loading={historyLoading}
+            entryMap={entryMap}
+            onView={setViewingEntry}
+          />
         </div>
+
+        {viewingEntry && (
+          <ViewResolutionModal
+            raceName={race?.name}
+            entry={viewingEntry}
+            entryMap={entryMap}
+            onClose={() => setViewingEntry(null)}
+          />
+        )}
       </div>
     )
   }
@@ -532,6 +767,9 @@ export default function AdminConflictResolutionPage() {
             </p>
           </div>
         </div>
+
+        {/* ── Resolution History (past legs of this race, if any) ─── */}
+        <ResolutionHistory entries={historyEntries} loading={historyLoading} />
 
         {/* ── Race Info ─────────────────────────────────────────── */}
         <div className="gs-card p-5 mb-6">
@@ -646,6 +884,16 @@ export default function AdminConflictResolutionPage() {
           onConfirm={confirmOverride}
           onCancel={() => setShowConfirmModal(false)}
           submitting={submitting}
+        />
+      )}
+
+      {/* ── View Past Resolution Modal ───────────────────────── */}
+      {viewingEntry && (
+        <ViewResolutionModal
+          raceName={race?.name}
+          entry={viewingEntry}
+          entryMap={entryMap}
+          onClose={() => setViewingEntry(null)}
         />
       )}
     </div>

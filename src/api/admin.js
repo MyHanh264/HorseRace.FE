@@ -400,8 +400,8 @@ export async function getPendingEntries() {
   return res.data
 }
 
-export async function getEntries() {
-  const res = await api.get('/api/entries')
+export async function getEntries(raceId) {
+  const res = await api.get('/api/entries', raceId ? { params: { raceId } } : undefined)
   return res.data
 }
 
@@ -489,6 +489,17 @@ export async function resolveRaceConflict(raceId, legIndex, payload) {
  */
 export async function resumeRace(raceId) {
   const res = await api.post(`/api/races/${raceId}/resume`)
+  return res.data
+}
+
+/**
+ * GET /api/legs/{raceId}/{legNumber} — leg detail, has AdminOverrideReason/ConfirmedAt
+ * for legs resolved via Admin override. Used to show past-resolution history on the
+ * Conflict Resolution page without needing the ReviewHistory/Audit Log entity (BE
+ * hasn't added Leg to that yet).
+ */
+export async function getLegDetail(raceId, legNumber) {
+  const res = await api.get(`/api/legs/${raceId}/${legNumber}`)
   return res.data
 }
 
