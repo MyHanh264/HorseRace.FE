@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getAllRaces, getViolations, getRaceExecutionStatus } from "../api/referee";
+import { getAllRaces, getViolations, getRaceExecutionStatus, getLegDetail } from "../api/referee";
 import { useAuth } from "../context/AuthContext";
 
 const POLL_MS = 45_000;
@@ -81,22 +81,37 @@ export function useRefereeNotifications() {
           const executions = await Promise.allSettled(
             racesToCheck.map((r) => getRaceExecutionStatus(r.raceId)),
           );
+          const resolvedRefs = [];
           executions.forEach((result, i) => {
             if (result.status !== "fulfilled") return;
             const r = racesToCheck[i];
             const resolvedLegs = (result.value?.legs ?? []).filter(
               (l) => l.status === "Resolved",
             );
-            resolvedLegs.forEach((l) => {
+            resolvedLegs.forEach((l) => resolvedRefs.push({ race: r, leg: l }));
+          });
+
+          // GetLegDetail now returns AdminOverrideReason (BE added this + the
+          // ReviewHistory/Leg audit trail together) — fetch it so the
+          // notification can quote the actual reason instead of generic wording.
+          if (resolvedRefs.length > 0) {
+            const details = await Promise.allSettled(
+              resolvedRefs.map(({ race, leg }) => getLegDetail(race.raceId, leg.legNumber)),
+            );
+            details.forEach((result, i) => {
+              const { race: r, leg: l } = resolvedRefs[i];
+              const reason = result.status === "fulfilled" ? result.value?.adminOverrideReason : null;
               list.push({
                 id: `leg-resolved-${r.raceId}-${l.legNumber}`,
                 type: "success",
-                msg: `Leg ${l.legNumber} of race "${r.name}" was resolved by Admin after a mismatch.`,
+                msg: reason
+                  ? `Leg ${l.legNumber} of race "${r.name}" was resolved by Admin: "${reason}"`
+                  : `Leg ${l.legNumber} of race "${r.name}" was resolved by Admin after a mismatch.`,
                 path: `/referee/races/${r.raceId}/legs/${l.legIndex}`,
                 ts: r.scheduledAt,
               });
             });
-          });
+          }
         }
 
         const myViolations = violations.filter(
