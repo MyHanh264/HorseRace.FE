@@ -152,6 +152,7 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
     const currentTourId = Number(form.tournamentId)
     return allRaces.find(r => {
       if (r.raceId === race?.raceId)   return false
+      if (r.status === 'Cancelled')    return false
       if (r.tournamentId !== currentTourId) return false
       if (!r.scheduledStartTime || !r.scheduledEndTime) return false
       return rangesOverlap(s, e, new Date(r.scheduledStartTime), new Date(r.scheduledEndTime))
@@ -170,6 +171,7 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
     return allRaces.find(r => {
       if (r.tournamentId === currentTourId) return false
       if (r.raceId === race?.raceId)        return false
+      if (r.status === 'Cancelled')         return false
       if (!r.scheduledStartTime || !r.scheduledEndTime) return false
       if (!rangesOverlap(s, e, new Date(r.scheduledStartTime), new Date(r.scheduledEndTime))) return false
       return (
@@ -1003,8 +1005,10 @@ export default function AdminRacesPage() {
                         style={{ opacity: 0, animationFillMode: 'forwards' }}
                       >
 
-                        {/* Name */}
-                        <td>
+                        {/* Name — fixed min-width so this column doesn't get squeezed word-by-word
+                            when other columns (Referees, Actions) need more room; table-layout is
+                            auto, so without this the browser shrinks whichever column wraps easiest. */}
+                        <td className="min-w-[220px]">
                           <div className="flex items-center gap-2.5">
                             <div className="w-1 h-8 rounded-full bg-primary/60 shrink-0" />
                             <div>
@@ -1088,35 +1092,24 @@ export default function AdminRacesPage() {
                                 Close Reg
                               </button>
                             )}
-                            {(race.status === 'InProgress' || race.status === 'Paused' || race.status === 'PendingResult') && (
-                              <button onClick={() => navigate(`/admin/race-execution?raceId=${race.raceId}`)}
-                                className="gs-btn gs-btn-outline-gold gs-btn-sm flex items-center gap-1">
-                                <Eye className="w-3.5 h-3.5" /> Monitor
+                            {/* Monitor (live) and Leg history (Finished) both just navigate to the same
+                                Race Execution page — unified into one "View" label/style so the row
+                                doesn't carry two differently-worded buttons for the same action. */}
+                            {(race.status === 'InProgress' || race.status === 'Paused' || race.status === 'PendingResult' || race.status === 'Finished') && (
+                              <button onClick={e => { e.stopPropagation(); navigate(`/admin/race-execution?raceId=${race.raceId}`) }}
+                                className="gs-btn gs-btn-outline-gold gs-btn-sm gs-btn-compact flex items-center gap-1">
+                                <Eye className="w-3.5 h-3.5" /> View
                               </button>
                             )}
                             {(pendingViolationCountByRace[race.raceId] ?? 0) > 0 && race.status === 'PendingResult' && (
                               <button onClick={e => { e.stopPropagation(); navigate(`/admin/violations?raceId=${race.raceId}`) }}
-                                className="gs-btn gs-btn-ghost gs-btn-sm flex items-center gap-1 text-amber-400">
+                                className="gs-btn gs-btn-ghost gs-btn-sm gs-btn-compact flex items-center gap-1 text-amber-400">
                                 <AlertCircle className="w-3.5 h-3.5" /> {pendingViolationCountByRace[race.raceId]} Pending
                               </button>
                             )}
-                            {race.status === 'Finished' && (
-                              <>
-                                <button onClick={e => { e.stopPropagation(); navigate(`/admin/race-execution?raceId=${race.raceId}`) }}
-                                  className="gs-btn gs-btn-ghost gs-btn-sm flex items-center gap-1 text-on-surface-variant">
-                                  <Eye className="w-3.5 h-3.5" /> Leg history
-                                </button>
-                                <button onClick={e => { e.stopPropagation(); setResultsRace(race) }}
-                                  className="gs-btn gs-btn-ghost gs-btn-sm flex items-center gap-1 text-secondary">
-                                  <Trophy className="w-3.5 h-3.5" /> Full Results
-                                </button>
-                                <button onClick={e => { e.stopPropagation(); setUnpublishError(''); setUnpublishTarget(race) }} disabled={regLoading === race.raceId}
-                                  className="gs-btn gs-btn-ghost gs-btn-sm flex items-center gap-1 text-on-surface-variant">
-                                  {regLoading === race.raceId ? <div className="w-3 h-3 border-2 border-on-surface-variant/30 border-t-on-surface-variant rounded-full animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
-                                  Unpublish
-                                </button>
-                              </>
-                            )}
+                            {/* Full Results / Unpublish for Finished races live in the ⋮ menu below,
+                                not inline — a Finished row would otherwise carry 3-4 buttons while
+                                every other status only ever shows 1. */}
 
                             {/* ⋮ overflow menu — dropdown renders relative to this <td>; the parent <tr>
                                 gets z-50 while its menu is open so it stacks above neighbouring rows
@@ -1141,8 +1134,25 @@ export default function AdminRacesPage() {
                                   ref={menuPopupRef}
                                   onClick={e => e.stopPropagation()}
                                   onMouseDown={e => e.stopPropagation()}
-                                  className="absolute right-0 top-full mt-1 bg-surface-container border border-outline-variant/40 rounded-xl shadow-2xl min-w-[144px] py-1 overflow-hidden z-[60]"
+                                  className="absolute right-0 top-full mt-1 bg-surface-container border border-outline-variant/40 rounded-xl shadow-2xl min-w-[160px] py-1 overflow-hidden z-[60]"
                                 >
+                                  {race.status === 'Finished' && (
+                                    <>
+                                      <button
+                                        onClick={() => { setResultsRace(race); setOpenMenuId(null) }}
+                                        className="w-full text-left px-3 py-2 text-sm text-secondary hover:bg-surface-container-high flex items-center gap-2 transition-colors"
+                                      >
+                                        <Trophy className="w-3.5 h-3.5" /> Full Results
+                                      </button>
+                                      <button
+                                        onClick={() => { setUnpublishError(''); setUnpublishTarget(race); setOpenMenuId(null) }}
+                                        className="w-full text-left px-3 py-2 text-sm text-on-surface hover:bg-surface-container-high flex items-center gap-2 transition-colors"
+                                      >
+                                        <RotateCcw className="w-3.5 h-3.5" /> Unpublish
+                                      </button>
+                                      <div className="border-t border-outline-variant/30 my-1" />
+                                    </>
+                                  )}
                                   <button
                                     onClick={() => { openEdit(race); setOpenMenuId(null) }}
                                     className="w-full text-left px-3 py-2 text-sm text-on-surface hover:bg-surface-container-high flex items-center gap-2 transition-colors"

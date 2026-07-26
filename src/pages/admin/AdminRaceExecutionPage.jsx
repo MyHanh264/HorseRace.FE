@@ -94,6 +94,7 @@ function RaceListCard({ race, onViewEntries, onMonitor, onStartRace, onViewConfl
 
   const borderColor = isPaused     ? '3px solid rgba(249,115,22,0.7)'
     : isInProgress ? '3px solid rgba(251,191,36,0.6)'
+    : isFinished   ? '3px solid rgba(52,211,153,0.5)'
     : '3px solid rgba(255,255,255,0.08)'
 
   return (
@@ -106,9 +107,10 @@ function RaceListCard({ race, onViewEntries, onMonitor, onStartRace, onViewConfl
                 isInProgress ? 'bg-amber-500/15 text-amber-400'
                 : isPaused   ? 'bg-orange-500/15 text-orange-400'
                 : isPending  ? 'bg-blue-400/15 text-blue-400'
+                : isFinished ? 'bg-emerald-500/15 text-emerald-400'
                 : 'bg-gray-500/15 text-gray-400'
               }`}>
-                {isInProgress ? '● LIVE' : isPaused ? '⚠ PAUSED' : isPending ? '⏳ PENDING RESULT' : 'SCHEDULED'}
+                {isInProgress ? '● LIVE' : isPaused ? '⚠ PAUSED' : isPending ? '⏳ PENDING RESULT' : isFinished ? '✓ FINISHED' : 'SCHEDULED'}
               </span>
             </div>
             <h3 className="font-serif text-xl font-bold text-on-surface">{race.name}</h3>
@@ -164,7 +166,7 @@ function RaceListCard({ race, onViewEntries, onMonitor, onStartRace, onViewConfl
 
 // ─── Page Header ─────────────────────────────────────────────────────────────
 
-function PageHeader({ view, loading, selectedRaceName, onBack, onRefreshList, onRefreshMonitor }) {
+function PageHeader({ view, loading, selectedRaceName, selectedRaceStatus, onBack, onRefreshList, onRefreshMonitor }) {
   return (
     <div className="flex items-center gap-3 mb-6">
       {view !== 'list' && (
@@ -178,7 +180,10 @@ function PageHeader({ view, loading, selectedRaceName, onBack, onRefreshList, on
       </div>
       <div className="flex-1 min-w-0">
         <h1 className="font-serif text-2xl font-bold text-on-surface">
-          {view === 'list' ? 'Race Execution' : view === 'entries' ? 'Race Entries' : 'Race Monitor'}
+          {view === 'list' ? 'Race Execution'
+            : view === 'entries' ? 'Race Entries'
+            : selectedRaceStatus === 'Finished' ? 'Leg History'
+            : 'Race Monitor'}
         </h1>
         <p className="text-xs text-on-surface-variant truncate">
           {view === 'list' ? 'Select a race to view entries or monitor' : selectedRaceName ?? ''}
@@ -503,7 +508,7 @@ export default function AdminRaceExecutionPage() {
   if (view === 'list') {
     return (
       <div className="max-w-5xl mx-auto">
-        <PageHeader view={view} loading={loading} selectedRaceName={selectedRace?.name}
+        <PageHeader view={view} loading={loading} selectedRaceName={selectedRace?.name} selectedRaceStatus={selectedRace?.status}
           onBack={backToList}
           onRefreshList={() => { setLoading(true); loadRaces() }}
           onRefreshMonitor={() => loadExecution(selectedRace?.raceId)} />
@@ -579,7 +584,7 @@ export default function AdminRaceExecutionPage() {
 
     return (
       <div className="max-w-5xl mx-auto">
-        <PageHeader view={view} loading={loading} selectedRaceName={selectedRace?.name}
+        <PageHeader view={view} loading={loading} selectedRaceName={selectedRace?.name} selectedRaceStatus={selectedRace?.status}
           onBack={backToList}
           onRefreshList={() => { setLoading(true); loadRaces() }}
           onRefreshMonitor={() => loadExecution(selectedRace?.raceId)} />
@@ -822,7 +827,7 @@ export default function AdminRaceExecutionPage() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <PageHeader view={view} loading={loading} selectedRaceName={selectedRace?.name}
+      <PageHeader view={view} loading={loading} selectedRaceName={selectedRace?.name} selectedRaceStatus={selectedRace?.status}
         onBack={backToList}
         onRefreshList={() => { setLoading(true); loadRaces() }}
         onRefreshMonitor={() => loadExecution(selectedRace?.raceId)} />

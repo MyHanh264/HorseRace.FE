@@ -507,6 +507,15 @@ a, button { -webkit-tap-highlight-color: transparent; }
   text-transform: uppercase;
 }
 
+/* Tighter padding for short-label action buttons sitting side by side (e.g. a
+   table's Actions column) — .gs-btn-sm's fixed 14px horizontal padding makes a
+   short label like "View" look padded/bloated next to longer ones like "Full
+   Results" in the same row. Stack with gs-btn-sm, not a replacement for it. */
+.gs-btn-compact {
+  padding: 6px 10px;
+  letter-spacing: 0.02em;
+}
+
 .gs-btn-lg {
   font-size: 14px;
   font-weight: 700;
