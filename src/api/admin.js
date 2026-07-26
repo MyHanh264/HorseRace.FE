@@ -5,7 +5,7 @@ let roleCache = null
 let rolePromise = null
 
 // Fallback roleId when caller supplies an unknown roleCode.
-// Keep in sync with backend Role seed (SPECTATOR = 5).
+// Keep in sync with backend Role seed (ADMIN = 5).
 const FALLBACK_ROLE_ID = 5
 
 export async function getAllRoles() {
@@ -20,8 +20,14 @@ export async function getRoleMap() {
   rolePromise = (async () => {
     try {
       const roles = await getAllRoles()
-      roleCache = roles
-      return roles
+      // Normalize BE PascalCase ({ RoleId, Code, Name }) to camelCase
+      // so the rest of the FE can use a single consistent shape.
+      roleCache = (roles || []).map((r) => ({
+        roleId: r.roleId ?? r.RoleId,
+        code: r.code ?? r.Code,
+        name: r.name ?? r.Name,
+      }))
+      return roleCache
     } catch {
       roleCache = []
       return []
@@ -66,8 +72,12 @@ export async function rejectUser(userId, reason) {
   return res.data
 }
 
-// Get all users - Backend returns flat array: [{ userId, email, fullName, roleId, isActive }, ...]
-// GET /api/users
+// Get all users — BE GET /api/users is paginated.
+// Response shape: { items: [...], total, page, pageSize } (PagedUserListResponse).
+// FE consumers that need a flat list (e.g. AdminRacesPage dropdown) should pass
+// { page: 1, pageSize: 1000 } explicitly so the page size lives at the call site.
+// Tabs in AdminUsersPage rely on this + client-side filtering for now
+// (see AdminUsersPage plan — phương án B will move filter/search/pagination to BE).
 export async function getAllUser({ page = 1, pageSize = 10, search = "", sort = "createdAt", sortDirection = "desc", role = "", status = "" } = {}) {
   const params = { page, pageSize, search, sort, sortDirection }
   if (role) params.role = role
@@ -128,21 +138,26 @@ export async function updateUser(id, data) {
 export async function createUser(data) {
   const roleMap = await getRoleMap()
   let roleId = data.roleId
-  if (typeof data.roleCode === 'string' && roleMap.length > 0) {
-    roleId = roleMap.find((r) => r.code === data.roleCode)?.roleId || data.roleId
+  const code = data.RoleCode ?? data.roleCode
+  if (typeof code === 'string' && roleMap.length > 0) {
+    const match = roleMap.find((r) => r.code === code)
+    if (match) roleId = match.roleId
   }
   if (!roleId) roleId = FALLBACK_ROLE_ID
 
+  // Payload mirrors Application.Usecases.Users.CreateUser.CreateUserCommand.
+  // PascalCase fields bound by ASP.NET model binding; `Password` is hashed by
+  // the handler via IPasswordHasher before persistence.
   const payload = {
-    Email: data.email,
-    PasswordHash: data.password,
-    FullName: data.fullName,
-    PhoneNumber: data.phoneNumber || null,
-    AvatarUrl: data.avatarUrl || null,
+    Email: data.Email ?? data.email,
+    Password: data.Password ?? data.password,
+    FullName: data.FullName ?? data.fullName,
+    PhoneNumber: data.PhoneNumber ?? data.phoneNumber ?? null,
+    AvatarUrl: data.AvatarUrl ?? data.avatarUrl ?? null,
     RoleId: roleId,
-    LicenseNumber: data.licenseNumber || null,
-    Weight: data.weight || null,
-    Bio: data.bio || null,
+    LicenseNumber: data.LicenseNumber ?? data.licenseNumber ?? null,
+    Weight: data.Weight ?? data.weight ?? null,
+    Bio: data.Bio ?? data.bio ?? null,
   }
   const res = await api.post('/api/users', payload)
   return res.data
@@ -359,19 +374,15 @@ export async function rejectViolation(violationId, reason) {
 
 // ─── Point Management ────────────────────────────────────────────────────────
 
-export async function getJockeyLeaderboard({ page = 1, pageSize = 20, sort = "totalPoints", sortDirection = "desc" } = {}) {
-  const params = { page, pageSize, sort, sortDirection }
-  const res = await api.get('/api/admin/leaderboard', { params })
-  return res.data
-}
-
-export async function getPointAdjustmentHistory({ page = 1, pageSize = 20, targetType = "", targetId = "" } = {}) {
-  const params = { page, pageSize }
-  if (targetType) params.targetType = targetType
-  if (targetId) params.targetId = targetId
-  const res = await api.get('/api/admin/points/history', { params })
-  return res.data
-}
+// NOTE: `getJockeyLeaderboard` (GET /api/admin/leaderboard) và
+// `getPointAdjustmentHistory` (GET /api/admin/points/history) đã bị gỡ — **hai route đó
+// KHÔNG tồn tại trên BE**, gọi vào là 404 (AdminController chỉ có points/balances,
+// points/transactions, points/adjust, points/{userId}, points/*-topup). Không page nào
+// dùng chúng nên chưa ai thấy lỗi. Dùng endpoint thật thay thế:
+//   - bảng xếp hạng  → `getCareerLeaderboard(role)` trong `api/jockey.js`
+//                      (GET /api/leaderboards/career?role=JOCKEY)
+//   - lịch sử điểm   → GET /api/admin/points/transactions
+//                      (AdminPointManagementPage đang gọi thẳng, có search/type/paging)
 
 // NOTE: `getAllHorses` / `getHorseDetail` were duplicates of public horse APIs
 // in `api/horseOwner.js` / `api/spectator.js` and had no consumer inside
@@ -389,8 +400,8 @@ export async function getPendingEntries() {
   return res.data
 }
 
-export async function getEntries() {
-  const res = await api.get('/api/entries')
+export async function getEntries(raceId) {
+  const res = await api.get('/api/entries', raceId ? { params: { raceId } } : undefined)
   return res.data
 }
 
@@ -482,12 +493,32 @@ export async function resumeRace(raceId) {
 }
 
 /**
+ * GET /api/legs/{raceId}/{legNumber} — leg detail, has AdminOverrideReason/ConfirmedAt
+ * for legs resolved via Admin override. Used to show past-resolution history on the
+ * Conflict Resolution page without needing the ReviewHistory/Audit Log entity (BE
+ * hasn't added Leg to that yet).
+ */
+export async function getLegDetail(raceId, legNumber) {
+  const res = await api.get(`/api/legs/${raceId}/${legNumber}`)
+  return res.data
+}
+
+/**
  * GET /api/races/{raceId}/standings
  * Get the race's live standings.
  */
 export async function getRaceStandings(raceId) {
   const res = await api.get(`/api/races/${raceId}/standings`)
   return res.data
+}
+
+/**
+ * GET /api/race-results — official post-publish record (FinalPosition, IsRaceDQ),
+ * unfiltered. Used together with getRaceStandings by RaceResultsModal.
+ */
+export async function getRaceResults() {
+  const res = await api.get('/api/race-results')
+  return Array.isArray(res.data) ? res.data : []
 }
 
 // ─── Review History (Audit Log) ────────────────────────────────────────────

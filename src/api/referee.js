@@ -28,7 +28,7 @@ export async function startRace(raceId, payload = {}) {
 /**
  * GET /api/races/{raceId}/legs/{legIndex}/referee-view
  * Get the current LEG data for the logged-in referee.
- * Response: { raceId, legIndex, legNumber, entries, mySubmittedData,
+ * Response: { raceId, legIndex, legNumber, entries, mySubmittedData, myDraftData,
  *             opponentSubmitted, bothSubmitted, legStatus }
  */
 export async function getRefereeLegView(raceId, legIndex) {
@@ -73,6 +73,17 @@ export async function getRaceExecutionStatus(raceId) {
  */
 export async function getRaceStandings(raceId) {
   const res = await api.get(`/api/races/${raceId}/standings`)
+  return res.data
+}
+
+/**
+ * GET /api/legs/{raceId}/{legNumber} — leg detail, has AdminOverrideReason/ConfirmedAt
+ * for a leg Admin resolved after a referee mismatch. LegsController allows REFEREE too,
+ * so this is safe to call from the referee flow (doesn't expose the other referee's
+ * blind submission — just the final decision, same as everyone else sees post-resolution).
+ */
+export async function getLegDetail(raceId, legNumber) {
+  const res = await api.get(`/api/legs/${raceId}/${legNumber}`)
   return res.data
 }
 

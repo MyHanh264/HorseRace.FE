@@ -21,6 +21,9 @@ export default defineConfig({
         target: "https://horseracemanagementsystem.onrender.com",
         changeOrigin: true,
         secure: false,
+        // Hub SignalR nằm ở /api/hubs/race-live. Thiếu cờ này thì Vite không proxy
+        // upgrade WebSocket → client âm thầm tụt xuống long-polling.
+        ws: true,
       },
     },
   },

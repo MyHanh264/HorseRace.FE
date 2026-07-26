@@ -31,6 +31,8 @@ import AdminAuditLogPage from "./pages/admin/AdminAuditLogPage";
 import SpectatorLayout from "./components/layout/SpectatorLayout";
 import SpectatorDashboard from "./pages/spectator/SpectatorDashboard";
 import RacesBettingPage from "./pages/spectator/RacesBettingPage";
+import LiveRacesPage from "./pages/spectator/LiveRacesPage";
+import LiveRaceDetailPage from "./pages/spectator/LiveRaceDetailPage";
 import MyPredictionsPage from "./pages/spectator/MyPredictionsPage";
 import PointWalletPage from "./pages/spectator/PointWalletPage";
 import LeaderboardPage from "./pages/spectator/LeaderboardPage";
@@ -66,7 +68,9 @@ function App() {
   return (
     <BrowserRouter>
       <AuthSessionSync /> {/* ← standalone, does not wrap Routes */}
-      <Toaster theme="dark" richColors position="top-right" />
+      {/* offset pushes the stack below the sticky header (tallest is AdminHeader at h-16/64px)
+          so a burst of toasts never covers the notification bell button underneath. */}
+      <Toaster theme="dark" richColors position="top-right" offset={{ top: 80 }} />
       <Routes>
         {/* Public */}
         <Route path="/" element={<LandingDashboard />} />
@@ -118,6 +122,8 @@ function App() {
         >
           <Route index element={<SpectatorDashboard />} />
           <Route path="races" element={<RacesBettingPage />} />
+          <Route path="live" element={<LiveRacesPage />} />
+          <Route path="live/:raceId" element={<LiveRaceDetailPage />} />
           <Route path="predictions" element={<MyPredictionsPage />} />
           <Route path="wallet" element={<PointWalletPage />} />
           <Route path="leaderboard" element={<LeaderboardPage />} />

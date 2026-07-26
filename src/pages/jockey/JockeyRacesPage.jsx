@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Calendar, ChevronRight, CircleCheck, Flag, Trophy, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Flag, Trophy, X } from "lucide-react";
 import { getRaces, getEntries, getRaceResults, getRaceStandings } from "../../api/jockey";
 import { useAuth } from "../../context/AuthContext";
 import RaceResultsModal from "../../components/RaceResultsModal";
@@ -254,108 +254,7 @@ function FeaturedRaceCard({ race, onViewResults, onViewDetails }) {
   );
 }
 
-// ── Small upcoming card ───────────────────────────────────────────────────────
-function SmallRaceCard({ race, onViewDetails }) {
-  return (
-    <button
-      onClick={() => onViewDetails?.(race)}
-      className="text-left bg-[#141c2e] border border-white/10 rounded-2xl p-5 flex flex-col justify-between min-h-[180px] hover:border-emerald-500/30 transition-colors w-full"
-    >
-      {/* Top */}
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          {race.roundType && (
-            <span className="text-[10px] px-2 py-0.5 rounded border border-yellow-500/30 text-yellow-400 bg-yellow-500/10 font-semibold uppercase tracking-widest">
-              {race.roundType}
-            </span>
-          )}
-          <h3 className="text-white font-bold text-base leading-snug mt-2">
-            {race.name ?? `Race #${race.raceId}`}
-          </h3>
-          <p className="text-gray-500 text-xs mt-0.5">
-            {race.tournamentName ?? "—"}
-          </p>
-        </div>
-        <Calendar size={15} className="text-gray-600 flex-shrink-0 mt-1" />
-      </div>
-
-      {/* Bottom */}
-      <div className="mt-4 space-y-2">
-        <div>
-          <p className="text-gray-600 text-[10px] uppercase tracking-wider">
-            Date &amp; Time
-          </p>
-          <p className="text-gray-300 text-xs font-medium mt-0.5">
-            {fmtDate(race.scheduledAt)}
-            {fmtTime(race.scheduledAt) ? ` • ${fmtTime(race.scheduledAt)}` : ""}
-          </p>
-        </div>
-        <div>
-          <p className="text-gray-600 text-[10px] uppercase tracking-wider">
-            Mount
-          </p>
-          <p className="text-white text-xs font-bold mt-0.5">
-            {race.entry?.horseName ?? "—"}
-          </p>
-        </div>
-      </div>
-    </button>
-  );
-}
-
-// ── Completed card ────────────────────────────────────────────────────────────
-function CompletedRaceCard({ race, onViewResults }) {
-  const placement = positionLabel(race.result);
-  const isDq = race.result?.isRaceDQ;
-  return (
-    <div className="bg-[#141c2e] border border-white/10 rounded-2xl p-5 flex flex-col justify-between min-h-[180px] opacity-90">
-      {/* Top */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <CircleCheck size={15} className="text-gray-500 flex-shrink-0" />
-          <h3 className="text-gray-400 font-bold text-base leading-snug line-through decoration-gray-600">
-            {race.name ?? `Race #${race.raceId}`}
-          </h3>
-        </div>
-        {placement && (
-          <span className={`text-[10px] px-2 py-0.5 rounded border font-bold uppercase tracking-wider whitespace-nowrap flex-shrink-0 ${
-            isDq
-              ? "border-red-500/40 text-red-400 bg-red-500/10"
-              : "border-yellow-500/40 text-yellow-400 bg-yellow-500/10"
-          }`}>
-            {placement}
-          </span>
-        )}
-      </div>
-
-      {/* Bottom */}
-      <div className="mt-4 space-y-2">
-        <div>
-          <p className="text-gray-600 text-[10px] uppercase tracking-wider">
-            Mount
-          </p>
-          <p className="text-gray-400 text-xs font-semibold mt-0.5">
-            {race.entry?.horseName ?? "—"}
-          </p>
-        </div>
-        <div className="flex items-center justify-between pt-2 border-t border-white/5">
-          <p className="text-gray-600 text-[10px] uppercase tracking-wider">
-            Points
-          </p>
-          <p className="text-yellow-400 text-sm font-bold">
-            {race.result ? `${race.result.totalPoints} pts` : "—"}
-          </p>
-        </div>
-        <button
-          onClick={() => onViewResults?.(race)}
-          className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold text-yellow-400 hover:text-yellow-300 hover:bg-yellow-500/10 transition-colors"
-        >
-          <Trophy size={12} /> Full Results
-        </button>
-      </div>
-    </div>
-  );
-}
+const PAGE_SIZE = 10;
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 export default function JockeyRacesPage() {
@@ -368,6 +267,7 @@ export default function JockeyRacesPage() {
   const [activeTab, setActiveTab] = useState("Upcoming");
   const [resultsRace, setResultsRace] = useState(null); // race object shown in RaceResultsModal
   const [detailsRace, setDetailsRace] = useState(null); // race object shown in RaceDetailModal
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     Promise.all([getRaces(), getEntries(), getRaceResults()])
@@ -399,12 +299,20 @@ export default function JockeyRacesPage() {
       .finally(() => setLoading(false));
   }, [userId]);
 
-  const upcoming = races.filter((r) => r.status === "Scheduled");
-  const completed = races.filter(
-    (r) => r.status === "Finished" || r.status === "Cancelled",
-  );
+  // Upcoming: soonest race first. Completed: most recently raced first — a race
+  // you just finished should surface immediately, not get buried under older
+  // ones just because this race happens to be scheduled earlier in the calendar.
+  const upcoming = races
+    .filter((r) => r.status === "Scheduled")
+    .sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt));
+  const completed = races
+    .filter((r) => r.status === "Finished" || r.status === "Cancelled")
+    .sort((a, b) => new Date(b.scheduledAt) - new Date(a.scheduledAt));
   const filtered = activeTab === "Upcoming" ? upcoming : completed;
-  const [featured, ...rest] = filtered;
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageSafe = Math.min(page, totalPages);
+  const paginated = filtered.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE);
 
   return (
     <div className="p-8">
@@ -417,7 +325,7 @@ export default function JockeyRacesPage() {
           {TABS.map((tab) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => { setActiveTab(tab); setPage(1); }}
               className={`px-5 py-1.5 rounded-lg text-sm font-semibold transition-colors
                 ${
                   activeTab === tab
@@ -450,31 +358,40 @@ export default function JockeyRacesPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {/* Row 1: featured (large) + first small */}
-          {featured && (
-            <div className="grid grid-cols-[1.4fr_1fr] gap-4">
-              <FeaturedRaceCard race={featured} onViewResults={setResultsRace} onViewDetails={setDetailsRace} />
-              {rest[0] &&
-                (activeTab === "Completed" ? (
-                  <CompletedRaceCard race={rest[0]} onViewResults={setResultsRace} />
-                ) : (
-                  <SmallRaceCard race={rest[0]} onViewDetails={setDetailsRace} />
-                ))}
-            </div>
-          )}
+          {/* Every race uses the same "big card" style — no more special
+              first-card treatment, so nothing looks visually demoted. */}
+          <div className="grid grid-cols-2 gap-4">
+            {paginated.map((race) => (
+              <FeaturedRaceCard
+                key={race.raceId}
+                race={race}
+                onViewResults={setResultsRace}
+                onViewDetails={setDetailsRace}
+              />
+            ))}
+          </div>
 
-          {/* Row 2+: remaining in 2-col grid */}
-          {rest.length > 1 && (
-            <div className="grid grid-cols-2 gap-4">
-              {rest
-                .slice(1)
-                .map((race) =>
-                  activeTab === "Completed" ? (
-                    <CompletedRaceCard key={race.raceId} race={race} onViewResults={setResultsRace} />
-                  ) : (
-                    <SmallRaceCard key={race.raceId} race={race} onViewDetails={setDetailsRace} />
-                  ),
-                )}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-xs text-gray-500">
+                Page {pageSafe} of {totalPages} · {filtered.length} races
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={pageSafe === 1}
+                  className="w-8 h-8 rounded-lg border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft size={15} />
+                </button>
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={pageSafe === totalPages}
+                  className="w-8 h-8 rounded-lg border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronRight size={15} />
+                </button>
+              </div>
             </div>
           )}
         </div>

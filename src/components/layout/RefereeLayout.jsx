@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { ClipboardList, AlertTriangle, User, LogOut, Zap } from 'lucide-react'
+import { ClipboardList, AlertTriangle, User, LogOut } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import NotificationBell from '../NotificationBell'
 import { useRefereeNotifications } from '../../hooks/useRefereeNotifications'
@@ -75,12 +75,6 @@ export default function RefereeLayout() {
           >
             <LogOut size={14} />
             Logout
-          </button>
-
-          {/* Report Emergency */}
-          <button className="flex items-center gap-2.5 px-3 py-2.5 w-full rounded-lg text-sm font-bold text-red-400 bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 transition-colors">
-            <Zap size={14} />
-            Report Emergency
           </button>
         </div>
       </aside>

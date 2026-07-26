@@ -13,6 +13,8 @@ import {
   publishRace, getAllViolations, getViolationsWithEntryDetail,
 } from '../../api/admin'
 
+const EXECUTION_RACE_STATUSES = ['Scheduled', 'InProgress', 'Paused', 'PendingResult', 'Finished']
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtDate(s) {
@@ -84,6 +86,7 @@ function LegStatusChip({ status }) {
 
 function RaceListCard({ race, onViewEntries, onMonitor, onStartRace, onViewConflict, pendingViolationCount = 0 }) {
   const navigate = useNavigate()
+  const isFinished   = race.status === 'Finished'
   const isScheduled  = race.status === 'Scheduled'
   const isInProgress = race.status === 'InProgress'
   const isPaused     = race.status === 'Paused'
@@ -91,6 +94,7 @@ function RaceListCard({ race, onViewEntries, onMonitor, onStartRace, onViewConfl
 
   const borderColor = isPaused     ? '3px solid rgba(249,115,22,0.7)'
     : isInProgress ? '3px solid rgba(251,191,36,0.6)'
+    : isFinished   ? '3px solid rgba(52,211,153,0.5)'
     : '3px solid rgba(255,255,255,0.08)'
 
   return (
@@ -103,9 +107,10 @@ function RaceListCard({ race, onViewEntries, onMonitor, onStartRace, onViewConfl
                 isInProgress ? 'bg-amber-500/15 text-amber-400'
                 : isPaused   ? 'bg-orange-500/15 text-orange-400'
                 : isPending  ? 'bg-blue-400/15 text-blue-400'
+                : isFinished ? 'bg-emerald-500/15 text-emerald-400'
                 : 'bg-gray-500/15 text-gray-400'
               }`}>
-                {isInProgress ? '● LIVE' : isPaused ? '⚠ PAUSED' : isPending ? '⏳ PENDING RESULT' : 'SCHEDULED'}
+                {isInProgress ? '● LIVE' : isPaused ? '⚠ PAUSED' : isPending ? '⏳ PENDING RESULT' : isFinished ? '✓ FINISHED' : 'SCHEDULED'}
               </span>
             </div>
             <h3 className="font-serif text-xl font-bold text-on-surface">{race.name}</h3>
@@ -142,10 +147,10 @@ function RaceListCard({ race, onViewEntries, onMonitor, onStartRace, onViewConfl
             </button>
           </>
         )}
-        {(isInProgress || isPending) && (
+        {(isInProgress || isPending || isFinished) && (
           <button onClick={() => onMonitor(race)}
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-white/20 text-xs text-gray-300 hover:bg-white/10 transition-all">
-            <Eye size={13} /> Monitor
+            <Eye size={13} /> {isFinished ? 'Leg history' : 'Monitor'}
           </button>
         )}
         {isPaused && (
@@ -161,7 +166,7 @@ function RaceListCard({ race, onViewEntries, onMonitor, onStartRace, onViewConfl
 
 // ─── Page Header ─────────────────────────────────────────────────────────────
 
-function PageHeader({ view, loading, selectedRaceName, onBack, onRefreshList, onRefreshMonitor }) {
+function PageHeader({ view, loading, selectedRaceName, selectedRaceStatus, onBack, onRefreshList, onRefreshMonitor }) {
   return (
     <div className="flex items-center gap-3 mb-6">
       {view !== 'list' && (
@@ -175,7 +180,10 @@ function PageHeader({ view, loading, selectedRaceName, onBack, onRefreshList, on
       </div>
       <div className="flex-1 min-w-0">
         <h1 className="font-serif text-2xl font-bold text-on-surface">
-          {view === 'list' ? 'Race Execution' : view === 'entries' ? 'Race Entries' : 'Race Monitor'}
+          {view === 'list' ? 'Race Execution'
+            : view === 'entries' ? 'Race Entries'
+            : selectedRaceStatus === 'Finished' ? 'Leg History'
+            : 'Race Monitor'}
         </h1>
         <p className="text-xs text-on-surface-variant truncate">
           {view === 'list' ? 'Select a race to view entries or monitor' : selectedRaceName ?? ''}
@@ -262,7 +270,7 @@ export default function AdminRaceExecutionPage() {
       ])
       if (!isMountedRef.current) return
       setAllRaces(races.filter(r =>
-        ['Scheduled', 'InProgress', 'Paused', 'PendingResult'].includes(r.status),
+        EXECUTION_RACE_STATUSES.includes(r.status),
       ))
       const violationItems = Array.isArray(violationsRes?.items) ? violationsRes.items : []
       const counts = {}
@@ -327,7 +335,7 @@ export default function AdminRaceExecutionPage() {
         ])
         if (!active) return
         const filtered = races.filter(r =>
-          ['Scheduled', 'InProgress', 'Paused', 'PendingResult'].includes(r.status),
+          EXECUTION_RACE_STATUSES.includes(r.status),
         )
         setAllRaces(filtered)
         const violationItems = Array.isArray(violationsRes?.items) ? violationsRes.items : []
@@ -500,7 +508,7 @@ export default function AdminRaceExecutionPage() {
   if (view === 'list') {
     return (
       <div className="max-w-5xl mx-auto">
-        <PageHeader view={view} loading={loading} selectedRaceName={selectedRace?.name}
+        <PageHeader view={view} loading={loading} selectedRaceName={selectedRace?.name} selectedRaceStatus={selectedRace?.status}
           onBack={backToList}
           onRefreshList={() => { setLoading(true); loadRaces() }}
           onRefreshMonitor={() => loadExecution(selectedRace?.raceId)} />
@@ -576,7 +584,7 @@ export default function AdminRaceExecutionPage() {
 
     return (
       <div className="max-w-5xl mx-auto">
-        <PageHeader view={view} loading={loading} selectedRaceName={selectedRace?.name}
+        <PageHeader view={view} loading={loading} selectedRaceName={selectedRace?.name} selectedRaceStatus={selectedRace?.status}
           onBack={backToList}
           onRefreshList={() => { setLoading(true); loadRaces() }}
           onRefreshMonitor={() => loadExecution(selectedRace?.raceId)} />
@@ -819,7 +827,7 @@ export default function AdminRaceExecutionPage() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <PageHeader view={view} loading={loading} selectedRaceName={selectedRace?.name}
+      <PageHeader view={view} loading={loading} selectedRaceName={selectedRace?.name} selectedRaceStatus={selectedRace?.status}
         onBack={backToList}
         onRefreshList={() => { setLoading(true); loadRaces() }}
         onRefreshMonitor={() => loadExecution(selectedRace?.raceId)} />
@@ -908,7 +916,8 @@ export default function AdminRaceExecutionPage() {
             </div>
             <div className="divide-y divide-white/5">
               {execution.legs?.map((leg, idx) => (
-                <div key={idx} className="px-5 py-4 flex items-center justify-between gap-4">
+                <div key={leg.legNumber ?? idx}>
+                <div className="px-5 py-4 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
                       leg.status === 'Confirmed'  ? 'bg-emerald-500 text-white'
@@ -937,6 +946,19 @@ export default function AdminRaceExecutionPage() {
                     </div>
                     <LegStatusChip status={leg.status} />
                   </div>
+                </div>
+                {leg.results?.length > 0 && (
+                  <div className="px-5 pb-4 -mt-2">
+                    <p className="text-[10px] text-on-surface-variant uppercase tracking-wider mb-1.5">Official results</p>
+                    <div className="flex flex-wrap gap-2">
+                      {leg.results.map((r) => (
+                        <span key={r.entryId} className="text-xs px-2 py-0.5 rounded bg-surface-container-high text-on-surface">
+                          Entry #{r.entryId}: {r.position === -1 ? 'DNF' : r.position === -2 ? 'DQ' : `#${r.position}`} ({r.points}p)
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 </div>
               ))}
             </div>

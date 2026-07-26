@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   getAllUser,
   getPendingUsers,
@@ -54,6 +54,8 @@ function getRoleBadgeClass(role) {
       return "gs-badge gs-badge-secondary";
     case "JOCKEY":
       return "gs-badge gs-badge-primary";
+    case "REFEREE":
+      return "gs-badge gs-badge-info";
     case "ADMIN":
       return "gs-badge gs-badge-warning";
     case "SPECTATOR":
@@ -69,6 +71,8 @@ function getRoleLabel(role) {
       return "Horse Owner";
     case "JOCKEY":
       return "Jockey";
+    case "REFEREE":
+      return "Referee";
     case "ADMIN":
       return "Admin";
     case "SPECTATOR":
@@ -135,7 +139,13 @@ function StatCard({ icon: Icon, iconCls, label, value, sub }) {
   );
 }
 
-// ─── Role Options (for Create/Edit modal) ────────────────────────────────────
+// ─── Role Options (for Create modal) ─────────────────────────────────────────
+// Aligned with RoleConfiguration.cs seed: HORSE_OWNER(1), JOCKEY(2), REFEREE(3),
+// SPECTATOR(4), ADMIN(5). REFEREE is admin-only creation (no public registration).
+// ADMIN is intentionally NOT selectable here — creating more admin accounts from
+// this self-service modal is too sensitive to leave as a one-click option; do it
+// via a direct DB/BE-side action instead. Editing an existing admin's own role is
+// unaffected since the role selector only renders in Create mode (see `!isEdit`).
 const ROLE_OPTIONS = [
   {
     code: "SPECTATOR",
@@ -156,14 +166,17 @@ const ROLE_OPTIONS = [
     icon: "⚑",
   },
   {
-    code: "ADMIN",
-    title: "Admin",
-    description: "Full system access and management capabilities.",
-    icon: "★",
+    code: "REFEREE",
+    title: "Referee",
+    description: "Officiate races and submit leg results.",
+    icon: "◈",
   },
 ];
 
-// ─── User Modal (Create/Edit) - Similar to Registration Page ─────────────────
+// ─── User Modal (Create) ─────────────────────────────────────────────────────
+// Mirrors `CreateUserCommand` (UsersController.cs).
+// BE required: Email, Password (create-only), FullName, RoleId.
+// Everything else is optional — admin can fill later via Edit flow.
 function UserModal({ user, onClose, onSubmit, submitting, error }) {
   const isEdit = !!user;
   const [showPassword, setShowPassword] = useState(false);
@@ -175,7 +188,7 @@ function UserModal({ user, onClose, onSubmit, submitting, error }) {
     roleCode: user?.roleCode || user?.role || "SPECTATOR",
     phoneNumber: user?.phoneNumber || "",
     licenseNumber: user?.licenseNumber || "",
-    weight: user?.weight || "",
+    weight: user?.weight ?? "",
     bio: user?.bio || "",
   });
 
@@ -190,10 +203,7 @@ function UserModal({ user, onClose, onSubmit, submitting, error }) {
       if (form.password !== form.confirmPassword)
         return "Passwords do not match.";
     }
-    if (!form.phoneNumber?.trim()) return "Phone number is required.";
-    if (isJockey) {
-      if (!form.licenseNumber?.trim())
-        return "License number is required for jockeys.";
+    if (isJockey && form.weight !== "" && form.weight !== null) {
       const w = parseFloat(form.weight);
       if (Number.isNaN(w) || w <= 0)
         return "Weight must be a valid positive number.";
@@ -209,21 +219,29 @@ function UserModal({ user, onClose, onSubmit, submitting, error }) {
       return;
     }
 
+    // Payload matches CreateUserCommand (PascalCase). RoleId is resolved in
+    // admin.js `createUser` from roleMap[roleCode].
     const payload = {
-      fullName: form.fullName.trim(),
-      email: form.email.trim(),
-      phoneNumber: form.phoneNumber.trim(),
-      roleCode: form.roleCode,
+      FullName: form.fullName.trim(),
+      Email: form.email.trim(),
+      PhoneNumber: form.phoneNumber?.trim() || null,
+      RoleCode: form.roleCode,
+      AvatarUrl: null,
+      LicenseNumber: null,
+      Weight: null,
+      Bio: null,
     };
 
     if (!isEdit) {
-      payload.password = form.password;
+      payload.Password = form.password;
     }
 
     if (isJockey) {
-      payload.licenseNumber = form.licenseNumber.trim();
-      payload.weight = parseFloat(form.weight);
-      if (form.bio?.trim()) payload.bio = form.bio.trim();
+      if (form.licenseNumber?.trim())
+        payload.LicenseNumber = form.licenseNumber.trim();
+      if (form.weight !== "" && form.weight !== null)
+        payload.Weight = parseFloat(form.weight);
+      if (form.bio?.trim()) payload.Bio = form.bio.trim();
     }
 
     onSubmit({ data: { ...payload, userId: user?.userId } });
@@ -270,7 +288,10 @@ function UserModal({ user, onClose, onSubmit, submitting, error }) {
               <legend className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-3">
                 Select Role
               </legend>
-              <div className="register-role-grid">
+              <div
+                className="register-role-grid"
+                style={{ gridTemplateColumns: "repeat(4, minmax(0, 1fr))" }}
+              >
                 {ROLE_OPTIONS.map((role) => (
                   <label
                     key={role.code}
@@ -325,14 +346,13 @@ function UserModal({ user, onClose, onSubmit, submitting, error }) {
             </label>
 
             <label className="register-field">
-              <span>Phone Number</span>
+              <span>Phone Number <span className="text-on-surface-variant/60">(optional)</span></span>
               <input
                 type="tel"
                 name="phoneNumber"
                 placeholder="0900000000"
                 value={form.phoneNumber}
                 onChange={(e) => setField("phoneNumber", e.target.value)}
-                required
                 className={inputCls}
               />
             </label>
@@ -380,11 +400,11 @@ function UserModal({ user, onClose, onSubmit, submitting, error }) {
             )}
           </div>
 
-          {/* Jockey fields */}
+          {/* Jockey fields (optional — BE accepts null for non-jockey profiles) */}
           {isJockey && (
             <fieldset className="mt-4">
               <legend className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-3">
-                Jockey Profile
+                Jockey Profile <span className="text-on-surface-variant/60 normal-case font-normal">(optional)</span>
               </legend>
               <div className="register-grid">
                 <label className="register-field">
@@ -395,7 +415,6 @@ function UserModal({ user, onClose, onSubmit, submitting, error }) {
                     placeholder="e.g. JKY-2024-001"
                     value={form.licenseNumber}
                     onChange={(e) => setField("licenseNumber", e.target.value)}
-                    required={isJockey}
                     className={inputCls}
                   />
                 </label>
@@ -410,7 +429,6 @@ function UserModal({ user, onClose, onSubmit, submitting, error }) {
                     placeholder="53"
                     value={form.weight}
                     onChange={(e) => setField("weight", e.target.value)}
-                    required={isJockey}
                     className={inputCls}
                   />
                 </label>
@@ -484,7 +502,7 @@ function UserDetailModal({
               {(user.fullName || "U").charAt(0).toUpperCase()}
             </div>
             <div>
-              <h2 className="font-serif font-bold text-on-surface">
+              <h2 className="font-bold text-on-surface">
                 {user.fullName || "—"}
               </h2>
               <p className="text-xs text-on-surface-variant">User Profile</p>
@@ -796,6 +814,21 @@ export default function AdminUsersPage() {
   const [roleMap, setRoleMap] = useState([]);
   const [allUsersCache, setAllUsersCache] = useState([]);
 
+  // ── Pending IDs cache (shared between stats + tab data) ──
+  const [pendingIdsCache, setPendingIdsCache] = useState(new Set());
+
+  // ── Refs to break the loadData ↔ allUsersCache dependency cycle ──
+  // `loadData` reads from these refs (no re-creation when cache changes)
+  // and writes back via `setAllUsersCache` only when the value actually differs.
+  const allUsersCacheRef = useRef([]);
+  const pendingIdsRef = useRef(new Set());
+  const roleMapRef = useRef([]);
+
+  // Token bumped on every fetch so out-of-order responses can be discarded
+  // (race-condition guard for fast tab/search/pagination clicks).
+  const dataRequestIdRef = useRef(0);
+  const statsRequestIdRef = useRef(0);
+
   // ── Pagination ──
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10);
@@ -803,6 +836,12 @@ export default function AdminUsersPage() {
 
   // ── Search ──
   const [searchQuery, setSearchQuery] = useState("");
+  // Debounced search value used by loadData — avoids re-filtering on every keystroke.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 250);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
 
   // ── Modals ──
   const [showUserModal, setShowUserModal] = useState(false);
@@ -821,40 +860,79 @@ export default function AdminUsersPage() {
   const [formError, setFormError] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
+  // Keep refs in sync with state so async closures see the latest value
+  // without putting them in useCallback deps (prevents infinite re-fetch).
+  useEffect(() => {
+    allUsersCacheRef.current = allUsersCache;
+  }, [allUsersCache]);
+  useEffect(() => {
+    pendingIdsRef.current = pendingIdsCache;
+  }, [pendingIdsCache]);
+  useEffect(() => {
+    roleMapRef.current = roleMap;
+  }, [roleMap]);
+
+  // ── Helpers ──
+  // Extract a flat users array regardless of whether BE returns [...] or { items: [...] }.
+  const extractUsers = (payload) => {
+    if (Array.isArray(payload)) return payload;
+    if (payload && Array.isArray(payload.items)) return payload.items;
+    if (payload && Array.isArray(payload.data)) return payload.data;
+    return [];
+  };
+
   // ── Load Role Map + Stats ──
   const loadStats = useCallback(async () => {
+    const myId = ++statsRequestIdRef.current;
     setStatsLoading(true);
     try {
-      // Load role map first
       const roles = await getRoleMap();
-      setRoleMap(roles || []);
+      if (myId !== statsRequestIdRef.current) return;
+      if (Array.isArray(roles) && roles.length > 0) {
+        setRoleMap(roles);
+        roleMapRef.current = roles;
+      }
 
-      // Backend returns flat array from /api/users (UserListItemResponse)
-      // Also load pending list separately
       const [allData, pendingData] = await Promise.allSettled([
-        getAllUser(),
+        // Fetch full list (pageSize=1000) for stats so counts are accurate.
+        // BE GET /api/users is paginated; the default pageSize=10 would otherwise
+        // cap stats at 10 users. Future: switch to BE-side aggregate counts
+        // (see AdminUsersPage plan — phương án B).
+        getAllUser({ page: 1, pageSize: 1000 }),
         getPendingUsers(),
       ]);
 
-      const allUsers =
-        allData.status === "fulfilled" && Array.isArray(allData.value)
-          ? allData.value
-          : [];
-      setAllUsersCache(allUsers);
+      if (myId !== statsRequestIdRef.current) return;
 
-      const pendingUsers =
-        pendingData.status === "fulfilled" && Array.isArray(pendingData.value)
-          ? pendingData.value
-          : [];
-
-      // Backend only returns UserListItemResponse: { userId, email, fullName, roleId, isActive }
-      // No "status" or "deleted" fields. So:
-      //  - Approved = active users (isActive=true) and NOT in pending list
-      //  - Rejected / Locked = inactive users (isActive=false)
-      //  - Deleted: backend has no flag for deleted, so 0
+      const allUsers = extractUsers(
+        allData.status === "fulfilled" ? allData.value : [],
+      );
+      const pendingUsers = extractUsers(
+        pendingData.status === "fulfilled" ? pendingData.value : [],
+      );
       const pendingIds = new Set(pendingUsers.map((u) => u.userId));
+
+      // Only update state when value actually changed (avoids needless re-renders).
+      const currentAll = allUsersCacheRef.current;
+      const allChanged =
+        currentAll.length !== allUsers.length ||
+        currentAll.some((u, i) => u?.userId !== allUsers[i]?.userId);
+      if (allChanged) {
+        setAllUsersCache(allUsers);
+        allUsersCacheRef.current = allUsers;
+      }
+
+      const currentPending = pendingIdsRef.current;
+      const pendingChanged =
+        currentPending.size !== pendingIds.size ||
+        [...pendingIds].some((id) => !currentPending.has(id));
+      if (pendingChanged) {
+        setPendingIdsCache(pendingIds);
+        pendingIdsRef.current = pendingIds;
+      }
+
       const activeCount = allUsers.filter(
-        (u) => u.isActive && !pendingIds.has(u.userId)
+        (u) => u.isActive && !pendingIds.has(u.userId),
       ).length;
       const inactiveCount = allUsers.filter((u) => !u.isActive).length;
 
@@ -863,12 +941,15 @@ export default function AdminUsersPage() {
         approved: activeCount,
         rejected: inactiveCount,
         pending: pendingUsers.length,
-        deleted: 0, // Backend doesn't expose deleted flag in list
+        deleted: 0,
       });
     } catch (err) {
+      if (myId !== statsRequestIdRef.current) return;
       console.error("Failed to load stats:", err);
     } finally {
-      setStatsLoading(false);
+      if (myId === statsRequestIdRef.current) {
+        setStatsLoading(false);
+      }
     }
   }, []);
 
@@ -878,101 +959,121 @@ export default function AdminUsersPage() {
 
   // ── Load Data by Tab ──
   const loadData = useCallback(async () => {
+    const myId = ++dataRequestIdRef.current;
     setLoading(true);
     setError("");
     try {
-      // Ensure role map is loaded
-      if (roleMap.length === 0) {
+      if (roleMapRef.current.length === 0) {
         const roles = await getRoleMap();
-        setRoleMap(roles || []);
+        if (myId !== dataRequestIdRef.current) return;
+        if (Array.isArray(roles) && roles.length > 0) {
+          setRoleMap(roles);
+          roleMapRef.current = roles;
+        }
       }
 
       if (activeTab === "pending") {
         const data = await getPendingUsers();
-        const items = Array.isArray(data) ? data : [];
+        if (myId !== dataRequestIdRef.current) return;
+        const items = extractUsers(data);
         setUsers(items);
         setTotalUsers(items.length);
-      } else if (activeTab === "all") {
-        const data = await getAllUser();
-        let items = Array.isArray(data) ? data : [];
-        setAllUsersCache(items);
+        return;
+      }
 
-        // Client-side search filter
-        if (searchQuery.trim()) {
-          const q = searchQuery.toLowerCase();
-          items = items.filter(
-            (u) =>
-              u.fullName?.toLowerCase().includes(q) ||
-              u.email?.toLowerCase().includes(q)
-          );
-        }
+      // For "all" / "approved" / "rejected" / "deleted" — start from full list.
+      // Read from ref (NOT state) so changing the cache doesn't recreate this callback.
+      let all = allUsersCacheRef.current;
+      if (all.length === 0) {
+        // BE GET /api/users is paginated; pull the full list so client-side
+        // tab/search/pagination slices operate on the real dataset.
+        const data = await getAllUser({ page: 1, pageSize: 1000 });
+        if (myId !== dataRequestIdRef.current) return;
+        all = extractUsers(data);
+        setAllUsersCache(all);
+        allUsersCacheRef.current = all;
+      }
 
-        // Client-side pagination
-        const start = (page - 1) * pageSize;
-        const paged = items.slice(start, start + pageSize);
-
-        setUsers(paged);
-        setTotalUsers(items.length);
-      } else {
-        // approved/rejected/deleted tabs - filter from allUsersCache
-        let all = allUsersCache;
-        if (all.length === 0) {
-          const data = await getAllUser();
-          all = Array.isArray(data) ? data : [];
-          setAllUsersCache(all);
-        }
-
-        const pendingIds = new Set();
+      // Reuse pendingIds from cache (already loaded by loadStats). Fallback fetch if missing.
+      let pendingIds = pendingIdsRef.current;
+      if (pendingIds.size === 0) {
         try {
           const pendingData = await getPendingUsers();
-          if (Array.isArray(pendingData)) {
-            pendingData.forEach((u) => pendingIds.add(u.userId));
-          }
+          if (myId !== dataRequestIdRef.current) return;
+          const pendingArr = extractUsers(pendingData);
+          pendingIds = new Set(pendingArr.map((u) => u.userId));
+          setPendingIdsCache(pendingIds);
+          pendingIdsRef.current = pendingIds;
         } catch {
-          // Ignore — pendingIds stays empty, filtering below just proceeds without it.
+          pendingIds = new Set();
         }
-
-        let filtered = all;
-        if (activeTab === "approved") {
-          filtered = all.filter((u) => u.isActive && !pendingIds.has(u.userId));
-        } else if (activeTab === "rejected") {
-          filtered = all.filter((u) => !u.isActive);
-        } else if (activeTab === "deleted") {
-          filtered = []; // Backend doesn't expose deleted flag
-        }
-
-        if (searchQuery.trim()) {
-          const q = searchQuery.toLowerCase();
-          filtered = filtered.filter(
-            (u) =>
-              u.fullName?.toLowerCase().includes(q) ||
-              u.email?.toLowerCase().includes(q)
-          );
-        }
-
-        const start = (page - 1) * pageSize;
-        const paged = filtered.slice(start, start + pageSize);
-
-        setUsers(paged);
-        setTotalUsers(filtered.length);
       }
+
+      let filtered = all;
+      if (activeTab === "all") {
+        filtered = all;
+      } else if (activeTab === "approved") {
+        filtered = all.filter(
+          (u) => u.isActive && !pendingIds.has(u.userId),
+        );
+      } else if (activeTab === "rejected") {
+        filtered = all.filter((u) => !u.isActive);
+      } else if (activeTab === "deleted") {
+        // Backend uses hard-delete (DELETE removes the row), so deleted users are
+        // physically gone and not exposed by GET /api/users. Show an empty result
+        // with a clearer empty state rendered below.
+        filtered = [];
+      }
+
+      if (debouncedSearch.trim()) {
+        const q = debouncedSearch.toLowerCase();
+        filtered = filtered.filter(
+          (u) =>
+            u.fullName?.toLowerCase().includes(q) ||
+            u.email?.toLowerCase().includes(q),
+        );
+      }
+
+      if (myId !== dataRequestIdRef.current) return;
+
+      const start = (page - 1) * pageSize;
+      const paged = filtered.slice(start, start + pageSize);
+
+      setUsers(paged);
+      setTotalUsers(filtered.length);
     } catch (err) {
+      if (myId !== dataRequestIdRef.current) return;
       setError(
-        err instanceof Error ? err.message : `Failed to load ${activeTab} users.`
+        err instanceof Error ? err.message : `Failed to load ${activeTab} users.`,
       );
     } finally {
-      setLoading(false);
+      if (myId === dataRequestIdRef.current) {
+        setLoading(false);
+      }
     }
-  }, [activeTab, page, pageSize, searchQuery, roleMap, allUsersCache]);
+  }, [activeTab, page, pageSize, debouncedSearch]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  // Reset page when tab or search changes
+  // Reset page when tab or debounced search changes
   useEffect(() => {
     setPage(1);
-  }, [activeTab, searchQuery]);
+  }, [activeTab, debouncedSearch]);
+
+  // ── Refresh helper ──
+  // After any mutation: bump request tokens (so any in-flight load is ignored),
+  // invalidate cache so the next load fetches fresh data, then refresh both.
+  const refreshAll = useCallback(async () => {
+    ++dataRequestIdRef.current;
+    ++statsRequestIdRef.current;
+    setAllUsersCache([]);
+    setPendingIdsCache(new Set());
+    allUsersCacheRef.current = [];
+    pendingIdsRef.current = new Set();
+    await Promise.all([loadData(), loadStats()]);
+  }, [loadData, loadStats]);
 
   // ── Handlers: Approve/Reject (Pending tab) ──
   const handleApprove = async (userId) => {
@@ -980,8 +1081,7 @@ export default function AdminUsersPage() {
     setError("");
     try {
       await approveUser(userId);
-      await loadData();
-      await loadStats();
+      await refreshAll();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to approve account.");
     } finally {
@@ -996,8 +1096,7 @@ export default function AdminUsersPage() {
       await rejectUser(userId, rejectReason.trim() || null);
       setRejectingId(null);
       setRejectReason("");
-      await loadData();
-      await loadStats();
+      await refreshAll();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to reject account.");
     } finally {
@@ -1017,8 +1116,7 @@ export default function AdminUsersPage() {
     try {
       await createUser(data);
       setShowUserModal(false);
-      await loadData();
-      await loadStats();
+      await refreshAll();
     } catch (err) {
       setFormError(
         err?.response?.data?.detail ||
@@ -1042,7 +1140,8 @@ export default function AdminUsersPage() {
       await updateUser(data.userId, data);
       setShowUserModal(false);
       setEditingUser(null);
-      await loadData();
+      // Local mutation may have flipped IsActive/RoleId, so force a fresh fetch.
+      await refreshAll();
     } catch (err) {
       setFormError(
         err?.response?.data?.detail ||
@@ -1061,8 +1160,7 @@ export default function AdminUsersPage() {
       await deleteUser(userId);
       setShowDeleteModal(false);
       setDeletingUser(null);
-      await loadData();
-      await loadStats();
+      await refreshAll();
     } catch (err) {
       setError(
         err?.response?.data?.detail || err?.message || "Delete failed."
@@ -1079,10 +1177,13 @@ export default function AdminUsersPage() {
     try {
       await lockUser(selectedUser.userId, reason);
       setShowLockModal(false);
-      await loadData();
-      const updated = await getUserById(selectedUser.userId);
-      setSelectedUser(updated);
-      await loadStats();
+      await refreshAll();
+      try {
+        const updated = await getUserById(selectedUser.userId);
+        setSelectedUser(updated);
+      } catch {
+        // Detail fetch is best-effort; table is already refreshed.
+      }
     } catch (err) {
       setError(err?.response?.data?.detail || err?.message || "Lock failed.");
     } finally {
@@ -1095,10 +1196,13 @@ export default function AdminUsersPage() {
     setError("");
     try {
       await unlockUser(selectedUser.userId);
-      await loadData();
-      const updated = await getUserById(selectedUser.userId);
-      setSelectedUser(updated);
-      await loadStats();
+      await refreshAll();
+      try {
+        const updated = await getUserById(selectedUser.userId);
+        setSelectedUser(updated);
+      } catch {
+        // Detail fetch is best-effort; table is already refreshed.
+      }
     } catch (err) {
       setError(err?.response?.data?.detail || err?.message || "Unlock failed.");
     } finally {
@@ -1112,8 +1216,7 @@ export default function AdminUsersPage() {
     try {
       await updateUser(selectedUser.userId, { status: "ACTIVE" });
       setShowDetailModal(false);
-      await loadData();
-      await loadStats();
+      await refreshAll();
     } catch (err) {
       setError(
         err?.response?.data?.detail || err?.message || "Restore failed."
@@ -1475,6 +1578,12 @@ export default function AdminUsersPage() {
               ? "Try different search criteria."
               : activeTab === "pending"
               ? "No accounts are awaiting approval."
+              : activeTab === "deleted"
+              ? "Deleted accounts are permanently removed and cannot be recovered."
+              : activeTab === "rejected"
+              ? "No rejected or locked accounts."
+              : activeTab === "approved"
+              ? "No approved accounts yet."
               : "No users found in this category."}
           </p>
         </div>

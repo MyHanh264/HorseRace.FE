@@ -9,10 +9,6 @@ import {
   Clock,
   Plus,
   ImageIcon,
-  CheckCircle2,
-  XCircle,
-  Bell,
-  Trophy,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -324,33 +320,9 @@ export default function HorseOwnerDashboard() {
   );
   const firstName = user?.fullName?.split(" ")[0] ?? "there";
 
-  const rejectedHorses = horses.filter((h) => h.status === "Rejected");
-  const rejectedEntries = entries.filter((e) => e.status === "Rejected");
-  const finishedRaceIds = new Set(
-    races.filter((r) => r.status === "Finished").map((r) => r.raceId)
-  );
-  const finishedEntries = entries.filter(
-    (e) => e.status === "Approved" && finishedRaceIds.has(e.raceId)
-  );
   const upcomingRaces = races
     .filter((r) => r.status === "Scheduled")
     .sort((a, b) => new Date(a.scheduledAt ?? a.scheduledStartTime) - new Date(b.scheduledAt ?? b.scheduledStartTime));
-
-  const notifications = [];
-  if (!loading) {
-    if (pendingInvitations.length > 0)
-      notifications.push({ type: "warn", icon: Bell, msg: `You have ${pendingInvitations.length} jockey invitation(s) awaiting your response.`, path: "/horse-owner/invitations" });
-    if (approvedCount > 0)
-      notifications.push({ type: "success", icon: CheckCircle2, msg: `${approvedCount} horse(s) have been approved and are ready to compete.`, path: "/horse-owner/horses" });
-    if (rejectedHorses.length > 0)
-      notifications.push({ type: "error", icon: XCircle, msg: `${rejectedHorses.length} horse(s) had their registration rejected.`, path: "/horse-owner/horses" });
-    if (rejectedEntries.length > 0)
-      notifications.push({ type: "error", icon: XCircle, msg: `${rejectedEntries.length} entry/entries were rejected from a race.`, path: "/horse-owner/entries" });
-    if (finishedEntries.length > 0)
-      notifications.push({ type: "success", icon: Trophy, msg: `${finishedEntries.length} race(s) have finished — check your results.`, path: "/horse-owner/entries" });
-    if (pendingInvitations.length === 0 && rejectedHorses.length === 0 && rejectedEntries.length === 0)
-      notifications.push({ type: "info", icon: CheckCircle2, msg: "Everything looks good. No action needed right now.", path: null });
-  }
 
   if (loading) {
     return (
@@ -388,32 +360,6 @@ export default function HorseOwnerDashboard() {
           Register New Horse
         </button>
       </div>
-
-      {/* ── Notification Banners ── */}
-      {notifications.length > 0 && (
-        <div className="flex flex-col gap-2">
-          {notifications.map((n, i) => {
-            const Icon = n.icon
-            const styles = {
-              warn:    "bg-yellow-500/10 border-yellow-500/30 text-yellow-300",
-              error:   "bg-red-500/10 border-red-500/30 text-red-300",
-              success: "bg-emerald-500/10 border-emerald-500/30 text-emerald-300",
-              info:    "bg-white/5 border-white/10 text-gray-400",
-            }
-            return (
-              <div key={i} className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm ${styles[n.type]}`}>
-                <Icon size={16} className="shrink-0" />
-                <span className="flex-1">{n.msg}</span>
-                {n.path && (
-                  <button onClick={() => navigate(n.path)} className="text-xs font-bold underline underline-offset-2 whitespace-nowrap">
-                    View Now
-                  </button>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
 
       {/* ── Stat Cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

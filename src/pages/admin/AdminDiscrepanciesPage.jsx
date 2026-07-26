@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { RefreshCw, AlertTriangle, ShieldAlert, X, ChevronLeft, ChevronRight } from "lucide-react";
-import { getRaces, getRaceExecutionStatus } from "../../api/admin";
+import { RefreshCw, AlertTriangle, ShieldAlert, X, ChevronLeft, ChevronRight, History } from "lucide-react";
+import { getRaces, getRaceExecutionStatus, getLegDetail } from "../../api/admin";
+
+function fmtDateTime(value) {
+  if (!value) return "—";
+  return new Date(value).toLocaleString("en-GB", {
+    day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+}
 
 const POLL_MS = 15_000;
 const PAGE_SIZE = 10;
@@ -12,6 +19,8 @@ const PAGE_SIZE = 10;
 // only surfaces which races currently need that.
 export default function AdminDiscrepanciesPage() {
   const [activeConflicts, setActiveConflicts] = useState([]);
+  const [resolvedHistory, setResolvedHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
   const [conflictDismissed, setConflictDismissed] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -21,32 +30,50 @@ export default function AdminDiscrepanciesPage() {
     try {
       const races = await getRaces();
       const raceList = Array.isArray(races) ? races : [];
+      // Only InProgress/Paused races have legs at all — a race still not started
+      // has none, and one already Finished/PendingResult stops showing up here
+      // (see its own Race Conflict page for that race's full history instead).
       const inProgressRaces = raceList.filter(
         (r) => r.status === "InProgress" || r.status === "Paused",
       );
 
       const conflicts = [];
+      const resolvedLegRefs = [];
       for (const race of inProgressRaces) {
         try {
           const exec = await getRaceExecutionStatus(race.raceId);
-          const conflictedLegs = exec?.legs?.filter((l) => l.status === "Conflicted") ?? [];
-          for (const leg of conflictedLegs) {
-            conflicts.push({
-              raceId: race.raceId,
-              raceName: race.name,
-              legIndex: leg.legIndex ?? 0,
-              legNumber: (leg.legIndex ?? 0) + 1,
-            });
+          for (const leg of exec?.legs ?? []) {
+            if (leg.status === "Conflicted") {
+              conflicts.push({
+                raceId: race.raceId,
+                raceName: race.name,
+                legIndex: leg.legIndex ?? 0,
+                legNumber: (leg.legIndex ?? 0) + 1,
+              });
+            } else if (leg.status === "Resolved") {
+              resolvedLegRefs.push({ raceId: race.raceId, raceName: race.name, legNumber: leg.legNumber });
+            }
           }
         } catch { /* skip failed race checks */ }
       }
 
       setActiveConflicts(conflicts);
       setError("");
+
+      setHistoryLoading(true);
+      const details = await Promise.allSettled(
+        resolvedLegRefs.map((r) => getLegDetail(r.raceId, r.legNumber)),
+      );
+      const history = details
+        .map((d, i) => (d.status === "fulfilled" ? { ...d.value, raceName: resolvedLegRefs[i].raceName } : null))
+        .filter(Boolean)
+        .sort((a, b) => new Date(b.confirmedAt ?? 0) - new Date(a.confirmedAt ?? 0));
+      setResolvedHistory(history);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load conflicts.");
     } finally {
       setLoading(false);
+      setHistoryLoading(false);
     }
   }, []);
 
@@ -173,6 +200,55 @@ export default function AdminDiscrepanciesPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* Recently Resolved — legs Admin already overrode for races still
+          InProgress/Paused. A race that's since finished stops appearing here;
+          check that race's own Conflict page for its full history instead. */}
+      {!loading && (
+        <div className="mt-8">
+          <div className="flex items-center gap-2 mb-3">
+            <History className="w-4 h-4 text-sky-400" />
+            <h2 className="text-sm font-semibold text-on-surface">Recently Resolved</h2>
+          </div>
+          {historyLoading ? (
+            <div className="gs-card p-5 flex items-center gap-2 text-sm text-on-surface-variant">
+              <RefreshCw className="w-4 h-4 animate-spin" /> Loading…
+            </div>
+          ) : resolvedHistory.length === 0 ? (
+            <div className="gs-card p-6 text-center text-sm text-on-surface-variant">
+              No leg has been resolved by Admin yet (for races still in progress).
+            </div>
+          ) : (
+            <div className="gs-card overflow-hidden">
+              <div className="divide-y divide-white/5">
+                {resolvedHistory.map((h) => (
+                  <div key={`${h.raceId}-${h.legNumber}`} className="px-5 py-3.5 flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-semibold text-on-surface">
+                        {h.raceName} — Leg {h.legNumber}
+                      </p>
+                      <p className="text-xs text-on-surface-variant mt-0.5 italic">
+                        {h.adminOverrideReason || 'No reason recorded'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <p className="text-xs text-on-surface-variant font-mono">
+                        {fmtDateTime(h.confirmedAt)}
+                      </p>
+                      <Link
+                        to={`/admin/races/${h.raceId}/conflict`}
+                        className="px-3 py-1.5 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-xs font-semibold text-on-surface-variant hover:text-on-surface transition-all"
+                      >
+                        View
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

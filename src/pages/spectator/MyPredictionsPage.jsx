@@ -101,6 +101,9 @@ export default function MyPredictionsPage() {
 
   // Stats
   const totalStaked     = predictions.filter(p => p.status !== 'Cancelled').reduce((s, p) => s + Number(p.betAmount), 0)
+  const potentialPayout = predictions
+    .filter(p => p.status === 'Pending')
+    .reduce((s, p) => s + Number(p.betAmount) * Number(p.oddsLocked1 ?? 1), 0)
   const activeSlips     = predictions.filter(p => p.status === 'Pending').length
   const wonPredictions  = predictions.filter(p => p.status === 'Won')
   const lostPredictions = predictions.filter(p => p.status === 'Lost')
@@ -173,7 +176,7 @@ export default function MyPredictionsPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <StatCard icon={TrendingUp} iconCls="text-primary"   label="Total Staked"     value={`${fmtBalance(totalStaked)} pts`} />
-          <StatCard icon={TrendingUp} iconCls="text-secondary" label="Potential Payout"  value="—" />
+          <StatCard icon={TrendingUp} iconCls="text-secondary" label="Potential Payout"  value={`${fmtBalance(potentialPayout)} pts`} />
           <StatCard icon={Clock}      iconCls="text-amber-400" label="Active Slips"      value={activeSlips} />
           <StatCard icon={CheckCircle}iconCls="text-primary"   label="Win Rate (30D)"    value={`${winRate}%`} />
         </div>
@@ -269,10 +272,14 @@ export default function MyPredictionsPage() {
                           </span>
                         </td>
 
-                        {/* Est. Payout */}
+                        {/* Est. Payout — Won shows the actual payout already credited; Pending shows
+                            an estimate (stake × locked odds) since the race hasn't resolved yet.
+                            Lost/Cancelled genuinely pay 0, so "—" stays correct for those. */}
                         <td className="font-mono text-sm">
                           {pred.status === 'Won'
                             ? <span className="text-secondary font-bold">{fmtBalance(pred.betAmount * (pred.oddsLocked1 ?? 1))} pts</span>
+                            : pred.status === 'Pending'
+                            ? <span className="text-on-surface-variant">~{fmtBalance(pred.betAmount * (pred.oddsLocked1 ?? 1))} pts</span>
                             : <span className="text-on-surface-variant">—</span>
                           }
                         </td>

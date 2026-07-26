@@ -94,6 +94,9 @@ function toInputDate(d) {
 
 function TournamentModal({ tournament, onClose, onSubmit, submitting, error }) {
   const isEdit = !!tournament;
+  // Only block past dates when creating — editing an existing (possibly historical)
+  // tournament shouldn't be forced to move its already-past start date forward.
+  const minStartDate = isEdit ? undefined : toInputDate(new Date().toISOString());
 
   const [form, setForm] = useState({
     name: tournament?.name ?? "",
@@ -193,6 +196,7 @@ function TournamentModal({ tournament, onClose, onSubmit, submitting, error }) {
                 required
                 type="date"
                 value={form.startDate}
+                min={minStartDate}
                 onChange={set("startDate")}
                 className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all"
               />

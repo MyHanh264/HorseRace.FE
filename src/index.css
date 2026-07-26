@@ -227,10 +227,62 @@ a, button { -webkit-tap-highlight-color: transparent; }
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* ── Mô phỏng đua (Live Race) ─────────────────────────────────────────────── */
+
+/* Nhịp phi nước đại: thân nhấp nhô, hai cặp chân lệch pha nhau. Chạy trên
+   compositor nên 10 con cùng lúc vẫn không ăn vào frame budget của rAF. */
+@keyframes gallop-bob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25%      { transform: translateY(-3px) rotate(-1.5deg); }
+  50%      { transform: translateY(0) rotate(0deg); }
+  75%      { transform: translateY(-2px) rotate(1deg); }
+}
+
+@keyframes gallop-front {
+  0%, 100% { transform: rotate(-24deg); }
+  50%      { transform: rotate(26deg); }
+}
+
+@keyframes gallop-back {
+  0%, 100% { transform: rotate(22deg); }
+  50%      { transform: rotate(-26deg); }
+}
+
+@keyframes gallop-tail-sway {
+  0%, 100% { transform: rotate(-7deg); }
+  50%      { transform: rotate(9deg); }
+}
+
+@keyframes dust-drift {
+  0%   { opacity: 0.55; transform: translateX(0) scale(0.6); }
+  100% { opacity: 0;    transform: translateX(-26px) scale(1.5); }
+}
+
+@keyframes finish-ring {
+  0%   { opacity: 0.85; transform: scale(0.55); }
+  100% { opacity: 0;    transform: scale(1.5); }
+}
+
+.gallop-body      { animation: gallop-bob 0.34s ease-in-out infinite; }
+.gallop-leg-front { animation: gallop-front 0.34s ease-in-out infinite; transform-origin: -10px -21px; }
+.gallop-leg-back  { animation: gallop-back 0.34s ease-in-out infinite; transform-origin: -30px -22px; }
+.gallop-tail      { animation: gallop-tail-sway 0.5s ease-in-out infinite; }
+.dust-puff        { animation: dust-drift 0.7s linear infinite; }
+.finish-flash     { animation: finish-ring 0.9s ease-out infinite; transform-origin: -18px -30px; }
+
 .pulse-live { animation: pulse-live-red 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
 .spin-slow { animation: spin-slow-motion 4s linear infinite; display: inline-block; }
 .glow-effect-gold { animation: gold-breath-glow 3s ease-in-out infinite; }
 .animate-fade-in-up { animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+/* Tôn trọng người dùng bật giảm chuyển động: bỏ hết animation lặp vô hạn.
+   RaceReplayPlayer cũng tự nhảy thẳng tới bảng kết quả khi phát hiện cờ này. */
+@media (prefers-reduced-motion: reduce) {
+  .gallop-body, .gallop-leg-front, .gallop-leg-back,
+  .gallop-tail, .dust-puff, .finish-flash, .pulse-live {
+    animation: none !important;
+  }
+}
 
 .delay-row-1 { animation-delay: 80ms; }
 .delay-row-2 { animation-delay: 160ms; }
@@ -334,6 +386,18 @@ a, button { -webkit-tap-highlight-color: transparent; }
   background: rgba(255, 71, 87, 0.15);
   color: var(--color-error);
   border: 1px solid rgba(255, 71, 87, 0.3);
+}
+
+.gs-badge-info {
+  background: rgba(96, 165, 250, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(96, 165, 250, 0.3);
+}
+
+.gs-badge-warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .gs-badge-neutral {
@@ -441,6 +505,15 @@ a, button { -webkit-tap-highlight-color: transparent; }
   border-radius: 6px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+/* Tighter padding for short-label action buttons sitting side by side (e.g. a
+   table's Actions column) — .gs-btn-sm's fixed 14px horizontal padding makes a
+   short label like "View" look padded/bloated next to longer ones like "Full
+   Results" in the same row. Stack with gs-btn-sm, not a replacement for it. */
+.gs-btn-compact {
+  padding: 6px 10px;
+  letter-spacing: 0.02em;
 }
 
 .gs-btn-lg {

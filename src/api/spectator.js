@@ -23,7 +23,27 @@ export async function getPredictionDetail(predictionId) {
   return res.data
 }
 
-export async function placePrediction(raceId, payload) {
+// Bảng xếp hạng cược — CHỈ số liệu tổng hợp mỗi khán giả (rank, tên, số lệnh, thắng,
+// win rate, tổng đặt, tổng thắng). Không có lệnh cược lẻ nào trong response.
+// Trước đây trang Leaderboard tải cả `GET /api/predictions` về rồi tự gom; BE nay giới hạn
+// endpoint đó về "chỉ cược của mình" nên phải dùng nguồn tổng hợp này.
+export async function getSpectatorBettingLeaderboard() {
+  const res = await api.get('/api/leaderboards/spectators')
+  return Array.isArray(res.data) ? res.data : []
+}
+
+// ─── Cược race-level (Flow 7) ───────────────────────────────────────────────
+// Spectator cược 1 Entry về 1st của cả Race; cửa mở khi race Scheduled và odds đã khóa.
+
+export async function getRaceOdds(raceId) {
+  const res = await api.get(`/api/predictions/races/${raceId}/odds`)
+  return res.data
+}
+
+// Body { EntryId, BetAmount } → BE bind vào PredictionRequest.EntryId.
+// Lưu ý: BE bind case-insensitive về CHỮ HOA/THƯỜNG (entryId ≈ EntryId),
+// KHÔNG phải đồng nghĩa tên field — gửi FirstEntryId sẽ bind ra 0.
+export async function placeRacePrediction(raceId, payload) {
   const res = await api.post(`/api/predictions/races/${raceId}`, payload)
   return res.data
 }
@@ -42,6 +62,12 @@ export async function getAllRaces() {
 
 export async function getRaceDetail(raceId) {
   const res = await api.get(`/api/races/${raceId}`)
+  return res.data
+}
+
+// Snapshot live (legs: blind status + timestamps cho replay).
+export async function getRaceLive(raceId) {
+  const res = await api.get(`/api/races/${raceId}/live`)
   return res.data
 }
 
@@ -82,11 +108,10 @@ export async function getWalletTransactions() {
   return Array.isArray(res.data) ? res.data : []
 }
 
-// ─── Users (for leaderboard names) ────────────────────────────────────────────
+// ─── Users ────────────────────────────────────────────────────────────────────
 
-// GET /api/users returns a paged object ({items, total, page, pageSize}, default pageSize=10),
-// not a flat array — request a large page so this "get everyone" helper actually gets everyone.
-export async function getAllUsers() {
-  const res = await api.get('/api/users', { params: { pageSize: 1000 } })
-  return Array.isArray(res.data?.items) ? res.data.items : []
-}
+// NOTE: `getAllUsers` (GET /api/users?pageSize=1000) đã gỡ. Chỗ duy nhất dùng nó là
+// `LeaderboardPage` — chỉ để tra tên theo `spectatorId` — nay tên đã đi kèm trong
+// `GET /api/leaderboards/spectators`. Kéo cả bảng user về phía Spectator là thừa và lộ
+// email/SĐT của mọi người: `GET /api/users` chỉ có class-level `[Authorize]`, không khóa role.
+// (Bản thân endpoint đó vẫn mở cho mọi role — vấn đề BE riêng, xem T-26 trong .claude/TASKS.md.)

@@ -1,7 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { User, Mail, Lock, Shield, Save, Eye, EyeOff, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import api from '../../services/api'
+import {
+  getMyProfile,
+  updateMyProfile,
+  changeMyPassword,
+  profileErrorMessage,
+} from '../../api/profile'
 
 function getInitials(name = '') {
   return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?'
@@ -68,6 +73,7 @@ export default function RefereeProfilePage() {
   const userId   = user?.userId
 
   const [fullName,   setFullName]   = useState(user?.fullName ?? '')
+  const [phone,      setPhone]      = useState(null)
   const [saving,     setSaving]     = useState(false)
   const [saved,      setSaved]      = useState(false)
   const [saveError,  setSaveError]  = useState('')
@@ -76,15 +82,34 @@ export default function RefereeProfilePage() {
   const [updatingPw, setUpdatingPw] = useState(false)
   const [pwMsg,      setPwMsg]      = useState('')
 
+  // PUT /api/auth/profile ghi đè CẢ PhoneNumber (handler set thẳng, không patch từng field),
+  // nên phải nạp số hiện tại trước — không thì lưu tên xong là mất SĐT.
+  useEffect(() => {
+    let active = true
+    getMyProfile()
+      .then((p) => {
+        if (!active || !p) return
+        setPhone(p.phoneNumber ?? null)
+        setFullName((prev) => prev || (p.fullName ?? ''))
+      })
+      .catch(() => { /* giữ nguyên giá trị đọc từ JWT */ })
+    return () => { active = false }
+  }, [])
+
   const handleSave = async () => {
-    if (!userId || !fullName.trim()) return
+    if (!fullName.trim()) return
     setSaving(true); setSaveError('')
     try {
-      await api.put(`/api/users/${userId}`, { userId, fullName: fullName.trim() })
+      // Self-service: PUT /api/auth/profile (UserId resolve từ JWT).
+      // KHÔNG dùng PUT /api/users/{id} — endpoint đó [Authorize(Roles="ADMIN")] nên
+      // referee luôn nhận 403, và nó là full-replace (thiếu Email/RoleId → 400).
+      const updated = await updateMyProfile({ fullName: fullName.trim(), phoneNumber: phone })
+      setFullName(updated?.fullName ?? fullName.trim())
+      setPhone(updated?.phoneNumber ?? null)
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     } catch (err) {
-      setSaveError(err?.response?.data?.message || err?.message || 'Save failed')
+      setSaveError(profileErrorMessage(err, 'Save failed'))
     } finally { setSaving(false) }
   }
 
@@ -92,11 +117,12 @@ export default function RefereeProfilePage() {
     if (!currentPw || !newPw) { setPwMsg('Please fill in all fields.'); return }
     setUpdatingPw(true); setPwMsg('')
     try {
-      await api.put(`/api/users/${userId}/change-password`, { currentPassword: currentPw, newPassword: newPw })
+      // BE lấy UserId từ JWT; route id chỉ cần khớp ràng buộc {userId:int}.
+      await changeMyPassword(userId, { currentPassword: currentPw, newPassword: newPw })
       setPwMsg('Password changed successfully!')
       setCurrentPw(''); setNewPw('')
     } catch (err) {
-      setPwMsg(err?.response?.data?.message || 'Failed to change password.')
+      setPwMsg(profileErrorMessage(err, 'Failed to change password.'))
     } finally { setUpdatingPw(false) }
   }
 

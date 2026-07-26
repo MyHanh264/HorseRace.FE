@@ -1,6 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
+import { useMemo, useState } from "react";
 
 function storageKey(userId) {
   return `hrs_notif_seen_${userId ?? "anon"}`;
@@ -23,28 +21,22 @@ function saveSeenSet(userId, set) {
   }
 }
 
-const TOAST_FN_BY_TYPE = {
-  success: toast.success,
-  error: toast.error,
-  warn: toast.warning,
-  info: toast.info,
-};
-
 /**
  * Tracks read/unread state for a list of notification items { id, type, msg, path }.
  * - "Read" state is stored by id in localStorage, scoped per userId (switching
  *   accounts on the same browser won't mix up notifications).
- * - Any item with a NEW id (never seen this session, not already in seen)
- *   fires a toast once via sonner. Toasts are skipped on the first fetch after
- *   entering the page/switching user, to avoid flooding toasts for pre-existing
- *   old notifications.
+ * - Chỉ tính số chưa đọc để hiện badge trên icon chuông. **KHÔNG tự đẩy thông báo
+ *   ra màn hình** — người dùng bấm vào chuông mới thấy danh sách (`NotificationBell`).
+ *
+ * Lịch sử: bản trước bắn 1 toast (sonner) cho mỗi item có id mới. Nhưng id của các
+ * item nhóm-hàng-chờ được sinh TỪ CHÍNH NỘI DUNG — ví dụ `queue-horses:3,7,9` —
+ * nên chỉ cần hàng chờ thay đổi (admin duyệt 1 con ngựa) là ra id khác, bị coi là
+ * "thông báo mới" và bắn toast lại. Cộng với poll mỗi 45s trên nhiều hàng chờ, toast
+ * xếp thành một cột dài ở góc phải. Đừng đưa cơ chế toast tự động này trở lại.
  */
 export function useNotificationRead(items, userId) {
   const [trackedUserId, setTrackedUserId] = useState(userId);
   const [seen, setSeen] = useState(() => loadSeenSet(userId));
-  const knownIdsRef = useRef(new Set());
-  const isFirstRunRef = useRef(true);
-  const navigate = useNavigate();
 
   // Switching accounts on the same browser (logging in as a different user) →
   // reload "read" state for the new user. Set state directly during render
@@ -55,36 +47,6 @@ export function useNotificationRead(items, userId) {
     setTrackedUserId(userId);
     setSeen(loadSeenSet(userId));
   }
-
-  // The ref is only mutated inside an effect, not during render — reset it here
-  // separately when userId changes, apart from the toast effect below (which
-  // depends on `items`).
-  useEffect(() => {
-    knownIdsRef.current = new Set();
-    isFirstRunRef.current = true;
-  }, [userId]);
-
-  useEffect(() => {
-    const currentIds = new Set(items.map((i) => i.id));
-
-    if (!isFirstRunRef.current) {
-      const newlyArrived = items.filter(
-        (i) => !knownIdsRef.current.has(i.id) && !seen.has(i.id),
-      );
-      newlyArrived.forEach((item) => {
-        const fn = TOAST_FN_BY_TYPE[item.type] ?? toast;
-        fn(item.msg, {
-          action: item.path
-            ? { label: "View", onClick: () => navigate(item.path) }
-            : undefined,
-        });
-      });
-    }
-
-    knownIdsRef.current = currentIds;
-    isFirstRunRef.current = false;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items]);
 
   const unreadCount = useMemo(
     () => items.filter((i) => !seen.has(i.id)).length,

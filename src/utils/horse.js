@@ -85,12 +85,12 @@ export function validateRejectReason(reason) {
 }
 
 /**
- * Returns the list of statuses shown on the Admin page
- * (Revoked removed under the new FLOW 1).
+ * Returns the list of statuses shown on the Admin page (includes Revoked).
  */
 export const ADMIN_HORSE_TABS = [
   { key: "All", label: "All" },
   { key: HORSE_STATUS.PENDING, label: "Pending" },
   { key: HORSE_STATUS.APPROVED, label: "Approved" },
   { key: HORSE_STATUS.REJECTED, label: "Rejected" },
+  { key: HORSE_STATUS.REVOKED, label: "Revoked" },
 ]

@@ -27,6 +27,17 @@ import {
   getHorseBadgeClass,
 } from "../../utils/horse";
 
+// axios' own err.message is always the generic "Request failed with status code
+// NNN" — the real reason BE rejected the request lives in the ProblemDetails body.
+function getErrorDetail(err, fallback) {
+  return (
+    err?.response?.data?.detail ??
+    err?.response?.data?.title ??
+    (err instanceof Error ? err.message : fallback) ??
+    fallback
+  );
+}
+
 function formatDate(value) {
   if (!value) return "—";
   return new Date(value).toLocaleString("en-GB", {
@@ -248,11 +259,7 @@ export default function AdminHorsesPage() {
 
       setHorses(merged);
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to load horse list",
-      );
+      setError(getErrorDetail(err, "Failed to load horse list"));
     } finally {
       setLoading(false);
     }
@@ -274,7 +281,7 @@ export default function AdminHorsesPage() {
       await loadHorses();
       showSuccess("Horse approved successfully.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to approve horse");
+      setError(getErrorDetail(err, "Failed to approve horse"));
     } finally {
       setActionId(null);
     }
@@ -290,7 +297,7 @@ export default function AdminHorsesPage() {
       await loadHorses();
       showSuccess("Horse restored to Approved status.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to restore horse");
+      setError(getErrorDetail(err, "Failed to restore horse"));
     } finally {
       setActionId(null);
     }
@@ -312,7 +319,7 @@ export default function AdminHorsesPage() {
       await loadHorses();
       showSuccess("Horse rejected.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to reject horse");
+      setError(getErrorDetail(err, "Failed to reject horse"));
     } finally {
       setActionId(null);
     }
@@ -322,7 +329,7 @@ export default function AdminHorsesPage() {
     setActionId(horseId);
     setError("");
     try {
-      // Backend: revoke only works on Approved → changes to Rejected
+      // Backend: revoke → Revoked (not Rejected)
       // Backend returns the number of entries that were cancelled
       const result = await revokeHorse(horseId);
       setRevokingId(null);
@@ -334,7 +341,7 @@ export default function AdminHorsesPage() {
         showSuccess("Horse revoked.");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to revoke horse");
+      setError(getErrorDetail(err, "Failed to revoke horse"));
     } finally {
       setActionId(null);
     }
@@ -748,7 +755,7 @@ export default function AdminHorsesPage() {
                               Revoke horse <span className="text-on-surface font-semibold">{horse.name}</span>?
                             </p>
                             <p className="text-[11px] text-red-400 leading-snug bg-red-500/10 border border-red-500/20 rounded px-2 py-1.5">
-                              The horse will move to Rejected status. All non-cancelled entries for this horse (including Approved ones) will be cancelled as well — even if attached to an ongoing race. This cannot be undone.
+                              Horse moves to Revoked. Entries on races that have not started (or are finished/cancelled) will be cancelled. Cannot revoke while the horse is in an ongoing race.
                             </p>
                             <div className="flex gap-1.5">
                               <button
@@ -777,8 +784,8 @@ export default function AdminHorsesPage() {
                           </div>
                         ) : null}
 
-                        {/* Rejected → Re-approve (restore to Approved) */}
-                        {horse.status === HORSE_STATUS.REJECTED && revokingId !== horse.horseId ? (
+                        {/* Rejected / Revoked → Re-approve */}
+                        {(horse.status === HORSE_STATUS.REJECTED || horse.status === HORSE_STATUS.REVOKED) && revokingId !== horse.horseId ? (
                           <button
                             type="button"
                             disabled={actionId === horse.horseId}
@@ -796,7 +803,7 @@ export default function AdminHorsesPage() {
                         ) : null}
 
                         {/* Rejected → Re-approve confirmation open */}
-                        {horse.status === HORSE_STATUS.REJECTED && revokingId === horse.horseId ? (
+                        {(horse.status === HORSE_STATUS.REJECTED || horse.status === HORSE_STATUS.REVOKED) && revokingId === horse.horseId ? (
                           <div className="flex flex-col gap-1.5 w-60">
                             <p className="text-[11px] text-on-surface-variant leading-snug">
                               Restore horse <span className="text-on-surface font-semibold">{horse.name}</span> to Approved status?

@@ -1,11 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   User,
   Phone,
   Mail,
   Lock,
   Shield,
-  Camera,
   Save,
   Eye,
   EyeOff,
@@ -17,6 +16,12 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../services/api";
+import {
+  getMyProfile,
+  updateMyProfile,
+  changeMyPassword,
+  profileErrorMessage,
+} from "../../api/profile";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 function initials(name = "") {
@@ -124,16 +129,17 @@ export default function JockeyProfilePage() {
   const userId = user?.userId ?? user?.id;
 
   // form state
-  const [fullName, setFullName] = useState(user?.fullName ?? "");
-  const [phone, setPhone] = useState(user?.phone ?? "");
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
   const [licenseNumber, setLicense] = useState("");
   const [weight, setWeight] = useState("");
   const [biography, setBio] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState(null);
+  const [account, setAccount] = useState(null);
 
   // stats (read-only from API)
   const [totalRaces, setTotalRaces] = useState(0);
   const [totalWins, setTotalWins] = useState(0);
+  const [prizePoints, setPrizePoints] = useState(null);
 
   // ui state
   const [loading, setLoading] = useState(() => Boolean(userId));
@@ -144,35 +150,80 @@ export default function JockeyProfilePage() {
   const [currentPw, setCurrentPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [updatingPw, setUpdatingPw] = useState(false);
-  const fileRef = useRef();
+  const [pwMessage, setPwMessage] = useState(null); // { type: "ok" | "error", text }
 
   // ── Fetch profile ──
+  // Hai nguồn: /api/auth/profile (tài khoản: tên, SĐT, email) và
+  // /api/jockey-profiles/{id} (nghề: license, cân nặng, bio + số liệu sự nghiệp).
   useEffect(() => {
     if (!userId) return;
-    api
-      .get(`/api/jockey-profiles/${userId}`)
-      .then(({ data }) => {
-        setLicense(data.licenseNumber ?? "");
-        setWeight(data.weight != null ? String(data.weight) : "");
-        setBio(data.bio ?? "");
-        setTotalRaces(data.totalRaces ?? 0);
-        setTotalWins(data.totalWins ?? 0);
-        setProfileExists(true);
+    let active = true;
+
+    Promise.allSettled([
+      getMyProfile(),
+      api.get(`/api/jockey-profiles/${userId}`).then((r) => r.data),
+    ])
+      .then(([accountRes, jockeyRes]) => {
+        if (!active) return;
+
+        if (accountRes.status === "fulfilled") {
+          setAccount(accountRes.value);
+          setFullName(accountRes.value.fullName ?? "");
+          setPhone(accountRes.value.phoneNumber ?? "");
+        } else {
+          console.error("Fetch account profile failed:", accountRes.reason);
+          setFullName(user?.fullName ?? "");
+        }
+
+        // 404 là hợp lệ: nài chưa tạo hồ sơ nghề bao giờ → form trống, Save sẽ POST tạo mới.
+        if (jockeyRes.status === "fulfilled") {
+          const data = jockeyRes.value;
+          setLicense(data.licenseNumber ?? "");
+          setWeight(data.weight != null ? String(data.weight) : "");
+          setBio(data.bio ?? "");
+          setTotalRaces(data.totalRaces ?? 0);
+          setTotalWins(data.totalWins ?? 0);
+          setPrizePoints(data.careerPrizePoints ?? 0);
+          setProfileExists(true);
+        } else {
+          console.error("Fetch jockey profile failed:", jockeyRes.reason);
+        }
       })
-      .catch((err) => console.error("Fetch jockey profile failed:", err))
-      .finally(() => setLoading(false));
-  }, [userId]);
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [userId, user?.fullName]);
 
   // ── Computed stats ──
   const winRate =
     totalRaces > 0 ? ((totalWins / totalRaces) * 100).toFixed(1) : "0";
 
   // ── Save ──
+  // Lưu 2 nơi: tên/SĐT → /api/auth/profile; license/cân nặng/bio → /api/jockey-profiles.
   const handleSave = async () => {
     if (!userId) return;
-    setSaving(true);
     setSaveError("");
+
+    if (!fullName.trim()) {
+      setSaveError("Full name is required.");
+      return;
+    }
+    if (weight !== "" && Number.isNaN(Number(weight))) {
+      setSaveError("Weight must be a number.");
+      return;
+    }
+
+    setSaving(true);
     try {
+      const updatedAccount = await updateMyProfile({ fullName, phoneNumber: phone });
+      setAccount(updatedAccount);
+      setFullName(updatedAccount.fullName ?? "");
+      setPhone(updatedAccount.phoneNumber ?? "");
+
       const payload = {
         userId,
         licenseNumber,
@@ -193,12 +244,7 @@ export default function JockeyProfilePage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {
-      const msg =
-        err?.response?.data?.message ??
-        err?.response?.data?.detail ??
-        err?.message ??
-        "Save failed.";
-      setSaveError(msg);
+      setSaveError(profileErrorMessage(err, "Save failed."));
     } finally {
       setSaving(false);
     }
@@ -206,21 +252,35 @@ export default function JockeyProfilePage() {
 
   // ── Update password ──
   const handleUpdatePassword = async () => {
+    setPwMessage(null);
+
+    if (!currentPw || !newPw) {
+      setPwMessage({ type: "error", text: "Enter both your current and new password." });
+      return;
+    }
+    if (newPw.length < 8) {
+      setPwMessage({ type: "error", text: "New password must be at least 8 characters." });
+      return;
+    }
+
     setUpdatingPw(true);
     try {
-      // TODO: call password change API when BE has an endpoint
-      await new Promise((r) => setTimeout(r, 600));
+      // BE lấy UserId từ JWT; route id chỉ cần khớp ràng buộc {userId:int}.
+      await changeMyPassword(account?.userId ?? userId, {
+        currentPassword: currentPw,
+        newPassword: newPw,
+      });
       setCurrentPw("");
       setNewPw("");
+      setPwMessage({ type: "ok", text: "Password changed successfully." });
+    } catch (err) {
+      setPwMessage({
+        type: "error",
+        text: profileErrorMessage(err, "Password change failed."),
+      });
     } finally {
       setUpdatingPw(false);
     }
-  };
-
-  const handleAvatarChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setAvatarUrl(URL.createObjectURL(file));
   };
 
   const bioMax = 500;
@@ -245,34 +305,20 @@ export default function JockeyProfilePage() {
           {/* Personal Details */}
           <div className="bg-[#161d2e] border border-white/8 rounded-xl p-6">
             <div className="flex items-center gap-5 mb-5">
-              {/* Avatar */}
-              <div className="relative flex-shrink-0">
-                <div className="w-20 h-20 rounded-full bg-[#0d1424] border-2 border-white/10 overflow-hidden flex items-center justify-center">
-                  {avatarUrl ? (
-                    <img
-                      src={avatarUrl}
-                      alt="avatar"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-2xl font-bold text-gray-500">
-                      {initials(fullName)}
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={() => fileRef.current?.click()}
-                  className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-emerald-600 hover:bg-emerald-500 border-2 border-[#161d2e] flex items-center justify-center transition-colors"
-                >
-                  <Camera size={12} className="text-white" />
-                </button>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleAvatarChange}
-                />
+              {/* Avatar — ảnh từ BE; chưa có endpoint upload nên không có nút đổi ảnh
+                  (nút cũ chỉ preview local rồi mất khi reload). */}
+              <div className="w-20 h-20 flex-shrink-0 rounded-full bg-[#0d1424] border-2 border-white/10 overflow-hidden flex items-center justify-center">
+                {account?.avatarUrl ? (
+                  <img
+                    src={account.avatarUrl}
+                    alt="avatar"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-2xl font-bold text-gray-500">
+                    {initials(fullName)}
+                  </span>
+                )}
               </div>
               <h2 className="text-white font-bold text-base">
                 Personal Details
@@ -300,7 +346,11 @@ export default function JockeyProfilePage() {
               </div>
               <div className="sm:col-span-2">
                 <FieldLabel tag="Read-only">Email Address</FieldLabel>
-                <InputField icon={Mail} value={user?.email ?? ""} readOnly />
+                <InputField
+                  icon={Mail}
+                  value={account?.email ?? user?.email ?? ""}
+                  readOnly
+                />
               </div>
             </div>
           </div>
@@ -379,6 +429,17 @@ export default function JockeyProfilePage() {
                   autoComplete="new-password"
                 />
               </div>
+              {pwMessage && (
+                <p
+                  className={`text-xs rounded-lg px-3 py-2 border ${
+                    pwMessage.type === "ok"
+                      ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                      : "text-red-400 bg-red-500/10 border-red-500/20"
+                  }`}
+                >
+                  {pwMessage.text}
+                </p>
+              )}
               <button
                 onClick={handleUpdatePassword}
                 disabled={updatingPw}
@@ -420,7 +481,7 @@ export default function JockeyProfilePage() {
               <StatCard
                 icon={Star}
                 iconColor="text-yellow-400"
-                value="—"
+                value={prizePoints == null ? "—" : prizePoints.toLocaleString("en-US")}
                 label="Prize Points"
               />
             </div>

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   Flag, AlertCircle, ChevronLeft, RefreshCw, Loader2,
   Zap, CheckCircle2, Eye, Clock, Users, Trophy,
-  Play, EyeOff, Lock,
+  Play, EyeOff, Lock, Shield,
 } from 'lucide-react'
 import {
   getRaceDetail,
@@ -11,16 +11,10 @@ import {
   getRaceStandings,
   getRefereeLegView,
   getAllTournaments,
+  getLegDetail,
 } from '../../api/referee'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-const LEG_POINTS = { 1: 6, 2: 5, 3: 4, 4: 3, 5: 2, 6: 1 }
-
-function getLegPoints(pos) {
-  if (!pos || pos < 1) return 0
-  return LEG_POINTS[pos] ?? 0
-}
 
 function fmtDateTime(dt) {
   if (!dt) return '—'
@@ -40,6 +34,21 @@ function getStatusMeta(status) {
     Cancelled:   { label: 'Cancelled',    cls: 'bg-red-500/15 text-red-400 border-red-500/30', icon: AlertCircle },
   }
   return meta[status] ?? { label: status ?? '—', cls: 'bg-gray-500/15 text-gray-400 border-gray-500/30', icon: Clock }
+}
+
+function PositionBadge({ value }) {
+  if (!value) return <span className="text-gray-600 font-mono text-xs">—</span>
+  if (value === -1) return (
+    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-gray-500/20 text-gray-400 border border-gray-600">DNF</span>
+  )
+  if (value === -2) return (
+    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-700">DQ</span>
+  )
+  return (
+    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-yellow-400/15 text-yellow-400 border border-yellow-700">
+      P{value}
+    </span>
+  )
 }
 
 function getLegStatusMeta(status) {
@@ -180,6 +189,112 @@ function EntryTable({ entries, standings }) {
   )
 }
 
+// ─── Leg-by-Leg Results ──────────────────────────────────────────────────────
+// "Current Standings" only shows the cumulative total — cross-checking it
+// against each individual leg meant clicking through the stepper leg by leg.
+// This lays every leg's official result out side-by-side against the total.
+
+function LegByLegTable({ standings, legs, resolutionNotes, resolutionNotesLoading }) {
+  if (standings.length === 0 || legs.length === 0) return null
+
+  return (
+    <div className="gs-card overflow-hidden mt-6">
+      <div className="px-5 py-4 border-b border-white/10">
+        <h3 className="font-semibold text-on-surface text-sm flex items-center gap-2">
+          <Trophy size={14} className="text-yellow-400" />
+          Leg-by-Leg Results
+        </h3>
+        <p className="text-xs text-on-surface-variant mt-0.5">
+          Cross-check each leg's official result against the totals above.
+        </p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-white/10">
+              <th className="px-4 py-3 text-left text-xs text-on-surface-variant font-medium uppercase tracking-wider">Horse</th>
+              {legs.map((leg, idx) => (
+                <th key={idx} className="px-3 py-3 text-center text-xs text-on-surface-variant font-medium uppercase tracking-wider whitespace-nowrap">
+                  <span className="inline-flex items-center gap-1">
+                    Leg {idx + 1}
+                    {leg.status === 'Resolved' && (
+                      <Shield size={11} className="text-purple-400" title="Resolved by Admin — see note below" />
+                    )}
+                  </span>
+                </th>
+              ))}
+              <th className="px-3 py-3 text-center text-xs text-on-surface-variant font-medium uppercase tracking-wider">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {standings.map((s) => (
+              <tr key={s.entryId} className="border-b border-white/5 hover:bg-white/3 transition-colors">
+                <td className="px-4 py-3">
+                  <p className="font-semibold text-on-surface text-sm truncate">{s.horseName || `Entry #${s.entryId}`}</p>
+                  <p className="text-xs text-on-surface-variant">Gate #{s.gateNumber ?? '—'}</p>
+                </td>
+                {legs.map((leg, idx) => {
+                  const result = leg.results?.find((r) => r.entryId === s.entryId)
+                  return (
+                    <td key={idx} className="px-3 py-3 text-center">
+                      {result ? (
+                        <div className="inline-flex items-center gap-1.5">
+                          <PositionBadge value={result.position} />
+                          <span className="text-[10px] font-mono text-yellow-400/70">{result.points}p</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-600">
+                          {leg.status === 'Conflicted' ? 'Conflict' : '—'}
+                        </span>
+                      )}
+                    </td>
+                  )
+                })}
+                <td className="px-3 py-3 text-center">
+                  <span className="font-mono font-bold text-yellow-400">{s.totalPoints}p</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Admin resolution notes — kept on this same page (instead of only the leg's own
+          notification link) so the referee can read the reason right next to the
+          leg-by-leg breakdown, without leaving to a separate page to cross-check it. */}
+      {(resolutionNotesLoading || Object.keys(resolutionNotes ?? {}).length > 0) && (
+        <div className="border-t border-white/10 px-5 py-4">
+          <h4 className="text-xs font-semibold text-purple-300 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <Shield size={12} />
+            Admin Resolution Notes
+          </h4>
+          {resolutionNotesLoading ? (
+            <div className="flex items-center gap-2 text-xs text-on-surface-variant">
+              <Loader2 size={12} className="animate-spin" /> Loading…
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {Object.values(resolutionNotes)
+                .sort((a, b) => a.legNumber - b.legNumber)
+                .map((note) => (
+                  <div key={note.legNumber} className="p-3 rounded-lg bg-purple-500/5 border border-purple-500/15">
+                    <div className="flex items-center justify-between gap-3 mb-1">
+                      <span className="text-xs font-semibold text-on-surface">Leg {note.legNumber}</span>
+                      <span className="text-[10px] text-on-surface-variant font-mono">{fmtDateTime(note.confirmedAt)}</span>
+                    </div>
+                    <p className="text-xs text-on-surface-variant italic">
+                      {note.adminOverrideReason || 'No reason recorded'}
+                    </p>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Main Page ──────────────────────────────────────────────────────────────
 
 export default function RefereeRaceDashboard() {
@@ -193,6 +308,8 @@ export default function RefereeRaceDashboard() {
   const [execution, setExecution] = useState(null)
   const [standings, setStandings] = useState([])
   const [legView, setLegView] = useState(null)
+  const [resolutionNotes, setResolutionNotes] = useState({})
+  const [resolutionNotesLoading, setResolutionNotesLoading] = useState(false)
 
   // UI state
   const [loading, setLoading] = useState(true)
@@ -279,6 +396,34 @@ export default function RefereeRaceDashboard() {
     }, 8000)
     return () => clearInterval(pollRef.current)
   }, [race, raceId, currentLegIndex])
+
+  // ── Admin resolution notes (for the Leg-by-Leg Results table) ──
+  // Fetches the reason for every Resolved leg once, then only re-fetches whichever
+  // leg numbers are newly Resolved — so this doesn't re-hit the API every 8s poll
+  // for legs it already has the note for.
+  useEffect(() => {
+    const resolvedLegNumbers = (execution?.legs ?? [])
+      .filter((l) => l.status === 'Resolved')
+      .map((l) => l.legNumber)
+    const missing = resolvedLegNumbers.filter((n) => !(n in resolutionNotes))
+    if (missing.length === 0) return
+
+    let active = true
+    setResolutionNotesLoading(true)
+    Promise.allSettled(missing.map((n) => getLegDetail(raceId, n)))
+      .then((results) => {
+        if (!active) return
+        setResolutionNotes((prev) => {
+          const next = { ...prev }
+          results.forEach((r, i) => {
+            if (r.status === 'fulfilled' && r.value) next[missing[i]] = r.value
+          })
+          return next
+        })
+      })
+      .finally(() => { if (active) setResolutionNotesLoading(false) })
+    return () => { active = false }
+  }, [raceId, execution, resolutionNotes])
 
   // ── Handlers ──
   function handleLegSelect(idx) {
@@ -623,11 +768,21 @@ export default function RefereeRaceDashboard() {
           </div>
         </div>
 
+        {/* ── Leg-by-Leg Results ────────────────────────────────── */}
+        <LegByLegTable
+          standings={standings}
+          legs={legs}
+          resolutionNotes={resolutionNotes}
+          resolutionNotesLoading={resolutionNotesLoading}
+        />
+
         {/* ── Leg Legend ────────────────────────────────────────── */}
         <div className="mt-6 p-4 rounded-xl bg-white/5 border border-white/10">
           <p className="text-xs text-on-surface-variant text-center">
             <span className="font-semibold">Points System:</span>{' '}
-            1st = 6pts · 2nd = 5pts · 3rd = 4pts · 4th = 3pts · 5th = 2pts · 6th = 1pt · 7th+ = 0pt
+            scaled to the field of {standings.length || legView?.entries?.length || 0} horses — 1st = {standings.length || legView?.entries?.length || 0}pts
+            {(standings.length || legView?.entries?.length || 0) > 1 && <> · 2nd = {(standings.length || legView?.entries?.length) - 1}pts</>}
+            {' '}· last = 1pt · DNF/DQ = 0pt
           </p>
         </div>
       </div>

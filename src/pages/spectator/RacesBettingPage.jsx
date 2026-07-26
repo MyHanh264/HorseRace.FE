@@ -1,13 +1,14 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useLocation } from 'react-router-dom'
 import {
-  Flag, Search, Clock, AlertCircle, X, CheckCircle, ChevronRight, Trophy,
+  Flag, Search, Clock, AlertCircle, X, CheckCircle, ChevronRight, Trophy, Ban,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import {
-  getAllRaces, getRaceDetail, getAllEntries, getAllHorses,
-  getAllTournaments, getMyWallet, getMyPredictions, placePrediction,
+  getAllRaces, getRaceDetail, getAllTournaments, getMyWallet,
+  getRaceOdds, placeRacePrediction,
   getRaceStandings, getRaceResults,
+  getMyPredictions, getPredictionDetail, cancelPrediction,
 } from '../../api/spectator'
 import RaceResultsModal from '../../components/RaceResultsModal'
 
@@ -20,6 +21,7 @@ const STATUS_META = {
   PendingResult: { label: 'Pending Result', cls: 'bg-violet-500/15 text-violet-400 border border-violet-500/25' },
   Finished:      { label: 'Finished',       cls: 'bg-surface-container-high text-on-surface-variant border border-outline-variant/50' },
 }
+
 
 const TABS = ['All Scheduled', 'Live', 'Recently Finished']
 
@@ -61,9 +63,16 @@ function Countdown({ target }) {
   )
 }
 
-// ─── Bet Panel ────────────────────────────────────────────────────────────────
+// ─── Bet Panel (race-level) ───────────────────────────────────────────────────
+// Cược 1 Entry về 1st của cả race. Cửa mở khi race Scheduled và odds đã khóa (sau đóng ĐK).
 
-function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, onBetPlaced }) {
+function BetPanel({ race, raceDetail, wallet, onBetPlaced }) {
+  const { user } = useAuth()
+  const numberOfLegs = raceDetail?.numberOfLegs ?? 0
+
+  const [raceOdds, setRaceOdds]           = useState(null)
+  const [oddsLoading, setOddsLoading]   = useState(false)
+  const [oddsError, setOddsError]       = useState('')
 
   const [selectedEntryId, setSelectedEntryId] = useState('')
   const [betAmount, setBetAmount]             = useState('')
@@ -72,14 +81,84 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
   const [betSuccess, setBetSuccess]           = useState(false)
   const [showResults, setShowResults]         = useState(false)
 
+  // Active prediction already placed for THIS race (BE allows at most 1 non-Cancelled
+  // prediction per race+spectator) — shown instead of the bet form, so the spectator sees
+  // what they already bet instead of filling out the form again and hitting a 400.
+  const [activePrediction, setActivePrediction] = useState(null)
+  const [activeLoading, setActiveLoading]       = useState(true)
+  const [cancelling, setCancelling]             = useState(false)
+  const [cancelError, setCancelError]           = useState('')
+
+  const loadActivePrediction = useCallback(async () => {
+    if (!race?.raceId || !user?.userId) { setActiveLoading(false); return }
+    setActiveLoading(true)
+    try {
+      const mine = await getMyPredictions(user.userId)
+      const active = (mine ?? []).find(p => p.raceId === race.raceId && p.status !== 'Cancelled')
+      if (active) {
+        const detail = await getPredictionDetail(active.predictionId).catch(() => null)
+        setActivePrediction(detail ? { ...active, ...detail } : active)
+      } else {
+        setActivePrediction(null)
+      }
+    } catch {
+      setActivePrediction(null)
+    } finally {
+      setActiveLoading(false)
+    }
+  }, [race?.raceId, user?.userId])
+
+  useEffect(() => { loadActivePrediction() }, [loadActivePrediction])
+
+  const handleCancelActive = async () => {
+    if (!activePrediction) return
+    setCancelling(true)
+    setCancelError('')
+    try {
+      await cancelPrediction(activePrediction.predictionId)
+      setActivePrediction(null)
+      loadRaceOdds()
+      onBetPlaced?.()
+    } catch (err) {
+      setCancelError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Failed to cancel bet')
+    } finally {
+      setCancelling(false)
+    }
+  }
+
+  const loadRaceOdds = useCallback(() => {
+    if (!race?.raceId || race.status !== 'Scheduled') {
+      setRaceOdds(null)
+      setOddsError(race?.status !== 'Scheduled'
+        ? 'Betting is only available while the race is Scheduled.'
+        : '')
+      return
+    }
+    setOddsLoading(true); setOddsError('')
+    getRaceOdds(race.raceId)
+      .then(d => { setRaceOdds(d); setSelectedEntryId('') })
+      .catch(err => {
+        setRaceOdds(null)
+        const msg = err?.response?.data?.message
+          ?? err?.response?.data?.detail
+          ?? err?.message
+          ?? 'Failed to load odds'
+        setOddsError(msg)
+      })
+      .finally(() => setOddsLoading(false))
+  }, [race?.raceId, race?.status])
+
+  useEffect(() => { loadRaceOdds() }, [loadRaceOdds])
+
   const balance      = Number(wallet?.balance ?? 0)
-  const alreadyBet   = myPredictions.some(p => p.raceId === race.raceId && p.status !== 'Cancelled')
-  const oddsLocked   = !!race.oddsComputedAt
-  const canBet       = race.status === 'Scheduled' && oddsLocked && !alreadyBet
-  const amount       = Number(betAmount) || 0
-  const selectedEntry = entries.find(e => e.entryId === Number(selectedEntryId))
+  const raceEntries  = raceOdds?.entries ?? []
+  const bettingOpen  = race?.status === 'Scheduled'
+    && raceOdds?.oddsComputedAt != null
+    && String(raceOdds?.raceStatus ?? '').toLowerCase() === 'scheduled'
+  const selectedEntry = raceEntries.find(e => e.entryId === Number(selectedEntryId))
   const selectedOdds  = selectedEntry?.currentOdds ?? 1.0
-  const estPayout    = selectedEntryId && amount > 0 ? `~${fmtBalance(amount * selectedOdds)} pts` : '—'
+  const amount        = Number(betAmount) || 0
+  const estPayout     = selectedEntryId && amount > 0 ? `~${fmtBalance(amount * selectedOdds)} pts` : '—'
 
   const validate = () => {
     if (!selectedEntryId) return 'Please select a horse.'
@@ -95,13 +174,15 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
     setSubmitting(true)
     setBetError('')
     try {
-      await placePrediction(race.raceId, {
-        entryId:   Number(selectedEntryId),
-        betAmount: amount,
+      await placeRacePrediction(race.raceId, {
+        EntryId: Number(selectedEntryId),
+        BetAmount: amount,
       })
       setBetSuccess(true)
       setBetAmount('')
       setSelectedEntryId('')
+      loadRaceOdds()
+      loadActivePrediction()
       onBetPlaced?.()
     } catch (err) {
       const msg = err?.response?.data?.message
@@ -136,7 +217,7 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
           )}
         </div>
         <p className="text-xs text-on-surface-variant">
-          {raceDetail?.numberOfLegs ?? '—'} Legs · {raceDetail?.roundType ?? '—'} · Max {raceDetail?.maxHorses ?? '—'} horses
+          {numberOfLegs || '—'} Legs · {raceDetail?.roundType ?? '—'} · Max {raceDetail?.maxHorses ?? '—'} horses
         </p>
       </div>
 
@@ -151,57 +232,109 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
       )}
 
       {/* Contenders */}
-      {entries.length > 0 && (
-        <div>
-          <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3">Top Contenders Odds</p>
-          <div className="space-y-2">
-            {entries.slice(0, 4).map(e => {
-              const horse = horseMap[e.horseId]
-              return (
-                <div key={e.entryId} className="flex items-center justify-between py-2 px-3 rounded-lg bg-surface-container-lowest border border-outline-variant/30">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-full bg-surface-container-high border border-outline-variant/40 flex items-center justify-center text-xs font-bold text-on-surface-variant">
-                      {horse?.name?.charAt(0) ?? '?'}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-on-surface">{horse?.name ?? `Entry #${e.entryId}`}</p>
-                    </div>
-                  </div>
-                  <span className="text-secondary font-bold font-mono text-sm">
-                    {e.currentOdds != null ? `${e.currentOdds}x` : '—'}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
+      <div>
+        <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3">
+          Contenders · Race winner (1st)
+        </p>
 
-      {/* Bet form */}
+        {oddsLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="w-5 h-5 border-2 border-secondary/30 border-t-secondary rounded-full animate-spin" />
+          </div>
+        ) : oddsError ? (
+          <div className="p-3 rounded-lg bg-surface-container border border-outline-variant/40 text-on-surface-variant text-sm">
+            {oddsError}
+          </div>
+        ) : raceEntries.length === 0 ? (
+          <div className="p-3 rounded-lg bg-surface-container border border-outline-variant/40 text-on-surface-variant text-sm">
+            No odds yet — registration hasn't closed for this race, so odds aren't locked in.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="admin-table w-full text-sm">
+              <thead>
+                <tr>
+                  <th className="text-left">Gate</th>
+                  <th className="text-left">Horse</th>
+                  <th className="text-right">Odds</th>
+                </tr>
+              </thead>
+              <tbody>
+                {raceEntries.map(e => (
+                  <tr key={e.entryId}>
+                    <td className="text-on-surface-variant">{e.gateNumber ?? '—'}</td>
+                    <td className="font-semibold text-on-surface">{e.horseName ?? `Entry #${e.entryId}`}</td>
+                    <td className="text-right text-secondary font-bold font-mono">
+                      {e.currentOdds != null ? `${e.currentOdds}x` : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Bet form / already-bet summary */}
       <div className="border-t border-outline-variant/40 pt-4">
         <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3">Your Prediction</p>
 
         {betSuccess && (
           <div className="mb-3 p-3 rounded-lg bg-primary/10 border border-primary/25 text-primary text-sm flex items-center gap-2">
             <CheckCircle className="w-4 h-4 shrink-0" />
-            Bet placed successfully!
+            Bet placed!
           </div>
         )}
 
-        {alreadyBet && !betSuccess && (
-          <div className="mb-3 p-3 rounded-lg bg-surface-container border border-outline-variant/40 text-on-surface-variant text-sm">
-            You have already placed a bet on this race.
+        {activeLoading ? (
+          <div className="flex items-center justify-center py-6">
+            <div className="w-5 h-5 border-2 border-secondary/30 border-t-secondary rounded-full animate-spin" />
           </div>
-        )}
+        ) : activePrediction ? (
+          // BE only allows 1 active (non-Cancelled) prediction per race+spectator — show what
+          // was already bet instead of a form that would just 400 on submit.
+          <div className="space-y-3">
+            <div className="p-3 rounded-lg bg-primary/10 border border-primary/25">
+              <p className="text-xs text-on-surface-variant mb-1.5">You already have a bet on this race</p>
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-semibold text-on-surface">
+                  {raceEntries.find(e => e.entryId === activePrediction.firstEntryId)?.horseName
+                    ?? `Entry #${activePrediction.firstEntryId}`}
+                </span>
+                <span className="font-mono text-secondary font-bold shrink-0">
+                  {fmtBalance(activePrediction.betAmount)} pts
+                  {activePrediction.oddsLocked1 != null ? ` @ ${activePrediction.oddsLocked1}x` : ''}
+                </span>
+              </div>
+            </div>
 
-        {!alreadyBet && !oddsLocked && !betSuccess && (
-          <div className="mb-3 p-3 rounded-lg bg-surface-container border border-outline-variant/40 text-on-surface-variant text-sm">
-            Betting isn't open yet — registration hasn't closed, so odds haven't been locked in. Check back once the admin closes registration for this race.
+            {cancelError && (
+              <div className="p-3 rounded-lg bg-error/10 border border-error/25 text-error text-sm flex items-center gap-2">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />{cancelError}
+              </div>
+            )}
+
+            {race.status === 'Scheduled' && (
+              <button
+                onClick={handleCancelActive}
+                disabled={cancelling}
+                className="gs-btn gs-btn-ghost w-full justify-center flex items-center gap-2 text-error disabled:opacity-50"
+              >
+                {cancelling
+                  ? <div className="w-3 h-3 border-2 border-error/30 border-t-error rounded-full animate-spin" />
+                  : <Ban className="w-3.5 h-3.5" />}
+                Cancel Bet
+              </button>
+            )}
           </div>
-        )}
-
-        {!alreadyBet && oddsLocked && !betSuccess && (
+        ) : (
           <>
+            {!bettingOpen && raceEntries.length > 0 && !betSuccess && (
+              <div className="mb-3 p-3 rounded-lg bg-surface-container border border-outline-variant/40 text-on-surface-variant text-sm">
+                Betting is closed for this race.
+              </div>
+            )}
+
             {betError && (
               <div className="mb-3 p-3 rounded-lg bg-error/10 border border-error/25 text-error text-sm flex items-center gap-2">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0" />{betError}
@@ -214,13 +347,13 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
                 <select
                   value={selectedEntryId}
                   onChange={e => { setSelectedEntryId(e.target.value); setBetError('') }}
-                  disabled={!canBet}
-                  className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all"
+                  disabled={!bettingOpen}
+                  className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all disabled:opacity-50"
                 >
                   <option value="">Select Entry...</option>
-                  {entries.map(e => (
+                  {raceEntries.map(e => (
                     <option key={e.entryId} value={e.entryId}>
-                      {horseMap[e.horseId]?.name ?? `Entry #${e.entryId}`}
+                      {e.horseName ?? `Entry #${e.entryId}`} — {e.currentOdds}x
                     </option>
                   ))}
                 </select>
@@ -234,9 +367,9 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
                   max={Math.floor(balance * 0.5)}
                   value={betAmount}
                   onChange={e => { setBetAmount(e.target.value); setBetError('') }}
-                  disabled={!canBet}
+                  disabled={!bettingOpen}
                   placeholder="0"
-                  className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40"
+                  className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40 disabled:opacity-50"
                 />
               </div>
 
@@ -247,8 +380,8 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
 
               <button
                 onClick={handlePlaceBet}
-                disabled={!canBet || submitting}
-                className="gs-btn gs-btn-secondary w-full justify-center flex items-center gap-2"
+                disabled={!bettingOpen || submitting}
+                className="gs-btn gs-btn-secondary w-full justify-center flex items-center gap-2 disabled:opacity-50"
               >
                 {submitting && <div className="w-3 h-3 border-2 border-on-secondary/30 border-t-on-secondary rounded-full animate-spin" />}
                 Place Bet
@@ -257,11 +390,9 @@ function BetPanel({ race, raceDetail, entries, horseMap, wallet, myPredictions, 
               <p className="text-center text-[11px] text-on-surface-variant">
                 Current Balance: <span className="font-bold text-on-surface">{fmtBalance(balance)} pts</span>
               </p>
-              {race.status === 'Scheduled' && (
-                <p className="text-center text-[11px] text-error/70">
-                  Points will be deducted immediately. Bets lock 5 mins before start.
-                </p>
-              )}
+              <p className="text-center text-[11px] text-error/70">
+                Points are deducted immediately. Cancel only while the race is still Scheduled.
+              </p>
             </div>
           </>
         )}
@@ -278,11 +409,8 @@ export default function RacesBettingPage() {
 
   const [allRaces,     setAllRaces]     = useState([])
   const [raceDetails,  setRaceDetails]  = useState({})   // raceId → detail
-  const [allEntries,   setAllEntries]   = useState([])
-  const [horseMap,     setHorseMap]     = useState({})
   const [tournamentMap,setTournamentMap]= useState({})
   const [wallet,       setWallet]       = useState(null)
-  const [myPredictions,setMyPredictions]= useState([])
 
   const [loading,    setLoading]    = useState(true)
   const [error,      setError]      = useState('')
@@ -294,22 +422,15 @@ export default function RacesBettingPage() {
     setLoading(true)
     setError('')
     try {
-      const [races, entries, horses, tournaments, w, preds] = await Promise.all([
+      const [races, tournaments, w] = await Promise.all([
         getAllRaces(),
-        getAllEntries(),
-        getAllHorses(),
         getAllTournaments(),
         getMyWallet(user?.userId),
-        getMyPredictions(user?.userId),
       ])
       setAllRaces(Array.isArray(races) ? races : [])
-      setAllEntries(Array.isArray(entries) ? entries : [])
-      setHorseMap(Object.fromEntries((Array.isArray(horses) ? horses : []).map(h => [h.horseId, h])))
       setTournamentMap(Object.fromEntries((Array.isArray(tournaments) ? tournaments : []).map(t => [t.tournamentId, t])))
       setWallet(w)
-      setMyPredictions(Array.isArray(preds) ? preds : [])
 
-      // Fetch race details for selected or all in view (lazy)
       if (selectedId) {
         const detail = await getRaceDetail(selectedId)
         setRaceDetails(prev => ({ ...prev, [selectedId]: detail }))
@@ -323,7 +444,7 @@ export default function RacesBettingPage() {
 
   useEffect(() => { load() }, [load])
 
-  // Fetch detail when a race is selected
+  // Fetch detail when a race is selected (numberOfLegs cần cho bộ chọn leg)
   const handleSelectRace = async (race) => {
     setSelectedId(race.raceId)
     if (!raceDetails[race.raceId]) {
@@ -350,9 +471,6 @@ export default function RacesBettingPage() {
 
   const selectedRace   = allRaces.find(r => r.raceId === selectedId) ?? filteredRaces[0] ?? null
   const selectedDetail = selectedRace ? raceDetails[selectedRace.raceId] : null
-  const selectedEntries = selectedRace
-    ? allEntries.filter(e => e.raceId === selectedRace.raceId && e.status === 'Approved')
-    : []
 
   return (
     <div className="min-h-screen p-8">
@@ -362,7 +480,7 @@ export default function RacesBettingPage() {
         <div className="mb-8 animate-fade-in-up" style={{ opacity: 0, animationFillMode: 'forwards' }}>
           <h1 className="font-serif text-3xl font-bold text-on-surface">Races &amp; Betting</h1>
           <p className="text-on-surface-variant text-sm mt-1">
-            Analyze form, review odds, and lock in your predictions for the upcoming meets.
+            Pick a horse, review odds, and lock in your race winner prediction.
           </p>
         </div>
 
@@ -454,12 +572,10 @@ export default function RacesBettingPage() {
           <div className="flex-1 min-w-0">
             {selectedRace ? (
               <BetPanel
+                key={selectedRace.raceId}
                 race={selectedRace}
                 raceDetail={selectedDetail}
-                entries={selectedEntries}
-                horseMap={horseMap}
                 wallet={wallet}
-                myPredictions={myPredictions}
                 onBetPlaced={load}
               />
             ) : (

@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Flag, Plus, ChevronDown, ChevronLeft, ChevronRight, Edit2, Trash2, X, AlertCircle,
-  Users, CheckCircle, XCircle, ArrowLeft, UserCheck, Eye,
+  Users, CheckCircle, XCircle, ArrowLeft, UserCheck, Eye, Trophy,
   LockOpen, Lock, RotateCcw, MoreVertical,
 } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -9,9 +10,11 @@ import {
   getAllTournaments, getRaces, getRaceDetail, createRace, updateRace, deleteRace,
   getAllUser, approveEntry, rejectEntry, openRegistration, closeRegistration, startRace,
   unpublishRace, getRoleMap, getRoleCodeById, getAllViolations,
+  getRaceStandings, getRaceResults,
 } from '../../api/admin'
 import api from '../../services/api'
 import { validateOverrideReason } from '../../utils/validation'
+import RaceResultsModal from '../../components/RaceResultsModal'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -38,8 +41,13 @@ function fmtRaceId(id) {
 }
 
 function fmtDateTime(dt) {
-  if (!dt) return '—'
+  // Always return the {date, time} shape callers expect — returning a bare '—' string
+  // here let `dt.time`/`dt.date` silently resolve to undefined (a string has no such
+  // properties) instead of visibly showing a placeholder, which is how a race with a
+  // missing scheduledStartTime rendered as a blank date/time instead of an obvious "—".
+  if (!dt) return { date: '—', time: '—' }
   const d = new Date(dt)
+  if (Number.isNaN(d.getTime())) return { date: '—', time: '—' }
   return {
     date: d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
     time: d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
@@ -99,7 +107,7 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
     if (form.referee1Id && form.referee2Id && form.referee1Id === form.referee2Id) {
       return
     }
-    if (dateOutOfRange || endBeforeStart || tournamentOverlap || refereeConflict) {
+    if (dateOutOfRange || endBeforeStart || startInPast || tournamentOverlap || refereeConflict) {
       return
     }
     onSubmit({
@@ -141,6 +149,13 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
     new Date(form.scheduledEndTime) <= new Date(form.scheduledStartTime)
   )
 
+  // Only meaningful for Create — editing a race that's already Scheduled but whose
+  // original slot has since slipped into the past shouldn't be force-blocked from
+  // otherwise-valid edits (e.g. just fixing the referee).
+  const startInPast = !isEdit && !!(
+    form.scheduledStartTime && new Date(form.scheduledStartTime) < new Date()
+  )
+
   // Same tournament, overlapping time slot — BE hard-blocks this, so pre-check for immediate feedback.
   const tournamentOverlap = useMemo(() => {
     if (!form.scheduledStartTime || !form.scheduledEndTime) return null
@@ -150,6 +165,7 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
     const currentTourId = Number(form.tournamentId)
     return allRaces.find(r => {
       if (r.raceId === race?.raceId)   return false
+      if (r.status === 'Cancelled')    return false
       if (r.tournamentId !== currentTourId) return false
       if (!r.scheduledStartTime || !r.scheduledEndTime) return false
       return rangesOverlap(s, e, new Date(r.scheduledStartTime), new Date(r.scheduledEndTime))
@@ -168,6 +184,7 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
     return allRaces.find(r => {
       if (r.tournamentId === currentTourId) return false
       if (r.raceId === race?.raceId)        return false
+      if (r.status === 'Cancelled')         return false
       if (!r.scheduledStartTime || !r.scheduledEndTime) return false
       if (!rangesOverlap(s, e, new Date(r.scheduledStartTime), new Date(r.scheduledEndTime))) return false
       return (
@@ -255,7 +272,7 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
             <input
               required
               type="date"
-              value={form.scheduledStartTime?.split('T')[0] ?? form.scheduledEndTime?.split('T')[0] ?? ''}
+              value={(form.scheduledStartTime?.split('T')[0] || form.scheduledEndTime?.split('T')[0]) || ''}
               min={minDate}
               max={maxDate}
               onChange={e => {
@@ -292,7 +309,11 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
                 type="time"
                 value={form.scheduledStartTime?.split('T')[1]?.slice(0, 5) ?? ''}
                 onChange={e => {
-                  const date = form.scheduledStartTime?.split('T')[0] ?? form.scheduledEndTime?.split('T')[0] ?? '';
+                  // "" (date not picked yet) is not nullish, so `??` alone won't fall
+                  // through to the other field/today — use `||` first to treat it the
+                  // same as missing. Without this the saved value ends up "T10:00"
+                  // (no date at all) whenever Start/End Time is touched before Date.
+                  const date = (form.scheduledStartTime?.split('T')[0] || form.scheduledEndTime?.split('T')[0]) || todayStr;
                   setForm(f => ({ ...f, scheduledStartTime: `${date}T${e.target.value}` }));
                 }}
                 className={inputCls}
@@ -307,7 +328,7 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
                 type="time"
                 value={form.scheduledEndTime?.split('T')[1]?.slice(0, 5) ?? ''}
                 onChange={e => {
-                  const date = form.scheduledEndTime?.split('T')[0] ?? form.scheduledStartTime?.split('T')[0] ?? '';
+                  const date = (form.scheduledEndTime?.split('T')[0] || form.scheduledStartTime?.split('T')[0]) || todayStr;
                   setForm(f => ({ ...f, scheduledEndTime: `${date}T${e.target.value}` }));
                 }}
                 className={inputCls}
@@ -316,6 +337,9 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
           </div>
           {endBeforeStart && (
             <p className="text-xs text-error -mt-2">End time must be after start time.</p>
+          )}
+          {startInPast && !endBeforeStart && (
+            <p className="text-xs text-error -mt-2">Start time is already in the past — pick a time later than now.</p>
           )}
 
           {/* Legs + Max Horses */}
@@ -377,13 +401,97 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
 
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="gs-btn gs-btn-ghost">Cancel</button>
-            <button type="submit" disabled={submitting || refereeMismatch || dateOutOfRange || endBeforeStart || !!tournamentOverlap || !!refereeConflict}
+            <button type="submit" disabled={submitting || refereeMismatch || dateOutOfRange || endBeforeStart || startInPast || !!tournamentOverlap || !!refereeConflict}
               className="gs-btn gs-btn-primary flex items-center gap-2">
               {submitting && <div className="w-3 h-3 border-2 border-on-primary/30 border-t-on-primary rounded-full animate-spin" />}
               {isEdit ? 'Save Changes' : 'Create Race'}
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  )
+}
+
+// ─── Delete Confirm Modal ──────────────────────────────────────────────────────
+// Soft-delete — BE handles the IsDeleted flag internally.
+// No reason required since this is reversible (admin can ask BE to restore).
+
+function DeleteConfirmModal({ race, entryCount, onClose, onConfirm, submitting, error }) {
+  const CAN_DELETE_STATUSES = ['Scheduled', 'Cancelled', 'Finished']
+  const canDelete = CAN_DELETE_STATUSES.includes(race.status)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+         style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}>
+      <div className="gs-card w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/40">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-error/10 border border-error/20 flex items-center justify-center">
+              <Trash2 className="w-4 h-4 text-error" />
+            </div>
+            <h2 className="font-serif font-bold text-on-surface">Delete Race</h2>
+          </div>
+          <button onClick={onClose} className="text-on-surface-variant hover:text-on-surface transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          {/* Race info */}
+          <div className="bg-surface-container-high border border-outline-variant/30 rounded-lg px-4 py-3 space-y-1.5">
+            <p className="text-sm font-semibold text-on-surface">{race.name}</p>
+            <div className="flex items-center gap-3 text-xs text-on-surface-variant">
+              <span className="font-mono">{fmtRaceId(race.raceId)}</span>
+              <span>·</span>
+              <span>Status: <span className="text-on-surface">{race.status}</span></span>
+              <span>·</span>
+              <span>{entryCount} entr{entryCount === 1 ? 'y' : 'ies'}</span>
+            </div>
+          </div>
+
+          {!canDelete ? (
+            <div className="p-3 rounded-lg bg-error/10 border border-error/25 text-error text-sm flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>
+                Cannot delete a race that is <strong>In Progress</strong> or <strong>Paused</strong>.
+                Please cancel or finish the race first.
+              </span>
+            </div>
+          ) : entryCount > 0 ? (
+            <div className="p-3 rounded-lg bg-error/10 border border-error/25 text-error text-sm flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>
+                This race has <strong>{entryCount} entr{entryCount === 1 ? 'y' : 'ies'}</strong>.
+                Please remove all entries before deleting.
+              </span>
+            </div>
+          ) : (
+            <p className="text-sm text-on-surface-variant">
+              Are you sure you want to delete this race? This is a{' '}
+              <strong className="text-amber-400">soft delete</strong> — the race
+              will be hidden but can be restored if needed.
+            </p>
+          )}
+
+          {error && (
+            <div className="p-3 rounded-lg bg-error/10 border border-error/25 text-error text-sm flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />{error}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={onClose} className="gs-btn gs-btn-ghost">Cancel</button>
+            <button
+              onClick={onConfirm}
+              disabled={submitting || !canDelete || entryCount > 0}
+              className="gs-btn gs-btn-danger flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {submitting && <div className="w-3 h-3 border-2 border-error/30 border-t-error rounded-full animate-spin" />}
+              Delete Race
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -492,9 +600,15 @@ export default function AdminRacesPage() {
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError]   = useState('')
   const [deletingId, setDeletingId] = useState(null)
+  const [deleteTarget, setDeleteTarget] = useState(null) // race object for the modal
+  const [deleteError, setDeleteError] = useState('')
   const [openMenuId, setOpenMenuId] = useState(null)
+  const [openMenuPos, setOpenMenuPos] = useState(null) // { top, right } viewport-fixed coords — rendered via portal so the menu escapes the table's overflow-x-auto clipping (last row's dropdown was getting cut off)
+  const menuButtonRef = useRef(null)  // current ⋮ button (so a second click on it can toggle-closed)
+  const menuPopupRef  = useRef(null)  // current dropdown panel (so clicks inside it don't close it)
   const [unpublishTarget, setUnpublishTarget] = useState(null)
   const [unpublishError, setUnpublishError] = useState('')
+  const [resultsRace, setResultsRace] = useState(null) // race object shown in RaceResultsModal
 
   // ── Entry approve/reject ──
   const [entryAction, setEntryAction]   = useState(null) // { id, type }
@@ -539,9 +653,14 @@ export default function AdminRacesPage() {
       const raceList = Array.isArray(racesBasic) ? racesBasic : []
       setRaceRegMap(buildRegMap(raceList))
 
+      // getRaces() (the list) is missing scheduledStartTime for a freshly created race
+      // for reasons not yet understood, so this still fetches per-race detail — but uses
+      // allSettled instead of all: one race's detail request failing (transient 500 on a
+      // free-tier host, 20+ requests firing at once) no longer rejects the whole batch and
+      // blanks the entire page. That race is just skipped instead.
       if (raceList.length > 0) {
-        const details = await Promise.all(raceList.map(r => getRaceDetail(r.raceId)))
-        setRaceDetails(details.filter(Boolean))
+        const results = await Promise.allSettled(raceList.map(r => getRaceDetail(r.raceId)))
+        setRaceDetails(results.filter(r => r.status === 'fulfilled').map(r => r.value).filter(Boolean))
       } else {
         setRaceDetails([])
       }
@@ -569,9 +688,12 @@ export default function AdminRacesPage() {
         setPendingViolations(Array.isArray(violationsData?.items) ? violationsData.items : [])
         const raceList = Array.isArray(racesBasic) ? racesBasic : []
         setRaceRegMap(buildRegMap(raceList))
+        // Same reasoning as loadAll() above — allSettled so one bad race doesn't blank the page.
         if (raceList.length > 0) {
-          return Promise.all(raceList.map(r => getRaceDetail(r.raceId)))
-            .then(details => setRaceDetails(details.filter(Boolean)))
+          return Promise.allSettled(raceList.map(r => getRaceDetail(r.raceId)))
+            .then(results => setRaceDetails(
+              results.filter(r => r.status === 'fulfilled').map(r => r.value).filter(Boolean)
+            ))
         }
         setRaceDetails([])
       })
@@ -581,9 +703,31 @@ export default function AdminRacesPage() {
 
   useEffect(() => {
     if (!openMenuId) return
-    const close = () => setOpenMenuId(null)
-    document.addEventListener('click', close)
-    return () => document.removeEventListener('click', close)
+
+    const close = () => {
+      setOpenMenuId(null)
+    }
+
+    // Use mousedown so this fires BEFORE the trigger button's onClick, and check
+    // the target against the menu refs so clicks inside the menu (or on the trigger)
+    // don't immediately re-close it.
+    const handleDocMouseDown = (e) => {
+      const target = e.target
+      if (menuButtonRef.current?.contains(target)) return
+      if (menuPopupRef.current?.contains(target))  return
+      close()
+    }
+    const handleScroll = () => close()
+
+    document.addEventListener('mousedown', handleDocMouseDown)
+    window.addEventListener('scroll', handleScroll, true)
+    window.addEventListener('resize', handleScroll)
+
+    return () => {
+      document.removeEventListener('mousedown', handleDocMouseDown)
+      window.removeEventListener('scroll', handleScroll, true)
+      window.removeEventListener('resize', handleScroll)
+    }
   }, [openMenuId])
 
   // ── Derived data ──────────────────────────────────────────────────────────
@@ -642,14 +786,28 @@ export default function AdminRacesPage() {
   const openCreate = () => { setEditingRace(null); setFormError(''); setShowModal(true) }
   const openEdit   = (r)  => { setEditingRace(r);   setFormError(''); setShowModal(true) }
 
-  const handleDelete = async (id) => {
-    setError('')
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setDeletingId(deleteTarget.raceId)
+    setDeleteError('')
     try {
-      await deleteRace(id)
-      setDeletingId(null)
+      await deleteRace(deleteTarget.raceId)
+      setDeleteTarget(null)
       await loadAll()
     } catch (err) {
-      setError(err?.message || 'Failed to delete race')
+      const status = err?.response?.status
+      const detail = err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message
+
+      let friendly = detail
+      if (status === 409) {
+        // Check if race has entries for a more specific message
+        const raceEntryCount = entries.filter(e => e.raceId === deleteTarget.raceId).length
+        friendly = raceEntryCount > 0
+          ? `This race has ${raceEntryCount} entry/entries. Remove all entries before deleting.`
+          : `Cannot delete this race (${detail}). It may have related data that prevents deletion.`
+      }
+      setDeleteError(friendly)
+    } finally {
       setDeletingId(null)
     }
   }
@@ -871,12 +1029,14 @@ export default function AdminRacesPage() {
                       <tr
                         key={race.raceId}
                         onClick={() => openEntriesView(race)}
-                        className={`animate-fade-in-up delay-row-${(i % 4)+1} cursor-pointer hover:bg-surface-container/60`}
+                        className={`animate-fade-in-up delay-row-${(i % 4)+1} cursor-pointer hover:bg-surface-container/60 ${openMenuId === race.raceId ? 'relative z-50' : ''}`}
                         style={{ opacity: 0, animationFillMode: 'forwards' }}
                       >
 
-                        {/* Name */}
-                        <td>
+                        {/* Name — fixed min-width so this column doesn't get squeezed word-by-word
+                            when other columns (Referees, Actions) need more room; table-layout is
+                            auto, so without this the browser shrinks whichever column wraps easiest. */}
+                        <td className="min-w-[220px]">
                           <div className="flex items-center gap-2.5">
                             <div className="w-1 h-8 rounded-full bg-primary/60 shrink-0" />
                             <div>
@@ -890,7 +1050,7 @@ export default function AdminRacesPage() {
                         </td>
 
                         {/* Date/Time */}
-                        <td>
+                        <td className="min-w-[130px] whitespace-nowrap">
                           <div className="text-sm text-on-surface">{dt.date}</div>
                           <div className="text-xs text-on-surface-variant">
                             {dt.time}{race.scheduledEndTime ? ` – ${fmtDateTime(race.scheduledEndTime).time}` : ''}
@@ -960,36 +1120,73 @@ export default function AdminRacesPage() {
                                 Close Reg
                               </button>
                             )}
-                            {(race.status === 'InProgress' || race.status === 'Paused' || race.status === 'PendingResult') && (
-                              <button onClick={() => navigate(`/admin/race-execution?raceId=${race.raceId}`)}
-                                className="gs-btn gs-btn-outline-gold gs-btn-sm flex items-center gap-1">
-                                <Eye className="w-3.5 h-3.5" /> Monitor
+                            {/* Monitor (live) and Leg history (Finished) both just navigate to the same
+                                Race Execution page — unified into one "View" label/style so the row
+                                doesn't carry two differently-worded buttons for the same action. */}
+                            {(race.status === 'InProgress' || race.status === 'Paused' || race.status === 'PendingResult' || race.status === 'Finished') && (
+                              <button onClick={e => { e.stopPropagation(); navigate(`/admin/race-execution?raceId=${race.raceId}`) }}
+                                className="gs-btn gs-btn-outline-gold gs-btn-sm gs-btn-compact flex items-center gap-1">
+                                <Eye className="w-3.5 h-3.5" /> View
                               </button>
                             )}
                             {(pendingViolationCountByRace[race.raceId] ?? 0) > 0 && race.status === 'PendingResult' && (
                               <button onClick={e => { e.stopPropagation(); navigate(`/admin/violations?raceId=${race.raceId}`) }}
-                                className="gs-btn gs-btn-ghost gs-btn-sm flex items-center gap-1 text-amber-400">
+                                className="gs-btn gs-btn-ghost gs-btn-sm gs-btn-compact flex items-center gap-1 text-amber-400">
                                 <AlertCircle className="w-3.5 h-3.5" /> {pendingViolationCountByRace[race.raceId]} Pending
                               </button>
                             )}
-                            {race.status === 'Finished' && (
-                              <button onClick={e => { e.stopPropagation(); setUnpublishError(''); setUnpublishTarget(race) }} disabled={regLoading === race.raceId}
-                                className="gs-btn gs-btn-ghost gs-btn-sm flex items-center gap-1 text-on-surface-variant">
-                                {regLoading === race.raceId ? <div className="w-3 h-3 border-2 border-on-surface-variant/30 border-t-on-surface-variant rounded-full animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
-                                Unpublish
-                              </button>
-                            )}
+                            {/* Full Results / Unpublish for Finished races live in the ⋮ menu below,
+                                not inline — a Finished row would otherwise carry 3-4 buttons while
+                                every other status only ever shows 1. */}
 
-                            {/* ⋮ overflow menu */}
+                            {/* ⋮ overflow menu — dropdown renders relative to this <td>; the parent <tr>
+                                gets z-50 while its menu is open so it stacks above neighbouring rows
+                                (Unpublish buttons etc.) without expanding the table layout. */}
                             <div className="relative">
                               <button
-                                onClick={e => { e.stopPropagation(); setOpenMenuId(openMenuId === race.raceId ? null : race.raceId) }}
+                                ref={openMenuId === race.raceId ? menuButtonRef : null}
+                                onClick={e => {
+                                  e.stopPropagation()
+                                  if (openMenuId === race.raceId) {
+                                    setOpenMenuId(null)
+                                    return
+                                  }
+                                  const rect = e.currentTarget.getBoundingClientRect()
+                                  setOpenMenuPos({
+                                    top: rect.bottom + 4,
+                                    right: window.innerWidth - rect.right,
+                                  })
+                                  setOpenMenuId(race.raceId)
+                                }}
                                 className="w-8 h-8 rounded-lg border border-outline-variant/40 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors"
                               >
                                 <MoreVertical className="w-4 h-4" />
                               </button>
-                              {openMenuId === race.raceId && (
-                                <div className="absolute right-0 mt-1 bg-surface-container border border-outline-variant/40 rounded-xl shadow-xl z-20 min-w-[130px] py-1 overflow-hidden">
+                              {openMenuId === race.raceId && openMenuPos && createPortal(
+                                <div
+                                  ref={menuPopupRef}
+                                  onClick={e => e.stopPropagation()}
+                                  onMouseDown={e => e.stopPropagation()}
+                                  style={{ top: openMenuPos.top, right: openMenuPos.right }}
+                                  className="fixed bg-surface-container border border-outline-variant/40 rounded-xl shadow-2xl min-w-[160px] py-1 overflow-hidden z-[999]"
+                                >
+                                  {race.status === 'Finished' && (
+                                    <>
+                                      <button
+                                        onClick={() => { setResultsRace(race); setOpenMenuId(null) }}
+                                        className="w-full text-left px-3 py-2 text-sm text-secondary hover:bg-surface-container-high flex items-center gap-2 transition-colors"
+                                      >
+                                        <Trophy className="w-3.5 h-3.5" /> Full Results
+                                      </button>
+                                      <button
+                                        onClick={() => { setUnpublishError(''); setUnpublishTarget(race); setOpenMenuId(null) }}
+                                        className="w-full text-left px-3 py-2 text-sm text-on-surface hover:bg-surface-container-high flex items-center gap-2 transition-colors"
+                                      >
+                                        <RotateCcw className="w-3.5 h-3.5" /> Unpublish
+                                      </button>
+                                      <div className="border-t border-outline-variant/30 my-1" />
+                                    </>
+                                  )}
                                   <button
                                     onClick={() => { openEdit(race); setOpenMenuId(null) }}
                                     className="w-full text-left px-3 py-2 text-sm text-on-surface hover:bg-surface-container-high flex items-center gap-2 transition-colors"
@@ -997,23 +1194,14 @@ export default function AdminRacesPage() {
                                     <Edit2 className="w-3.5 h-3.5" /> Edit
                                   </button>
                                   <div className="border-t border-outline-variant/30 my-1" />
-                                  {deletingId === race.raceId ? (
-                                    <div className="px-3 py-2">
-                                      <p className="text-xs text-error mb-1.5">Confirm delete?</p>
-                                      <div className="flex gap-1.5">
-                                        <button onClick={() => handleDelete(race.raceId)} className="gs-btn gs-btn-danger gs-btn-sm flex-1">Delete</button>
-                                        <button onClick={() => setDeletingId(null)} className="gs-btn gs-btn-ghost gs-btn-sm">Cancel</button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <button
-                                      onClick={() => setDeletingId(race.raceId)}
-                                      className="w-full text-left px-3 py-2 text-sm text-error hover:bg-error/10 flex items-center gap-2 transition-colors"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" /> Delete
-                                    </button>
-                                  )}
-                                </div>
+                                  <button
+                                    onClick={() => { setDeleteTarget(race); setOpenMenuId(null) }}
+                                    className="w-full text-left px-3 py-2 text-sm text-error hover:bg-error/10 flex items-center gap-2 transition-colors"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" /> Delete
+                                  </button>
+                                </div>,
+                                document.body,
                               )}
                             </div>
                           </div>
@@ -1063,6 +1251,17 @@ export default function AdminRacesPage() {
         />
       )}
 
+      {deleteTarget && (
+        <DeleteConfirmModal
+          race={deleteTarget}
+          entryCount={entries.filter(e => e.raceId === deleteTarget.raceId).length}
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={handleDelete}
+          submitting={deletingId === deleteTarget.raceId}
+          error={deleteError}
+        />
+      )}
+
       {unpublishTarget && (
         <UnpublishConfirmModal
           race={unpublishTarget}
@@ -1070,6 +1269,16 @@ export default function AdminRacesPage() {
           onConfirm={reason => handleUnpublishRace(unpublishTarget.raceId, reason)}
           submitting={regLoading === unpublishTarget.raceId}
           error={unpublishError}
+        />
+      )}
+
+      {resultsRace && (
+        <RaceResultsModal
+          raceId={resultsRace.raceId}
+          raceName={resultsRace.name}
+          onClose={() => setResultsRace(null)}
+          fetchStandings={getRaceStandings}
+          fetchResults={getRaceResults}
         />
       )}
       </div>

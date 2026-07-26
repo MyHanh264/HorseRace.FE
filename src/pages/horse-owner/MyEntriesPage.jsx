@@ -129,13 +129,10 @@ export default function MyEntriesPage() {
       const pb = STATUS_PRIORITY[b.status] ?? 3;
       if (pa !== pb) return pa - pb;
 
-      const dateA = getRaceById(a.raceId)?.scheduledAt;
-      const dateB = getRaceById(b.raceId)?.scheduledAt;
-      if (!dateA || !dateB) return 0;
-      // Active entries: soonest race first. Dead entries: most recent first.
-      return pa >= 2
-        ? new Date(dateB) - new Date(dateA)
-        : new Date(dateA) - new Date(dateB);
+      // Within the same status, most recently submitted entry first — so an
+      // entry you just registered surfaces immediately instead of being buried
+      // under older entries whose race merely happens to be scheduled earlier.
+      return new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0);
     });
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
@@ -181,7 +178,7 @@ export default function MyEntriesPage() {
             ☰ All Statuses
           </button>
           <button className="flex items-center gap-2 border border-white/20 text-gray-300 hover:bg-white/10 px-4 py-2 rounded-lg text-sm transition-colors">
-            ☰ Date: Upcoming
+            ☰ Newest Submitted
           </button>
         </div>
       </div>

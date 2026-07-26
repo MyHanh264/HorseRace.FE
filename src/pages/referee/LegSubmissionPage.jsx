@@ -3,31 +3,29 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   Flag, AlertCircle, CheckCircle2, ChevronLeft, Loader2,
   Save, Send, EyeOff, Lock, GripVertical, X, AlertTriangle,
-  Zap, Clock, Trophy,
+  Zap, Clock, Trophy, Shield,
 } from 'lucide-react'
 import {
   getRefereeLegView,
   saveLegDraft,
   submitLegResult,
   getRaceExecutionStatus,
-  getRaceStandings,
+  getLegDetail,
 } from '../../api/referee'
-import { validateLegPositions } from '../../utils/legValidation'
+import { validateLegPositions, getLegPoints } from '../../utils/legValidation'
 
-// Store a session key for each (raceId, legIndex) that has been submitted, to prevent
+// Store a session key for each (userId, raceId, legIndex) that has been submitted, to prevent
 // duplicates when the user opens multiple tabs. Key resets when the tab closes (sessionStorage).
-function getSubmitSessionKey(raceId, legIndex) {
-  return `referee-submitted-${raceId}-${legIndex}`
+// BUG FIX: Include userId in the key so two different referees using the same browser
+// (e.g. testing on the same machine) do NOT share the same submitted flag.
+function getSubmitSessionKey(raceId, legIndex, userId) {
+  return `referee-submitted-${userId ?? 'anon'}-${raceId}-${legIndex}`
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const LEG_POINTS = { 1: 6, 2: 5, 3: 4, 4: 3, 5: 2, 6: 1 }
-
-function getLegPoints(pos) {
-  if (!pos || pos < 1) return 0
-  return LEG_POINTS[pos] ?? 0
-}
+// Leg Points tính TUYẾN TÍNH theo sĩ số (N - hạng + 1) — công thức dùng chung ở
+// utils/legValidation.js, khớp RaceExecutionConstants.LegPointsFor bên BE.
 
 function fmtDateTime(dt) {
   if (!dt) return '—'
@@ -56,10 +54,16 @@ function PositionBadge({ value, size = 'sm' }) {
 
 // ─── Drag and Drop Entry Item ────────────────────────────────────────────────
 
-function DraggableEntryItem({ entry, position, isDragging, isLocked, onPositionChange, onDNF, onDQ }) {
+// BUG FIX: totalEntries is passed so the select can generate position options 1..n
+function DraggableEntryItem({ entry, position, totalEntries, isDragging, isLocked, onPositionChange, onDNF, onDQ }) {
   const handleSelect = (e) => {
     if (isLocked) return
-    onPositionChange(Number(e.target.value))
+    const val = e.target.value
+    if (val === '') {
+      onPositionChange(null)
+    } else {
+      onPositionChange(Number(val))
+    }
   }
 
   return (
@@ -79,7 +83,7 @@ function DraggableEntryItem({ entry, position, isDragging, isLocked, onPositionC
       )}
 
       <div className="w-12 h-12 rounded-lg bg-surface-container-high flex items-center justify-center font-mono text-lg font-bold text-yellow-400 border border-yellow-400/20">
-        {position ? `#${position}` : '—'}
+        {position && position > 0 ? `#${position}` : position === -1 ? 'DNF' : position === -2 ? 'DQ' : '—'}
       </div>
 
       <div className="flex-1 min-w-0">
@@ -92,9 +96,9 @@ function DraggableEntryItem({ entry, position, isDragging, isLocked, onPositionC
       </div>
 
       <div className="flex items-center gap-2">
-        {position && (
+        {position && position > 0 && (
           <span className="text-xs font-mono text-yellow-400/70">
-            {getLegPoints(position)} pts
+            {getLegPoints(position, totalEntries)} pts
           </span>
         )}
 
@@ -102,12 +106,16 @@ function DraggableEntryItem({ entry, position, isDragging, isLocked, onPositionC
           <PositionBadge value={position} />
         ) : (
           <>
+            {/* BUG FIX: Generate numeric positions 1..n dynamically based on number of entries */}
             <select
               value={position ?? ''}
               onChange={handleSelect}
               className="bg-surface-container-lowest border border-outline-variant/50 rounded-lg px-2 py-1.5 text-sm font-mono text-on-surface focus:outline-none focus:border-yellow-400/60 transition-all"
             >
-              <option value="">—</option>
+              <option value="">— Select —</option>
+              {Array.from({ length: totalEntries }, (_, i) => i + 1).map(pos => (
+                <option key={pos} value={String(pos)}>P{pos}</option>
+              ))}
               <option value="-1">DNF</option>
               <option value="-2">DQ</option>
             </select>
@@ -131,7 +139,8 @@ function SubmissionSummary({ positions, entries, isLocked }) {
   const dnfEntries = entries.filter(e => positions[e.entryId] === -1)
   const dqEntries = entries.filter(e => positions[e.entryId] === -2)
 
-  const totalPoints = rankedEntries.reduce((sum, e) => sum + getLegPoints(positions[e.entryId]), 0)
+  const totalPoints = rankedEntries.reduce(
+    (sum, e) => sum + getLegPoints(positions[e.entryId], entries.length), 0)
 
   return (
     <div className="space-y-4">
@@ -157,7 +166,7 @@ function SubmissionSummary({ positions, entries, isLocked }) {
                 <span className="text-sm text-on-surface flex-1 truncate">
                   {entry.horseName || `Horse #${entry.horseId}`}
                 </span>
-                <span className="text-xs font-mono text-yellow-400">{getLegPoints(positions[entry.entryId])} pts</span>
+                <span className="text-xs font-mono text-yellow-400">{getLegPoints(positions[entry.entryId], entries.length)} pts</span>
               </div>
             ))}
           </div>
@@ -269,9 +278,17 @@ function SubmitConfirmationModal({ entries, positions, onConfirm, onCancel, subm
   )
 }
 
+// Sort key that pushes DNF(-1)/DQ(-2) to the bottom instead of above 1st place.
+function positionSortKey(position) {
+  return position > 0 ? position : 1000 + Math.abs(position)
+}
+
 // ─── Waiting Panel ──────────────────────────────────────────────────────────
 
-function WaitingPanel({ legStatus, opponentSubmitted, legNumber }) {
+function WaitingPanel({
+  legStatus, opponentSubmitted, legNumber,
+  entries, officialResults, resolutionInfo, resolutionLoading, onContinue,
+}) {
   return (
     <div className="p-6 text-center">
       <div className="w-16 h-16 rounded-full bg-emerald-500/10 border-2 border-emerald-500/30 flex items-center justify-center mx-auto mb-4">
@@ -327,6 +344,64 @@ function WaitingPanel({ legStatus, opponentSubmitted, legNumber }) {
           </p>
         </div>
       )}
+
+      {legStatus === 'Resolved' && (
+        <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20 text-left">
+          <p className="text-sm text-purple-300 font-semibold flex items-center gap-2 justify-center mb-1">
+            <Shield size={16} />
+            Resolved by Admin
+          </p>
+          <p className="text-xs text-on-surface-variant mb-3 text-center">
+            Your submission didn't match the other referee's. An Admin reviewed the case
+            and set the official result for Leg {legNumber} below.
+          </p>
+
+          <div className="p-3 rounded-lg bg-white/5 border border-white/10 mb-3">
+            <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-1">Admin's Reason</p>
+            {resolutionLoading ? (
+              <div className="flex items-center gap-2 text-xs text-on-surface-variant py-1">
+                <Loader2 size={12} className="animate-spin" /> Loading…
+              </div>
+            ) : (
+              <p className="text-sm text-on-surface italic">
+                {resolutionInfo?.adminOverrideReason || 'No reason recorded'}
+              </p>
+            )}
+          </div>
+
+          {officialResults?.length > 0 && (
+            <div className="space-y-1.5 mb-3">
+              <p className="text-xs text-on-surface-variant uppercase tracking-wider mb-1">Official Result</p>
+              {[...officialResults]
+                .sort((a, b) => positionSortKey(a.position) - positionSortKey(b.position))
+                .map((r) => {
+                  const entry = entries?.find((e) => e.entryId === r.entryId)
+                  return (
+                    <div
+                      key={r.entryId}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10"
+                    >
+                      <PositionBadge value={r.position} />
+                      <span className="text-xs text-on-surface flex-1 truncate text-left">
+                        {entry?.horseName || `Entry #${r.entryId}`}
+                      </span>
+                      <span className="text-xs font-mono text-yellow-400">{r.points}pts</span>
+                    </div>
+                  )
+                })}
+            </div>
+          )}
+
+          {onContinue && (
+            <button
+              onClick={onContinue}
+              className="w-full mt-1 px-4 py-2 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-black text-sm font-bold transition-all"
+            >
+              Continue
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -344,7 +419,6 @@ export default function LegSubmissionPage() {
   // Data state
   const [legView, setLegView] = useState(null)
   const [execution, setExecution] = useState(null)
-  const [standings, setStandings] = useState([])
 
   // UI state
   const [loading, setLoading] = useState(true)
@@ -355,11 +429,27 @@ export default function LegSubmissionPage() {
   const [submitResult, setSubmitResult] = useState(null)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
 
+  // Admin's reason for a Resolved leg (see WaitingPanel's Resolved branch).
+  const [resolutionInfo, setResolutionInfo] = useState(null)
+  const [resolutionLoading, setResolutionLoading] = useState(false)
+
+  // BUG FIX: Read userId from localStorage token to include in sessionStorage key.
+  // Without this, two different referees using the same browser share the same flag.
+  const currentUserId = (() => {
+    try {
+      const token = localStorage.getItem('auth_access_token')
+      if (!token) return null
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      return payload.userId ?? payload.sub ?? payload.nameid ?? null
+    } catch { return null }
+  })()
+
   // Local lock flag — set immediately when the user clicks submit (before the API responds).
   // Needed to prevent double-click & multi-tab duplicate submission.
+  // BUG FIX: Use userId-scoped key so referee A and referee B don't share the flag.
   const [hasSubmitted, setHasSubmitted] = useState(() => {
     if (typeof window === 'undefined') return false
-    return Boolean(sessionStorage.getItem(getSubmitSessionKey(raceId, legIndex)))
+    return Boolean(sessionStorage.getItem(getSubmitSessionKey(raceId, legIndex, currentUserId)))
   })
 
   // Positions state: { [entryId]: position | -1 | -2 | null }
@@ -372,27 +462,26 @@ export default function LegSubmissionPage() {
   // ── Load data ──
   const loadLegData = useCallback(async () => {
     try {
-      const [viewData, execData, standingsData] = await Promise.all([
+      const [viewData, execData] = await Promise.all([
         getRefereeLegView(raceId, legIndex),
         getRaceExecutionStatus(raceId),
-        getRaceStandings(raceId).catch(() => []),
       ])
 
       if (!isMountedRef.current) return
 
       setLegView(viewData)
       setExecution(execData)
-      setStandings(standingsData)
 
       // Sync hasSubmitted from sessionStorage + server (in case
       // another tab already submitted before polling picks up the update).
+      // BUG FIX: Use userId-scoped key to avoid false-positive for the other referee.
       const sessionFlag = typeof window !== 'undefined'
-        && Boolean(sessionStorage.getItem(getSubmitSessionKey(raceId, legIndex)))
+        && Boolean(sessionStorage.getItem(getSubmitSessionKey(raceId, legIndex, currentUserId)))
       if ((sessionFlag || viewData?.mySubmitted) && isMountedRef.current) {
         setHasSubmitted(true)
       }
 
-      // Initialize positions from mySubmittedData if available
+      // Initialize positions: submitted > draft > empty
       if (viewData.mySubmittedData && Array.isArray(viewData.mySubmittedData)) {
         setPositions(prev => {
           const newPos = { ...prev }
@@ -401,6 +490,15 @@ export default function LegSubmissionPage() {
           })
           return newPos
         })
+      } else if (viewData.myDraftData && Array.isArray(viewData.myDraftData) && viewData.myDraftData.length > 0) {
+        setPositions(prev => {
+          const newPos = { ...prev }
+          viewData.myDraftData.forEach(item => {
+            newPos[item.entryId] = item.position ?? null
+          })
+          return newPos
+        })
+        setDraftSaved(true)
       } else {
         // Only reset to empty when NO entry has been assigned a position yet.
         // Avoids a stale-closure reset wiping out data the user is mid-typing.
@@ -451,8 +549,9 @@ export default function LegSubmissionPage() {
         if (!isMountedRef.current) return
 
         // Only update the fields that are needed, don't reset the entire legView
+        // BUG FIX: Use userId-scoped key
         const sessionFlag = Boolean(
-          sessionStorage.getItem(getSubmitSessionKey(raceId, legIndex)),
+          sessionStorage.getItem(getSubmitSessionKey(raceId, legIndex, currentUserId)),
         )
         if (view?.mySubmitted || sessionFlag) {
           setHasSubmitted(true)
@@ -462,22 +561,29 @@ export default function LegSubmissionPage() {
         // the leg transitions to Confirmed/Resolved.
         const legStatus = view?.legStatus
         if (legStatus === 'Confirmed' || legStatus === 'Resolved') {
-          // Leg has been confirmed - check whether there's a next leg
-          // Fetch execution status to know if there's a next leg
-          getRaceExecutionStatus(raceId).then(execData => {
-            if (!isMountedRef.current) return
-            const nextLegIdx = execData?.currentLegIndex
-            if (nextLegIdx !== undefined && nextLegIdx !== legIndex) {
-              // There's a next leg - navigate to it
-              navigate(`/referee/races/${raceId}/legs/${nextLegIdx}`)
-            } else if (!view?.mySubmitted) {
-              // No more legs, or the leg is already complete - go back to dashboard
-              navigate(`/referee/races/${raceId}`)
-            }
-          }).catch(() => {
-            // If the fetch fails, still show the result
-            if (isMountedRef.current) setLegView(view)
-          })
+          const execData = await getRaceExecutionStatus(raceId).catch(() => null)
+          if (!isMountedRef.current) return
+
+          // Always sync legView/execution so the locked view reflects the final
+          // status — previously this only happened in the fetch's .catch(), so
+          // if this was the last leg (nextLegIdx === legIndex) AND mySubmitted
+          // was already true, neither branch below ran and the page silently
+          // never picked up the Resolved/Confirmed status at all.
+          if (execData) setExecution(execData)
+          setLegView(view)
+
+          // A Resolved leg means Admin just overrode a referee mismatch — stay on
+          // this page so WaitingPanel can show the official result + admin's
+          // reason. Auto-navigating here (like Confirmed does) would bounce the
+          // referee away before they could ever read what got decided.
+          if (legStatus === 'Resolved') return
+
+          const nextLegIdx = execData?.currentLegIndex
+          if (nextLegIdx !== undefined && nextLegIdx !== legIndex) {
+            navigate(`/referee/races/${raceId}/legs/${nextLegIdx}`)
+          } else if (!view?.mySubmitted) {
+            navigate(`/referee/races/${raceId}`)
+          }
           return
         }
 
@@ -513,6 +619,24 @@ export default function LegSubmissionPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [raceId, legIndex, navigate])
 
+  // ── Resolution info for a Resolved leg (admin's reason) ──
+  // GetLegDetail (LegsController) allows REFEREE too, unlike GetRacePauseInfo
+  // (Admin-only, would leak the other referee's blind submission) — this is
+  // safe because it only exposes the final decision, not either raw entry.
+  useEffect(() => {
+    if (legView?.legStatus !== 'Resolved') {
+      setResolutionInfo(null)
+      return
+    }
+    let active = true
+    setResolutionLoading(true)
+    getLegDetail(raceId, legNumber)
+      .then((detail) => { if (active) setResolutionInfo(detail) })
+      .catch(() => {})
+      .finally(() => { if (active) setResolutionLoading(false) })
+    return () => { active = false }
+  }, [raceId, legNumber, legView?.legStatus])
+
   // ── Position handlers ──
   function handlePositionChange(entryId, position) {
     setPositions(prev => ({ ...prev, [entryId]: position }))
@@ -526,6 +650,16 @@ export default function LegSubmissionPage() {
   function getValidation() {
     const entries = legView?.entries ?? []
     return validateLegPositions(entries, positions)
+  }
+
+  // ── Continue after reading a Resolved leg's admin decision ──
+  function handleContinueAfterResolution() {
+    const nextLegIdx = execution?.currentLegIndex
+    if (nextLegIdx !== undefined && nextLegIdx !== legIndex) {
+      navigate(`/referee/races/${raceId}/legs/${nextLegIdx}`)
+    } else {
+      navigate(`/referee/races/${raceId}`)
+    }
   }
 
   // ── Save Draft ──
@@ -564,13 +698,13 @@ export default function LegSubmissionPage() {
       return
     }
 
-    const sessionKey = getSubmitSessionKey(raceId, legIndex)
+    // BUG FIX: Use userId-scoped sessionStorage key
+    const sessionKey = getSubmitSessionKey(raceId, legIndex, currentUserId)
     setHasSubmitted(true)
     sessionStorage.setItem(sessionKey, String(Date.now()))
     setSubmitting(true)
     setSubmitError('')
 
-    const entries = legView?.entries ?? []
     const payload = Object.entries(positions)
       .filter(([_, pos]) => pos !== null && pos !== undefined)
       .map(([entryId, position]) => ({ entryId: Number(entryId), position }))
@@ -594,11 +728,9 @@ export default function LegSubmissionPage() {
         }
       }
     } catch (err) {
-      const msg = err?.response?.data?.error === 'ALREADY_SUBMITTED'
-        ? 'You have already submitted results for this leg.'
-        : err?.response?.data?.message || err?.message || 'Submission failed.'
+      const msg = err?.response?.data?.message || err?.message || 'Submission failed.'
       setSubmitError(msg)
-      // Submit failed → reopen the UI so the user can retry (Bug #1)
+      // Submit failed → reopen the UI so the user can retry
       setHasSubmitted(false)
       sessionStorage.removeItem(sessionKey)
     } finally {
@@ -783,6 +915,11 @@ export default function LegSubmissionPage() {
               legStatus={legView?.legStatus}
               opponentSubmitted={legView?.opponentSubmitted}
               legNumber={legNumber}
+              entries={entries}
+              officialResults={execution?.legs?.find((l) => l.legIndex === legIndex)?.results}
+              resolutionInfo={resolutionInfo}
+              resolutionLoading={resolutionLoading}
+              onContinue={handleContinueAfterResolution}
             />
           </div>
         </div>
@@ -870,6 +1007,7 @@ export default function LegSubmissionPage() {
                       key={entry.entryId}
                       entry={entry}
                       position={position}
+                      totalEntries={entries.length}
                       isDragging={false}
                       isLocked={false}
                       onPositionChange={(pos) => handlePositionChange(entry.entryId, pos)}
@@ -951,7 +1089,9 @@ export default function LegSubmissionPage() {
         <div className="mt-4 p-4 rounded-xl bg-white/5 border border-white/10">
           <p className="text-xs text-on-surface-variant text-center">
             <span className="font-semibold">Points:</span>{' '}
-            1st=6 · 2nd=5 · 3rd=4 · 4th=3 · 5th=2 · 6th=1 · DNF/DQ=0
+            scaled to the field of {entries.length} horses — 1st={entries.length}
+            {entries.length > 1 && <> · 2nd={entries.length - 1}</>}
+            {' '}· last=1 · DNF/DQ=0
           </p>
         </div>
       </div>

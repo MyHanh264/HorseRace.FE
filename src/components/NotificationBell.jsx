@@ -9,10 +9,18 @@ const TYPE_DOT = {
   info: "bg-sky-400",
 };
 
+// Số thông báo hiện tối đa trong dropdown. Cắt bớt để panel luôn gọn — phần còn
+// lại chỉ đếm số, vì thông báo ở đây là "việc đang cần làm" chứ không phải hộp thư
+// lưu trữ; ai muốn xem đủ thì vào đúng trang nghiệp vụ.
+const MAX_VISIBLE = 6;
+
 /**
  * Shared bell icon used across all roles. Does not fetch data itself —
  * receives `items` (from a per-role useXNotifications hook) and read state
  * (from useNotificationRead) via props.
+ *
+ * Thông báo **chỉ hiện khi bấm vào icon** — không tự bật, không toast. Xem ghi chú
+ * trong `hooks/useNotificationRead.js` về lý do đã gỡ cơ chế toast tự động.
  */
 export default function NotificationBell({
   items,
@@ -23,6 +31,9 @@ export default function NotificationBell({
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
   const navigate = useNavigate();
+
+  const visible = items.slice(0, MAX_VISIBLE);
+  const hiddenCount = items.length - visible.length;
 
   useEffect(() => {
     function onClickOutside(e) {
@@ -51,7 +62,7 @@ export default function NotificationBell({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 max-h-[70vh] overflow-y-auto bg-[#161b22] border border-white/10 rounded-xl shadow-2xl z-50">
+        <div className="absolute right-0 top-full mt-2 w-80 bg-[#161b22] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
             <p className="text-sm font-semibold text-white">Notifications</p>
             {unreadCount > 0 && (
@@ -72,7 +83,7 @@ export default function NotificationBell({
             </div>
           ) : (
             <ul className="py-1">
-              {items.map((item) => (
+              {visible.map((item) => (
                 <li key={item.id}>
                   <button
                     type="button"
@@ -98,6 +109,12 @@ export default function NotificationBell({
                 </li>
               ))}
             </ul>
+          )}
+
+          {hiddenCount > 0 && (
+            <p className="px-4 py-2.5 text-[11px] text-gray-500 border-t border-white/10 bg-white/[0.02]">
+              và {hiddenCount} thông báo khác
+            </p>
           )}
         </div>
       )}
