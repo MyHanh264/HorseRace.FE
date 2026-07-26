@@ -10,8 +10,9 @@ import {
   getRaceExecutionStatus,
   resumeRace, getRaceStandings,
   startRace, closeRegistration, approveEntry, rejectEntry, getEntries,
-  publishRace, getAllViolations, getViolationsWithEntryDetail,
+  publishRace, getAllViolations, getViolationsWithEntryDetail, getRaceResults,
 } from '../../api/admin'
+import RaceResultsModal from '../../components/RaceResultsModal'
 
 const EXECUTION_RACE_STATUSES = ['Scheduled', 'InProgress', 'Paused', 'PendingResult', 'Finished']
 
@@ -28,22 +29,37 @@ function fmtDate(s) {
 function buildScoreBreakdown(entryId, execution, approvedViolations) {
   const entryViolations = approvedViolations.filter(v => v.entryId === entryId)
   const isRaceDQ = entryViolations.some(v => v.penalty === 'DQ')
-  const lines = (execution?.legs ?? [])
-    .map(leg => {
-      const result = leg.results?.find(r => r.entryId === entryId)
-      if (!result) return null
-      const legViolation = entryViolations.find(v => v.legNumber === leg.legNumber)
-      const posLabel = result.position === -1 ? 'DNF' : result.position === -2 ? 'DQ' : `#${result.position}`
-      const penaltyNote = !legViolation
-        ? ''
-        : legViolation.penalty === 'Warning'
-          ? ` — Warning noted (${legViolation.violationType})`
-          : ` — ${legViolation.penalty} applied (${legViolation.violationType})`
-      return `Leg ${leg.legNumber}: ${result.points}p (${posLabel})${penaltyNote}`
-    })
-    .filter(Boolean)
+  const lines = []
+  // Short, always-visible summary of every APPROVED penalty against this entry — this used
+  // to only exist inside a native `title` tooltip (hover-only, no visual hint it existed),
+  // which is exactly why "tụt hạng do đâu" was invisible unless you happened to hover it.
+  const penaltyLines = []
+  ;(execution?.legs ?? []).forEach(leg => {
+    const result = leg.results?.find(r => r.entryId === entryId)
+    if (!result) return
+    const legViolation = entryViolations.find(v => v.legNumber === leg.legNumber)
+    const posLabel = result.position === -1 ? 'DNF' : result.position === -2 ? 'DQ' : `#${result.position}`
+    const penaltyNote = !legViolation
+      ? ''
+      : legViolation.penalty === 'Warning'
+        ? ` — Warning noted (${legViolation.violationType})`
+        : ` — ${legViolation.penalty} applied (${legViolation.violationType})`
+    lines.push(`Leg ${leg.legNumber}: ${result.points}p (${posLabel})${penaltyNote}`)
+    // Warning doesn't touch score/position (by design — BE: "Warning: không đổi standings"),
+    // but Admin still needs visible confirmation it was recorded, not silence. Flagged with
+    // scoresAffected: false so the render below can keep it visually distinct from an actual
+    // Demote/DQ (neutral colour, no "tụt hạng" implication).
+    if (legViolation) {
+      penaltyLines.push({
+        text: legViolation.penalty === 'Warning'
+          ? `Leg ${leg.legNumber}: Warning noted (${legViolation.violationType})`
+          : `Leg ${leg.legNumber}: ${legViolation.penalty} — now ${posLabel} (${legViolation.violationType})`,
+        scoreAffected: legViolation.penalty !== 'Warning',
+      })
+    }
+  })
   const hasPenalty = entryViolations.some(v => v.penalty !== 'Warning')
-  return { lines, isRaceDQ, hasPenalty }
+  return { lines, penaltyLines, isRaceDQ, hasPenalty }
 }
 
 const ENTRY_STATUS_META = {
@@ -217,6 +233,16 @@ function ErrorBanner({ msg, onDismiss }) {
   )
 }
 
+function SuccessBanner({ msg, onDismiss }) {
+  if (!msg) return null
+  return (
+    <div className="mb-4 p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-sm flex items-center gap-2">
+      <CheckCircle className="w-4 h-4 shrink-0" />{msg}
+      <button onClick={onDismiss} className="ml-auto"><X className="w-4 h-4" /></button>
+    </div>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AdminRaceExecutionPage() {
@@ -259,6 +285,11 @@ export default function AdminRaceExecutionPage() {
   const [raceViolations, setRaceViolations] = useState([])
   const [pendingViolationCount, setPendingViolationCount] = useState(0)
   const [publishing, setPublishing] = useState(false)
+  // Preview the exact same Race Results table other roles will see before actually
+  // committing to Publish — reuses RaceResultsModal, which falls back to the live
+  // standings' provisional Position when there's no official result yet.
+  const [showPublishPreview, setShowPublishPreview] = useState(false)
+  const [successMsg, setSuccessMsg] = useState('')
   const pollRef = useRef(null)
 
   // ── Load races ─────────────────────────────────────────────────────────────
@@ -449,6 +480,8 @@ export default function AdminRaceExecutionPage() {
       setSelectedRace(prev => ({ ...prev, status: 'Finished' }))
       await loadExecution(selectedRace.raceId)
       await loadRaces()
+      setSuccessMsg(`"${selectedRace.name}" published — results are now visible to spectators, jockeys, and horse owners.`)
+      setTimeout(() => setSuccessMsg(''), 6000)
     } catch (err) {
       setError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Failed to publish race')
     } finally {
@@ -832,6 +865,7 @@ export default function AdminRaceExecutionPage() {
         onRefreshList={() => { setLoading(true); loadRaces() }}
         onRefreshMonitor={() => loadExecution(selectedRace?.raceId)} />
       <ErrorBanner msg={error} onDismiss={() => setError('')} />
+      <SuccessBanner msg={successMsg} onDismiss={() => setSuccessMsg('')} />
 
       {!execution ? (
         <div className="flex items-center justify-center py-40">
@@ -847,9 +881,12 @@ export default function AdminRaceExecutionPage() {
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
                     selectedRace?.status === 'InProgress' ? 'bg-amber-500/15 text-amber-400'
                     : selectedRace?.status === 'Paused'   ? 'bg-orange-500/15 text-orange-400'
+                    : selectedRace?.status === 'Finished' ? 'bg-emerald-500/15 text-emerald-400'
                     : 'bg-blue-400/15 text-blue-400'
                   }`}>
-                    {selectedRace?.status === 'InProgress' ? '● LIVE' : selectedRace?.status}
+                    {selectedRace?.status === 'InProgress' ? '● LIVE'
+                      : selectedRace?.status === 'Finished' ? '✓ PUBLISHED'
+                      : selectedRace?.status}
                   </span>
                   {execution?.isBetsLocked && (
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-500/15 text-red-400">🔒 Bets Locked</span>
@@ -887,7 +924,7 @@ export default function AdminRaceExecutionPage() {
               {selectedRace?.status === 'PendingResult' && (
                 <div className="flex flex-col items-end gap-1.5">
                   <button
-                    onClick={handlePublishRace}
+                    onClick={() => setShowPublishPreview(true)}
                     disabled={publishing || pendingViolationCount > 0}
                     title={pendingViolationCount > 0
                       ? `${pendingViolationCount} unresolved violation report${pendingViolationCount > 1 ? 's' : ''} for this race — review them in Violations before publishing.`
@@ -990,9 +1027,20 @@ export default function AdminRaceExecutionPage() {
                 <h3 className="font-semibold text-on-surface text-sm">Live Standings</h3>
                 <p className="text-[10px] text-gray-500 mt-0.5">{standings.length} entries · auto refresh</p>
               </div>
+              {/* Tie warning — same total points alone doesn't tell you who's actually ahead;
+                  this is exactly the ranking Publish will use (points → leg wins → top-3
+                  finishes), spelled out so it's not "why is #1 still #1 with the same points". */}
+              {standings.some((s, i) => i > 0 && s.totalPoints === standings[0].totalPoints) && (
+                <div className="px-5 py-2.5 bg-sky-500/10 border-b border-sky-500/20 flex items-start gap-2">
+                  <AlertTriangle size={12} className="text-sky-400 shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-sky-300">
+                    2 or more entries are tied on points — ranking is decided by <strong>most leg wins</strong>, then <strong>most top-3 finishes</strong> (see W / Top3 below each entry). This is the same order Publish will use.
+                  </p>
+                </div>
+              )}
               <div className="divide-y divide-white/5">
                 {standings.map((s, i) => {
-                  const { lines, isRaceDQ, hasPenalty } = buildScoreBreakdown(s.entryId, execution, raceViolations)
+                  const { lines, penaltyLines, isRaceDQ, hasPenalty } = buildScoreBreakdown(s.entryId, execution, raceViolations)
                   const tooltip = lines.length > 0
                     ? `${lines.join('\n')}${isRaceDQ ? '\nRace DQ — 0 points regardless of leg results.' : ''}`
                     : 'No confirmed legs yet.'
@@ -1004,6 +1052,24 @@ export default function AdminRaceExecutionPage() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-on-surface truncate">{s.horseName || `Entry #${s.entryId}`}</p>
                         {s.position && <p className="text-[10px] text-gray-500">Current pos: {s.position}</p>}
+                        {/* Always-visible penalty summary — this used to be hidden inside a
+                            hover-only title tooltip, which is exactly why it read as "just a
+                            vague warning icon" with no way to tell what actually happened. */}
+                        {penaltyLines.length > 0 && (
+                          <div className="mt-1 space-y-0.5">
+                            {penaltyLines.map((line, idx) => (
+                              <p
+                                key={idx}
+                                className={`text-[10px] flex items-center gap-1 ${
+                                  !line.scoreAffected ? 'text-sky-400' : isRaceDQ ? 'text-red-400' : 'text-amber-400'
+                                }`}
+                              >
+                                <AlertTriangle size={9} className="shrink-0" />
+                                {line.text}
+                              </p>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       <div className="text-right shrink-0" title={tooltip}>
                         <p className="text-sm font-bold text-yellow-400 font-mono flex items-center gap-1 justify-end cursor-help">
@@ -1011,6 +1077,11 @@ export default function AdminRaceExecutionPage() {
                             <AlertTriangle size={11} className={isRaceDQ ? 'text-red-400' : 'text-amber-400'} />
                           )}
                           {s.totalPoints}p
+                        </p>
+                        {/* Tie-break stats — always visible, not just on hover, since a tied
+                            point total gives no clue on its own why one entry outranks another. */}
+                        <p className="text-[10px] text-gray-500">
+                          W:{s.legWins ?? 0} · Top3:{s.legTop3 ?? 0}
                         </p>
                         {isRaceDQ && <span className="text-[10px] text-red-400 ml-1">DQ</span>}
                       </div>
@@ -1023,6 +1094,41 @@ export default function AdminRaceExecutionPage() {
         </div>
       )}
 
+      {showPublishPreview && selectedRace && (
+        <RaceResultsModal
+          raceId={selectedRace.raceId}
+          raceName={selectedRace.name}
+          fetchStandings={getRaceStandings}
+          fetchResults={getRaceResults}
+          onClose={() => setShowPublishPreview(false)}
+          footer={
+            <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-outline-variant/40">
+              <p className="text-xs text-on-surface-variant">
+                Review the ranking above — this is exactly what other roles will see once published.
+              </p>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => setShowPublishPreview(false)}
+                  className="px-3 py-1.5 rounded-lg border border-outline-variant/40 text-xs text-on-surface-variant hover:bg-surface-container-high transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    await handlePublishRace()
+                    setShowPublishPreview(false)
+                  }}
+                  disabled={publishing}
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold transition-all disabled:opacity-50"
+                >
+                  {publishing ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                  Confirm &amp; Publish
+                </button>
+              </div>
+            </div>
+          }
+        />
+      )}
     </div>
   )
 }

@@ -5,6 +5,13 @@ export async function getRaceResults() {
   return Array.isArray(res.data) ? res.data : [];
 }
 
+// GET /api/leaderboards/career?role=HORSE_OWNER — same endpoint jockey.js's
+// getCareerLeaderboard uses, just role-filtered for owners instead.
+export async function getCareerLeaderboard(role) {
+  const res = await api.get("/api/leaderboards/career", { params: role ? { role } : {} });
+  return Array.isArray(res.data) ? res.data : [];
+}
+
 // Standings has HorseName/JockeyName embedded — needed because /api/entries only returns
 // this owner's own rows for HORSE_OWNER (BE scopes it), so it can't be used to see competitors.
 export async function getRaceStandings(raceId) {

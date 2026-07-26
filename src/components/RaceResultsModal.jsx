@@ -7,10 +7,16 @@ import { X, Trophy, AlertTriangle } from 'lucide-react'
 //   - GET /api/race-results — the official post-publish record (correct tie-break, IsRaceDQ),
 //     written once at Publish and immutable after.
 // Callers inject their own role-scoped api functions so this component stays role-agnostic.
-export default function RaceResultsModal({ raceId, raceName, onClose, fetchStandings, fetchResults }) {
+export default function RaceResultsModal({ raceId, raceName, onClose, fetchStandings, fetchResults, footer }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [rows, setRows] = useState([])
+  // True once Publish has actually run (GET /api/race-results has rows for this race).
+  // Before that, callers may still open this same modal as a Publish preview — in that
+  // case there's no official finalPosition yet, so fall back to the live standings' own
+  // provisional Position (same ranking Publish will persist) instead of showing "—" for
+  // every single row.
+  const [hasOfficialResults, setHasOfficialResults] = useState(true)
 
   useEffect(() => {
     let active = true
@@ -25,11 +31,10 @@ export default function RaceResultsModal({ raceId, raceName, onClose, fetchStand
         ])
         if (!active) return
 
-        const resultByEntry = new Map(
-          (results ?? [])
-            .filter((r) => r.raceId === raceId)
-            .map((r) => [r.entryId, r]),
-        )
+        const raceResults = (results ?? []).filter((r) => r.raceId === raceId)
+        const resultByEntry = new Map(raceResults.map((r) => [r.entryId, r]))
+        if (!active) return
+        setHasOfficialResults(raceResults.length > 0)
 
         const merged = (standings ?? []).map((s) => {
           const r = resultByEntry.get(s.entryId)
@@ -39,7 +44,7 @@ export default function RaceResultsModal({ raceId, raceName, onClose, fetchStand
             horseName: s.horseName,
             jockeyName: s.jockeyName,
             totalPoints: r?.totalPoints ?? s.totalPoints,
-            finalPosition: r?.finalPosition ?? null,
+            finalPosition: r?.finalPosition ?? s.position ?? null,
             isRaceDQ: r?.isRaceDQ ?? false,
           }
         })
@@ -76,7 +81,14 @@ export default function RaceResultsModal({ raceId, raceName, onClose, fetchStand
           <div className="flex items-center gap-2.5">
             <Trophy size={17} className="text-yellow-400" />
             <div>
-              <h2 className="font-bold text-on-surface text-sm">Race Results</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="font-bold text-on-surface text-sm">Race Results</h2>
+                {!loading && !hasOfficialResults && rows.length > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-sky-500/15 text-sky-400 border border-sky-500/30">
+                    Provisional — not yet published
+                  </span>
+                )}
+              </div>
               {raceName && <p className="text-xs text-on-surface-variant">{raceName}</p>}
             </div>
           </div>
@@ -127,6 +139,8 @@ export default function RaceResultsModal({ raceId, raceName, onClose, fetchStand
             </table>
           )}
         </div>
+
+        {footer && <div className="shrink-0">{footer}</div>}
       </div>
     </div>
   )

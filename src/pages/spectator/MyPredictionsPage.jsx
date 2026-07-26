@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { BookOpen, AlertCircle, X, XCircle, CheckCircle, Clock, TrendingUp, Trophy } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { BookOpen, AlertCircle, X, XCircle, CheckCircle, Clock, TrendingUp, Trophy, Radio } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import {
   getMyPredictions, cancelPrediction, getAllRaces, getAllTournaments, getMyWallet,
@@ -90,12 +91,13 @@ export default function MyPredictionsPage() {
   const raceMap       = useMemo(() => Object.fromEntries(races.map(r => [r.raceId, r])), [races])
   const tournamentMap = useMemo(() => Object.fromEntries(tournaments.map(t => [t.tournamentId, t])), [tournaments])
 
-  // Active = Pending | Won (still showing), History = Lost | Cancelled
+  // Active = still awaiting the race outcome; History = every settled prediction
+  // (Won/Lost/Cancelled) so it always matches the "Active Slips" stat card below.
   const displayed = useMemo(() =>
     predictions.filter(p =>
       activeTab === 'Active'
-        ? ['Pending', 'Won'].includes(p.status)
-        : ['Lost', 'Cancelled'].includes(p.status)
+        ? p.status === 'Pending'
+        : ['Won', 'Lost', 'Cancelled'].includes(p.status)
     ),
   [predictions, activeTab])
 
@@ -105,6 +107,7 @@ export default function MyPredictionsPage() {
     .filter(p => p.status === 'Pending')
     .reduce((s, p) => s + Number(p.betAmount) * Number(p.oddsLocked1 ?? 1), 0)
   const activeSlips     = predictions.filter(p => p.status === 'Pending').length
+  // All-time, not a rolling window — there's no CreatedAt/date filter here.
   const wonPredictions  = predictions.filter(p => p.status === 'Won')
   const lostPredictions = predictions.filter(p => p.status === 'Lost')
   const winRate         = wonPredictions.length + lostPredictions.length > 0
@@ -178,7 +181,7 @@ export default function MyPredictionsPage() {
           <StatCard icon={TrendingUp} iconCls="text-primary"   label="Total Staked"     value={`${fmtBalance(totalStaked)} pts`} />
           <StatCard icon={TrendingUp} iconCls="text-secondary" label="Potential Payout"  value={`${fmtBalance(potentialPayout)} pts`} />
           <StatCard icon={Clock}      iconCls="text-amber-400" label="Active Slips"      value={activeSlips} />
-          <StatCard icon={CheckCircle}iconCls="text-primary"   label="Win Rate (30D)"    value={`${winRate}%`} />
+          <StatCard icon={CheckCircle}iconCls="text-primary"   label="Win Rate (All-Time)" value={`${winRate}%`} />
         </div>
 
         {/* Table */}
@@ -299,12 +302,20 @@ export default function MyPredictionsPage() {
                               Cancel
                             </button>
                           ) : race?.status === 'Finished' ? (
-                            <button
-                              onClick={() => setResultsRace(race)}
-                              className="flex items-center gap-1.5 text-xs font-bold text-yellow-400 hover:text-yellow-300 transition-colors"
-                            >
-                              <Trophy size={13} /> Results
-                            </button>
+                            <div className="flex items-center gap-3">
+                              <button
+                                onClick={() => setResultsRace(race)}
+                                className="flex items-center gap-1.5 text-xs font-bold text-yellow-400 hover:text-yellow-300 transition-colors"
+                              >
+                                <Trophy size={13} /> Results
+                              </button>
+                              <Link
+                                to={`/spectator/live/${race.raceId}`}
+                                className="flex items-center gap-1.5 text-xs font-bold text-primary hover:text-primary/80 transition-colors"
+                              >
+                                <Radio size={13} /> Replay
+                              </Link>
+                            </div>
                           ) : (
                             <span className="text-xs text-on-surface-variant">—</span>
                           )}
