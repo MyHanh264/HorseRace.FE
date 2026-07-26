@@ -1,13 +1,14 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useLocation } from 'react-router-dom'
 import {
-  Flag, Search, Clock, AlertCircle, X, CheckCircle, ChevronRight, Trophy,
+  Flag, Search, Clock, AlertCircle, X, CheckCircle, ChevronRight, Trophy, Ban,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import {
   getAllRaces, getRaceDetail, getAllTournaments, getMyWallet,
   getRaceOdds, placeRacePrediction,
   getRaceStandings, getRaceResults,
+  getMyPredictions, getPredictionDetail, cancelPrediction,
 } from '../../api/spectator'
 import RaceResultsModal from '../../components/RaceResultsModal'
 
@@ -66,6 +67,7 @@ function Countdown({ target }) {
 // Cược 1 Entry về 1st của cả race. Cửa mở khi race Scheduled và odds đã khóa (sau đóng ĐK).
 
 function BetPanel({ race, raceDetail, wallet, onBetPlaced }) {
+  const { user } = useAuth()
   const numberOfLegs = raceDetail?.numberOfLegs ?? 0
 
   const [raceOdds, setRaceOdds]           = useState(null)
@@ -78,6 +80,51 @@ function BetPanel({ race, raceDetail, wallet, onBetPlaced }) {
   const [betError, setBetError]               = useState('')
   const [betSuccess, setBetSuccess]           = useState(false)
   const [showResults, setShowResults]         = useState(false)
+
+  // Active prediction already placed for THIS race (BE allows at most 1 non-Cancelled
+  // prediction per race+spectator) — shown instead of the bet form, so the spectator sees
+  // what they already bet instead of filling out the form again and hitting a 400.
+  const [activePrediction, setActivePrediction] = useState(null)
+  const [activeLoading, setActiveLoading]       = useState(true)
+  const [cancelling, setCancelling]             = useState(false)
+  const [cancelError, setCancelError]           = useState('')
+
+  const loadActivePrediction = useCallback(async () => {
+    if (!race?.raceId || !user?.userId) { setActiveLoading(false); return }
+    setActiveLoading(true)
+    try {
+      const mine = await getMyPredictions(user.userId)
+      const active = (mine ?? []).find(p => p.raceId === race.raceId && p.status !== 'Cancelled')
+      if (active) {
+        const detail = await getPredictionDetail(active.predictionId).catch(() => null)
+        setActivePrediction(detail ? { ...active, ...detail } : active)
+      } else {
+        setActivePrediction(null)
+      }
+    } catch {
+      setActivePrediction(null)
+    } finally {
+      setActiveLoading(false)
+    }
+  }, [race?.raceId, user?.userId])
+
+  useEffect(() => { loadActivePrediction() }, [loadActivePrediction])
+
+  const handleCancelActive = async () => {
+    if (!activePrediction) return
+    setCancelling(true)
+    setCancelError('')
+    try {
+      await cancelPrediction(activePrediction.predictionId)
+      setActivePrediction(null)
+      loadRaceOdds()
+      onBetPlaced?.()
+    } catch (err) {
+      setCancelError(err?.response?.data?.detail ?? err?.response?.data?.message ?? err?.message ?? 'Failed to cancel bet')
+    } finally {
+      setCancelling(false)
+    }
+  }
 
   const loadRaceOdds = useCallback(() => {
     if (!race?.raceId || race.status !== 'Scheduled') {
@@ -135,6 +182,7 @@ function BetPanel({ race, raceDetail, wallet, onBetPlaced }) {
       setBetAmount('')
       setSelectedEntryId('')
       loadRaceOdds()
+      loadActivePrediction()
       onBetPlaced?.()
     } catch (err) {
       const msg = err?.response?.data?.message
@@ -227,7 +275,7 @@ function BetPanel({ race, raceDetail, wallet, onBetPlaced }) {
         )}
       </div>
 
-      {/* Bet form */}
+      {/* Bet form / already-bet summary */}
       <div className="border-t border-outline-variant/40 pt-4">
         <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-3">Your Prediction</p>
 
@@ -238,71 +286,116 @@ function BetPanel({ race, raceDetail, wallet, onBetPlaced }) {
           </div>
         )}
 
-        {!bettingOpen && raceEntries.length > 0 && !betSuccess && (
-          <div className="mb-3 p-3 rounded-lg bg-surface-container border border-outline-variant/40 text-on-surface-variant text-sm">
-            Betting is closed for this race.
+        {activeLoading ? (
+          <div className="flex items-center justify-center py-6">
+            <div className="w-5 h-5 border-2 border-secondary/30 border-t-secondary rounded-full animate-spin" />
           </div>
+        ) : activePrediction ? (
+          // BE only allows 1 active (non-Cancelled) prediction per race+spectator — show what
+          // was already bet instead of a form that would just 400 on submit.
+          <div className="space-y-3">
+            <div className="p-3 rounded-lg bg-primary/10 border border-primary/25">
+              <p className="text-xs text-on-surface-variant mb-1.5">You already have a bet on this race</p>
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-semibold text-on-surface">
+                  {raceEntries.find(e => e.entryId === activePrediction.firstEntryId)?.horseName
+                    ?? `Entry #${activePrediction.firstEntryId}`}
+                </span>
+                <span className="font-mono text-secondary font-bold shrink-0">
+                  {fmtBalance(activePrediction.betAmount)} pts
+                  {activePrediction.oddsLocked1 != null ? ` @ ${activePrediction.oddsLocked1}x` : ''}
+                </span>
+              </div>
+            </div>
+
+            {cancelError && (
+              <div className="p-3 rounded-lg bg-error/10 border border-error/25 text-error text-sm flex items-center gap-2">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />{cancelError}
+              </div>
+            )}
+
+            {race.status === 'Scheduled' && (
+              <button
+                onClick={handleCancelActive}
+                disabled={cancelling}
+                className="gs-btn gs-btn-ghost w-full justify-center flex items-center gap-2 text-error disabled:opacity-50"
+              >
+                {cancelling
+                  ? <div className="w-3 h-3 border-2 border-error/30 border-t-error rounded-full animate-spin" />
+                  : <Ban className="w-3.5 h-3.5" />}
+                Cancel Bet
+              </button>
+            )}
+          </div>
+        ) : (
+          <>
+            {!bettingOpen && raceEntries.length > 0 && !betSuccess && (
+              <div className="mb-3 p-3 rounded-lg bg-surface-container border border-outline-variant/40 text-on-surface-variant text-sm">
+                Betting is closed for this race.
+              </div>
+            )}
+
+            {betError && (
+              <div className="mb-3 p-3 rounded-lg bg-error/10 border border-error/25 text-error text-sm flex items-center gap-2">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />{betError}
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Pick 1st Place</label>
+                <select
+                  value={selectedEntryId}
+                  onChange={e => { setSelectedEntryId(e.target.value); setBetError('') }}
+                  disabled={!bettingOpen}
+                  className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all disabled:opacity-50"
+                >
+                  <option value="">Select Entry...</option>
+                  {raceEntries.map(e => (
+                    <option key={e.entryId} value={e.entryId}>
+                      {e.horseName ?? `Entry #${e.entryId}`} — {e.currentOdds}x
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Bet Amount (Pts)</label>
+                <input
+                  type="number"
+                  min={10}
+                  max={Math.floor(balance * 0.5)}
+                  value={betAmount}
+                  onChange={e => { setBetAmount(e.target.value); setBetError('') }}
+                  disabled={!bettingOpen}
+                  placeholder="0"
+                  className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40 disabled:opacity-50"
+                />
+              </div>
+
+              <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-surface-container border border-outline-variant/30 text-sm">
+                <span className="text-on-surface-variant">Est. Payout</span>
+                <span className="text-secondary font-bold font-mono">{estPayout}</span>
+              </div>
+
+              <button
+                onClick={handlePlaceBet}
+                disabled={!bettingOpen || submitting}
+                className="gs-btn gs-btn-secondary w-full justify-center flex items-center gap-2 disabled:opacity-50"
+              >
+                {submitting && <div className="w-3 h-3 border-2 border-on-secondary/30 border-t-on-secondary rounded-full animate-spin" />}
+                Place Bet
+              </button>
+
+              <p className="text-center text-[11px] text-on-surface-variant">
+                Current Balance: <span className="font-bold text-on-surface">{fmtBalance(balance)} pts</span>
+              </p>
+              <p className="text-center text-[11px] text-error/70">
+                Points are deducted immediately. Cancel only while the race is still Scheduled.
+              </p>
+            </div>
+          </>
         )}
-
-        {betError && (
-          <div className="mb-3 p-3 rounded-lg bg-error/10 border border-error/25 text-error text-sm flex items-center gap-2">
-            <AlertCircle className="w-3.5 h-3.5 shrink-0" />{betError}
-          </div>
-        )}
-
-        <div className="space-y-3">
-          <div>
-            <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Pick 1st Place</label>
-            <select
-              value={selectedEntryId}
-              onChange={e => { setSelectedEntryId(e.target.value); setBetError('') }}
-              disabled={!bettingOpen}
-              className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all disabled:opacity-50"
-            >
-              <option value="">Select Entry...</option>
-              {raceEntries.map(e => (
-                <option key={e.entryId} value={e.entryId}>
-                  {e.horseName ?? `Entry #${e.entryId}`} — {e.currentOdds}x
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-on-surface-variant mb-1.5">Bet Amount (Pts)</label>
-            <input
-              type="number"
-              min={10}
-              max={Math.floor(balance * 0.5)}
-              value={betAmount}
-              onChange={e => { setBetAmount(e.target.value); setBetError('') }}
-              disabled={!bettingOpen}
-              placeholder="0"
-              className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40 disabled:opacity-50"
-            />
-          </div>
-
-          <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-surface-container border border-outline-variant/30 text-sm">
-            <span className="text-on-surface-variant">Est. Payout</span>
-            <span className="text-secondary font-bold font-mono">{estPayout}</span>
-          </div>
-
-          <button
-            onClick={handlePlaceBet}
-            disabled={!bettingOpen || submitting}
-            className="gs-btn gs-btn-secondary w-full justify-center flex items-center gap-2 disabled:opacity-50"
-          >
-            {submitting && <div className="w-3 h-3 border-2 border-on-secondary/30 border-t-on-secondary rounded-full animate-spin" />}
-            Place Bet
-          </button>
-
-          <p className="text-center text-[11px] text-on-surface-variant">
-            Current Balance: <span className="font-bold text-on-surface">{fmtBalance(balance)} pts</span>
-          </p>
-          <p className="text-center text-[11px] text-error/70">
-            Points are deducted immediately. Cancel only while the race is still Scheduled.
-          </p>
-        </div>
       </div>
     </div>
   )

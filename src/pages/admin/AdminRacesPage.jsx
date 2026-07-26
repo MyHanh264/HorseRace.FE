@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Flag, Plus, ChevronDown, ChevronLeft, ChevronRight, Edit2, Trash2, X, AlertCircle,
   Users, CheckCircle, XCircle, ArrowLeft, UserCheck, Eye, Trophy,
@@ -602,7 +603,7 @@ export default function AdminRacesPage() {
   const [deleteTarget, setDeleteTarget] = useState(null) // race object for the modal
   const [deleteError, setDeleteError] = useState('')
   const [openMenuId, setOpenMenuId] = useState(null)
-  const [openMenuPos, setOpenMenuPos] = useState(null) // { top, left } fixed-position coords for overflow menu — escapes <table> stacking context
+  const [openMenuPos, setOpenMenuPos] = useState(null) // { top, right } viewport-fixed coords — rendered via portal so the menu escapes the table's overflow-x-auto clipping (last row's dropdown was getting cut off)
   const menuButtonRef = useRef(null)  // current ⋮ button (so a second click on it can toggle-closed)
   const menuPopupRef  = useRef(null)  // current dropdown panel (so clicks inside it don't close it)
   const [unpublishTarget, setUnpublishTarget] = useState(null)
@@ -1150,18 +1151,24 @@ export default function AdminRacesPage() {
                                     setOpenMenuId(null)
                                     return
                                   }
+                                  const rect = e.currentTarget.getBoundingClientRect()
+                                  setOpenMenuPos({
+                                    top: rect.bottom + 4,
+                                    right: window.innerWidth - rect.right,
+                                  })
                                   setOpenMenuId(race.raceId)
                                 }}
                                 className="w-8 h-8 rounded-lg border border-outline-variant/40 flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors"
                               >
                                 <MoreVertical className="w-4 h-4" />
                               </button>
-                              {openMenuId === race.raceId && (
+                              {openMenuId === race.raceId && openMenuPos && createPortal(
                                 <div
                                   ref={menuPopupRef}
                                   onClick={e => e.stopPropagation()}
                                   onMouseDown={e => e.stopPropagation()}
-                                  className="absolute right-0 top-full mt-1 bg-surface-container border border-outline-variant/40 rounded-xl shadow-2xl min-w-[160px] py-1 overflow-hidden z-[60]"
+                                  style={{ top: openMenuPos.top, right: openMenuPos.right }}
+                                  className="fixed bg-surface-container border border-outline-variant/40 rounded-xl shadow-2xl min-w-[160px] py-1 overflow-hidden z-[999]"
                                 >
                                   {race.status === 'Finished' && (
                                     <>
@@ -1193,7 +1200,8 @@ export default function AdminRacesPage() {
                                   >
                                     <Trash2 className="w-3.5 h-3.5" /> Delete
                                   </button>
-                                </div>
+                                </div>,
+                                document.body,
                               )}
                             </div>
                           </div>
