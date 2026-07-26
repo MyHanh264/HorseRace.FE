@@ -56,9 +56,9 @@ HorseRace.FE/
 │   │   ├── AuthSessionSync.jsx    # Sync auth state with tab
 │   │   ├── RequireRole.jsx        # Role-based route guard
 │   │   ├── NotificationBell.jsx   # Dropdown chuông thông báo (mọi role)
-│   │   ├── StaminaBar.jsx         # 🔴 code chết — BE đã gỡ Horse.Stamina (T-19)
 │   │   ├── RaceResultsModal.jsx   # Modal xem kết quả race
 │   │   └── RaceCard.jsx          # Race card component
+│   │   # (StaminaBar.jsx ĐÃ XÓA 2026-07-25 — BE gỡ Horse.Stamina)
 │   ├── constants/
 │   │   └── index.js           # Constants (mock data)
 │   ├── context/
@@ -136,8 +136,8 @@ HorseRace.FE/
 │   │   ├── validation.js   # Form validation
 │   │   ├── legValidation.js
 │   │   ├── raceSim.js      # Lõi mô phỏng đua (PRNG tất định, decodePosition)
-│   │   ├── horseCondition.js # 🔴 code chết — cùng lý do StaminaBar (T-19)
 │   │   └── horse.js
+│   │   # (horseCondition.js ĐÃ XÓA 2026-07-25 — cùng lý do StaminaBar)
 │   ├── App.jsx             # Main app with routes
 │   ├── main.jsx            # Entry point
 │   ├── index.css           # Global styles
@@ -462,12 +462,12 @@ return (
 | Page | Mô tả |
 |------|--------|
 | `SpectatorDashboard` | Dashboard chính |
-| `RacesBettingPage` | Xem race & đặt cược. 🔴 **Đang hỏng** — UI còn theo mô hình per-leg, BE đã về race-level ([T-19](../.claude/TASKS.md)) |
+| `RacesBettingPage` | Xem race & đặt cược **race-level** (1 ngựa về nhất / cả race). Không có bộ chọn chặng, không có thanh thể lực |
 | `LiveRacesPage` | Danh sách race đang diễn ra |
 | `LiveRaceDetailPage` | Theo dõi trực tiếp + mô phỏng đua (SignalR) |
 | `MyPredictionsPage` | Lịch sử predictions |
 | `PointWalletPage` | Quản lý ví điểm |
-| `LeaderboardPage` | Bảng xếp hạng |
+| `LeaderboardPage` | Bảng xếp hạng — dùng `GET /api/leaderboards/spectators` |
 
 ### Jockey Pages
 | Page | Mô tả |
@@ -482,10 +482,10 @@ return (
 | Page | Mô tả |
 |------|--------|
 | `RefereeAssignedRacesPage` | Races được assign |
-| `RefereeRaceDashboard` | Race detail view |
-| `LegSubmissionPage` | Submit leg results |
+| `RefereeRaceDashboard` | Race detail view + panel lịch sử leg đã được Admin resolve (`getLegDetail`) |
+| `LegSubmissionPage` | Submit leg results (blind) + hiện quyết định/lý do của Admin sau tranh chấp |
 | `RefereeViolationsPage` | Report violations |
-| `RefereeProfilePage` | Profile |
+| `RefereeProfilePage` | Profile — lưu qua `PUT /api/auth/profile` (T-24) |
 | ~~`RefereeResultEntryPage`~~ | **Đã xóa** cùng route `/referee/result-entry` |
 | `RefereeDashboard` | ⚠️ File tồn tại nhưng **không được import ở đâu** (mồ côi) |
 
@@ -613,6 +613,16 @@ server: {
 |----------|---------|---------|
 | `VITE_API_BASE_URL` | `''` (empty uses proxy) | Backend API URL |
 
+### Deploy lên Vercel (production)
+
+> Dev và production **khác hẳn nhau về mặt origin**: dev có Vite proxy nên `/api/...` là **same-origin** (không có CORS); production build **không có proxy** nên mọi request là **cross-origin** sang Render ⇒ phụ thuộc hoàn toàn vào `Cors:AllowedOrigins` của BE.
+
+1. **`VITE_API_BASE_URL` phải set trong Vercel** (Settings → Environment Variables) = `https://horseracemanagementsystem.onrender.com`, và phải bật cho **cả Production lẫn Preview**. Biến `VITE_*` được **nhúng cứng lúc build** — set xong phải **deploy lại**, không phải restart. Thiếu biến này thì request đi vào chính domain Vercel → 404 (không phải lỗi CORS).
+   - Kiểm nhanh trên bản đã deploy: mở `/assets/index-*.js` rồi tìm chuỗi `onrender.com` — có nghĩa là đã nhúng đúng.
+2. **`vercel.json`** (đã thêm ở gốc FE) rewrite mọi path về `/index.html`. Thiếu file này thì React Router deep link **404 thật** (`/login`, `/admin/races` khi F5 hoặc mở link trực tiếp) vì Vercel đi tìm file tĩnh theo path. Rewrite chạy **sau** filesystem nên `/assets/*` vẫn được phục vụ bình thường.
+3. **CORS phía BE**: origin của bản deploy phải nằm trong `Cors:AllowedOrigins`. ⚠️ **Vercel đổi hostname mỗi lần deploy** (preview: `horse-race-fe-git-<branch>-<scope>.vercel.app`) nên BE hỗ trợ wildcard `https://horse-race-fe-*.vercel.app` — xem [BE CLAUDE.md](../HorseRaceManagementSystem/CLAUDE.md) mục 8. Đổi tên project Vercel hoặc gắn custom domain thì **phải thêm origin/pattern mới bên BE rồi redeploy Render**.
+4. **Không** dùng `rewrites` của Vercel để proxy `/api/*` sang Render: rewrite của Vercel **không nâng cấp WebSocket**, SignalR (`/api/hubs/race-live`) sẽ tụt xuống long-polling hoặc chết. Cứ để gọi thẳng cross-origin + CORS.
+
 ---
 
 ## 11. Key Dependencies & Alternatives
@@ -648,24 +658,48 @@ server: {
 
 ---
 
-## 13. Tình trạng & việc cần làm (FE) — cập nhật 2026-07-25
+## 13. Tình trạng & việc cần làm (FE) — cập nhật 2026-07-26
 
-> **T-19 đã đóng:** FE khớp BE race-level (`getRaceOdds`/`placeRacePrediction`), gỡ Start Leg/statistics, Live dùng `startedAt`/`confirmedAt`, xóa `StaminaBar`/`horseCondition.js`. Việc còn lại: [T-13…T-16](../.claude/TASKS.md).
+> **HEAD `d421935`**, working tree sạch, `npm run build` **pass**.
+> **T-19 + T-23 + T-24 đã đóng:** FE khớp BE race-level (`getRaceOdds`/`placeRacePrediction`, body `entryId`), gỡ Start Leg/statistics, Live dùng `startedAt`/`confirmedAt`, xóa `StaminaBar`/`horseCondition.js`, 2 trang profile chuyển sang `PUT /api/auth/profile`. Việc còn lại: [T-13…T-16](../.claude/TASKS.md).
 
 ### ✅ Vẫn đồng bộ với BE
 - **User Management:** `getAllUser` đọc đúng shape phân trang `{ items, total, page, pageSize }` (bỏ `slice` client-side). `createUser` gửi field **`Password`** (plaintext, BE hash BCrypt) — không còn `PasswordHash`. `getRoleMap` nay normalize PascalCase của BE (`RoleId/Code/Name`) về camelCase.
 - **Audit trail** — `AdminAuditLogPage` + route `/admin/audit-log`, nối `GET /api/admin/review-history`.
 - **Race:** form Tạo/Sửa Race gửi **`scheduledEndTime`** (ISO, bắt buộc — thiếu → 400). BE chống trùng lịch trả lỗi ở `error.response.data.detail`.
 - **Live Race:** `GET /api/races/{id}/live` + SignalR; replay dùng `startedAt`/`confirmedAt` (không còn `executionStatus`).
+- **Đặt cược:** `POST /api/predictions/races/{raceId}` body **`{ entryId, betAmount }`** — ⚠️ tên field phải đúng `entryId` (ASP.NET Core bind case-insensitive nhưng **không** đồng nghĩa; `FirstEntryId` từng làm hỏng cả tính năng — T-23).
+
+### 🆕 Đợt 2026-07-26 (5 commit: `9523820` → `d421935`)
+
+| Commit | Nội dung |
+|---|---|
+| `9523820` *fix cancel race* | `AdminRacesPage`/`AdminRaceExecutionPage` xử lý hủy race; gỡ block chết ở `HorseOwnerDashboard` |
+| `0543b74` *fix error message* | `AdminHorsesPage`/`AdminRacesPage` đọc message lỗi BE tử tế hơn |
+| `cbdcb03` *fix noti, admin resolve conflict* | **`AdminConflictResolutionPage` +272 dòng** — panel lịch sử leg đã resolve; `getEntries(raceId)` truyền `?raceId=`; thêm `getLegDetail` vào `api/admin.js`; `AdminDiscrepanciesPage` + `AdminAuditLogPage` bổ sung |
+| `3d78f6e` *fix referee, live race, page* | Thêm `getLegDetail` vào `api/referee.js`; `LegSubmissionPage` + `RefereeRaceDashboard` hiện quyết định Admin sau tranh chấp; `LiveRacesPage` lọc/hiển thị tốt hơn |
+| `d421935` *fix delete button report…* | Gỡ nút **"Report Emergency"** giả trong `RefereeLayout`; chỉnh `useRefereeNotifications` |
+
+**Ghi chú kiến trúc:** để hiện "Admin đã xử tranh chấp thế nào", FE dùng **`GET /api/legs/{raceId}/{legNumber}`** (`getLegDetail`, `LegsController` cho cả REFEREE lẫn ADMIN) — nó chỉ trả **quyết định cuối cùng** (`adminOverrideReason`, `confirmedAt`, `confirmationType`), không lộ bản nhập blind của trọng tài kia. Đây là lựa chọn có chủ đích, giữ Blind Double-Entry.
 
 ### ⚠️ Lệch FE↔BE cũ (vẫn còn)
-**Điều kiện xóa/hủy Race** — `AdminRacesPage.jsx:399`, `DeleteConfirmModal`:
-- FE cho phép xóa khi `status ∈ ['Scheduled', 'Cancelled', 'Finished']` (`CAN_DELETE_STATUSES`), comment ở dòng 395 ghi *"Soft-delete — BE handles the IsDeleted flag internally"*.
-- **BE thực tế:** `DELETE /api/races/{id}` là **soft-cancel** — chỉ chấp nhận khi `Status == Scheduled`, set `Status = Cancelled`. **Không có** cột `IsDeleted` nào trong domain.
+**Điều kiện xóa/hủy Race** — `AdminRacesPage.jsx`, `DeleteConfirmModal`:
+- FE cho phép xóa khi `status ∈ ['Scheduled', 'Cancelled', 'Finished']` (`CAN_DELETE_STATUSES`), kèm comment sai *"Soft-delete — BE handles the IsDeleted flag internally"*.
+- **BE thực tế:** `DELETE /api/races/{id}` là **soft-cancel** — chỉ chấp nhận khi `Status == Scheduled`, set `Status = Cancelled` **và cascade** Entry → `Withdrawn`, Invitation → `Cancelled`. **Không có** cột `IsDeleted` nào trong domain.
 - Hậu quả: bấm Delete trên race `Finished`/`Cancelled` → 400 *"Only scheduled races can be cancelled."* Xem [T-13](../.claude/TASKS.md).
 
+### 🆕 Hành vi BE mới cần biết khi làm UI (2026-07-26)
+- **Race tự hủy:** race `Scheduled` sẽ bị worker hủy khi qua `scheduledEndTime`, hoặc qua `scheduledStartTime` mà có < 2 entry `Pending`/`Approved`. UI nên chấp nhận việc một race đang xem đột ngột thành `Cancelled` sau lần refetch.
+- **Sửa race:** `PUT /api/races/{id}` nay **chỉ nhận race `Scheduled`**; `POST /api/races` từ chối `scheduledStartTime` trong quá khứ → nút Edit nên disable khi race đã rời `Scheduled`.
+- **Vi phạm sau khi Publish:** tạo/duyệt/từ chối/sửa vi phạm đều bị chặn khi race `Finished` (*"Race already published — unpublish it first."*) → nên disable nút thay vì để người dùng nhận 400.
+- **`GET /api/races/{id}/pause` nay REFEREE cũng gọi được** với `?legNumber=n` cho leg đã `Resolved`. FE hiện **chưa dùng** đường này (dùng `getLegDetail` thay thế) — nếu wire vào thì nhớ truyền `legNumber`.
+
 ### 🟡 Dọn dẹp FE (không cần BE)
-- **9 helper mồ côi trong `api/admin.js`** (verify 2026-07-25 vẫn còn, không page nào dùng): `getAllInvalidUser`, `getInvalidUserById`, `approveInvalidUser`, `rejectInvalidUser`, `getUserHistory`, `getUsersByStatus`, `approveRace`, `rejectRace`, `finishRace`. Các endpoint BE tương ứng (Task 12/13/14 cũ) cũng chưa page nào dùng → cân nhắc gỡ **cả 2 phía**.
+- **10 helper mồ côi** (verify 2026-07-26, grep `src/pages` + `src/components` + `src/hooks` = 0 usage):
+  - `api/admin.js`: `getAllInvalidUser`, `getInvalidUserById`, `approveInvalidUser`, `rejectInvalidUser`, `getUserHistory`, `getUsersByStatus`, `approveRace`, `rejectRace`, `finishRace`.
+  - `api/referee.js`: `submitLegResult_legacy` (đã đánh dấu `@deprecated`).
+  - Các endpoint BE tương ứng (Task 12/13/14 cũ) cũng chưa page nào dùng → cân nhắc gỡ **cả 2 phía**.
+- **Comment lỗi thời:** `api/admin.js → getRacePauseInfo` ghi *"⚠️ ADMIN-only per spec — Referee must NOT call this"*. BE đã đổi (xem trên); câu này giờ mô tả sai contract, dễ khiến người sau kết luận nhầm.
 - **File mồ côi:** `src/pages/referee/RefereeDashboard.jsx` không được import ở đâu.
 - **Mock data còn lại:** `customer/Dashboard.jsx`, `customer/LandingDashboard.jsx` (landing tĩnh); `EditHorseModal` upload ảnh còn TODO (BE chưa có endpoint upload).
 
@@ -681,6 +715,8 @@ server: {
 - `GET /api/leaderboards/tournament/{tournamentId}` (chỉ `career` + `spectators` đang được dùng).
 - `POST /api/admin/points/daily-topup` (nạp bù ví < 10 điểm lên 10 — chỉ trigger thủ công).
 - `GET /api/admin/races/{id}/publication-review` — trả `pendingViolationCount` + `hasUnresolvedTie`. ⚠️ BE **không còn** chặn Publish khi còn vi phạm Pending, nên nếu muốn khóa nút Publish thì FE phải tự dùng cờ này.
+- `GET /api/races/{id}/pause?legNumber=n` **cho REFEREE** (leg đã `Resolved`) — mới 2026-07-26, FE đang dùng `getLegDetail` thay thế.
+- `GET /api/admin/review-history?entity=Leg` — audit các lần Admin override kết quả leg (mới 2026-07-26); `AdminAuditLogPage` hiện chưa có tab cho entity `Leg`.
 - *(`GET /api/horses/{id}/statistics` đã bị BE gỡ — bỏ khỏi danh sách này.)*
 
 ### ✅ Thêm 2026-07-20 → 25
@@ -740,7 +776,7 @@ server: {
 ```
 
 - `startedAt` + `confirmedAt` cho phép mọi client **đồng bộ pha replay** và đếm giờ khi leg đang chạy.
-- 🔴 **`executionStatus` và `isBettingOpen` không còn tồn tại** — 4 chỗ FE đang đọc chúng sẽ nhận `undefined` ([T-19](../.claude/TASKS.md)). Cửa cược nay là race-level: `race.status === 'Scheduled' && race.oddsComputedAt != null`.
+- ✅ **`executionStatus` và `isBettingOpen` không còn tồn tại** — FE đã ngừng đọc (T-19 đóng). Cửa cược nay là race-level: `race.status === 'Scheduled' && race.oddsComputedAt != null`.
 - Payload **cố ý KHÔNG có** `referee1Submitted`/`referee2Submitted` (khác `GET /races/{id}/execution`) — giữ Blind Double-Entry.
 
 ### ✅ Đã sửa 2026-07-15 — hồ sơ & career stats (bỏ mock/fake-save)
