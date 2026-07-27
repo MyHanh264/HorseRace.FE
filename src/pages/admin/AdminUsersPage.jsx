@@ -146,13 +146,13 @@ function StatCard({ icon: Icon, iconCls, label, value, sub }) {
 // this self-service modal is too sensitive to leave as a one-click option; do it
 // via a direct DB/BE-side action instead. Editing an existing admin's own role is
 // unaffected since the role selector only renders in Create mode (see `!isEdit`).
+// SPECTATOR is also intentionally NOT selectable here — spectators already have
+// their own public `/register` flow (instant-active, 100-pt starter wallet).
+// Admin-creating one bypasses that bootstrap entirely (no wallet row at all,
+// not just a 0 balance — found 2026-07-27), so this path is for the roles that
+// genuinely need an admin-created fallback (e.g. an in-house jockey when no one
+// accepts an invitation), not as a second way to make spectator accounts.
 const ROLE_OPTIONS = [
-  {
-    code: "SPECTATOR",
-    title: "Spectator",
-    description: "Watch races, predict results, and earn rewards.",
-    icon: "◎",
-  },
   {
     code: "HORSE_OWNER",
     title: "Horse Owner",
@@ -185,7 +185,7 @@ function UserModal({ user, onClose, onSubmit, submitting, error }) {
     email: user?.email || "",
     password: "",
     confirmPassword: "",
-    roleCode: user?.roleCode || user?.role || "SPECTATOR",
+    roleCode: user?.roleCode || user?.role || "HORSE_OWNER",
     phoneNumber: user?.phoneNumber || "",
     licenseNumber: user?.licenseNumber || "",
     weight: user?.weight ?? "",

@@ -11,8 +11,11 @@ import {
   submitLegResult,
   getRaceExecutionStatus,
   getLegDetail,
+  getRaceStandings,
+  getRaceResults,
 } from '../../api/referee'
 import { validateLegPositions, getLegPoints } from '../../utils/legValidation'
+import RaceResultsModal from '../../components/RaceResultsModal'
 
 // Store a session key for each (userId, raceId, legIndex) that has been submitted, to prevent
 // duplicates when the user opens multiple tabs. Key resets when the tab closes (sessionStorage).
@@ -433,6 +436,10 @@ export default function LegSubmissionPage() {
   const [resolutionInfo, setResolutionInfo] = useState(null)
   const [resolutionLoading, setResolutionLoading] = useState(false)
 
+  // "Race Finished" panel below opens the shared official-results modal directly,
+  // instead of bouncing back to the dashboard and making the referee click again.
+  const [showResults, setShowResults] = useState(false)
+
   // BUG FIX: Read userId from localStorage token to include in sessionStorage key.
   // Without this, two different referees using the same browser share the same flag.
   const currentUserId = (() => {
@@ -835,13 +842,22 @@ export default function LegSubmissionPage() {
             <h2 className="text-xl font-bold text-emerald-400 mb-2">Race Finished</h2>
             <p className="text-on-surface-variant mb-4">The race has finished.</p>
             <button
-              onClick={() => navigate(`/referee/races/${raceId}`)}
+              onClick={() => setShowResults(true)}
               className="gs-btn gs-btn-primary"
             >
               View Results
             </button>
           </div>
         </div>
+
+        {showResults && (
+          <RaceResultsModal
+            raceId={Number(raceId)}
+            onClose={() => setShowResults(false)}
+            fetchStandings={getRaceStandings}
+            fetchResults={getRaceResults}
+          />
+        )}
       </div>
     )
   }

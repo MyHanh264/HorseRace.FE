@@ -7,7 +7,6 @@ import {
   Calendar,
   ChevronRight,
   Clock,
-  Plus,
   ImageIcon,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
@@ -337,28 +336,18 @@ export default function HorseOwnerDashboard() {
   return (
     <div className="p-8 space-y-6">
       {/* ── Header ── */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3 mb-1 flex-wrap">
-            <h1 className="text-3xl font-bold text-white">
-              Welcome back, {firstName}
-            </h1>
-            <span className="text-xs px-2.5 py-1 bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 rounded-full font-semibold tracking-widest uppercase">
-              Horse Owner
-            </span>
-          </div>
-          <p className="text-gray-400 text-sm">
-            Here is the latest overview of your stable's performance.
-          </p>
+      <div>
+        <div className="flex items-center gap-3 mb-1 flex-wrap">
+          <h1 className="text-3xl font-bold text-white">
+            Welcome back, {firstName}
+          </h1>
+          <span className="text-xs px-2.5 py-1 bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 rounded-full font-semibold tracking-widest uppercase">
+            Horse Owner
+          </span>
         </div>
-
-        <button
-          onClick={() => navigate("/horse-owner/horses/register")}
-          className="flex items-center gap-2 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 font-semibold px-4 py-2.5 rounded-xl text-sm transition-colors whitespace-nowrap flex-shrink-0"
-        >
-          <Plus size={16} />
-          Register New Horse
-        </button>
+        <p className="text-gray-400 text-sm">
+          Here is the latest overview of your stable's performance.
+        </p>
       </div>
 
       {/* ── Stat Cards ── */}

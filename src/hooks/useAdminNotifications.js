@@ -114,23 +114,36 @@ export function useAdminNotifications() {
           });
         });
 
-        // Races ready to publish but still blocked by an unresolved violation report —
-        // surfaced here so Admin doesn't discover this only after opening Monitor.
+        // Races that just finished all legs (both referees submitted/matched) sit in
+        // PendingResult until Admin opens Race Execution and hits Publish — nothing
+        // pushes this to Admin otherwise, so it can go unnoticed for a long time.
+        // Flag every PendingResult race here; if it also has an unresolved violation
+        // report, lead with that instead since it's the more actionable warning.
         const violationCountByRace = {};
         pendingViolations.forEach((v) => {
           violationCountByRace[v.raceId] = (violationCountByRace[v.raceId] ?? 0) + 1;
         });
         races
-          .filter((r) => r.status === "PendingResult" && violationCountByRace[r.raceId] > 0)
+          .filter((r) => r.status === "PendingResult")
           .forEach((r) => {
-            const count = violationCountByRace[r.raceId];
-            list.push({
-              id: `race-blocked-${r.raceId}`,
-              type: "warn",
-              msg: `Race "${r.name}" is ready to publish but has ${count} unresolved violation report${count > 1 ? "s" : ""}.`,
-              path: `/admin/race-execution?raceId=${r.raceId}`,
-              ts: now,
-            });
+            const count = violationCountByRace[r.raceId] ?? 0;
+            if (count > 0) {
+              list.push({
+                id: `race-blocked-${r.raceId}`,
+                type: "warn",
+                msg: `Race "${r.name}" is ready to publish but has ${count} unresolved violation report${count > 1 ? "s" : ""}.`,
+                path: `/admin/race-execution?raceId=${r.raceId}`,
+                ts: now,
+              });
+            } else {
+              list.push({
+                id: `race-ready-to-publish-${r.raceId}`,
+                type: "success",
+                msg: `Race "${r.name}" has finished all legs and is ready to publish.`,
+                path: `/admin/race-execution?raceId=${r.raceId}`,
+                ts: now,
+              });
+            }
           });
 
         races

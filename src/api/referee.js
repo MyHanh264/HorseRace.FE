@@ -76,6 +76,14 @@ export async function getRaceStandings(raceId) {
   return res.data
 }
 
+// GET /api/race-results — the official post-publish record (correct tie-break, IsRaceDQ),
+// written once at Publish. Combined with getRaceStandings by RaceResultsModal to build the
+// referee's own "Final Results" view once a race they officiated has been published.
+export async function getRaceResults() {
+  const res = await api.get('/api/race-results')
+  return Array.isArray(res.data) ? res.data : []
+}
+
 /**
  * GET /api/legs/{raceId}/{legNumber} — leg detail, has AdminOverrideReason/ConfirmedAt
  * for a leg Admin resolved after a referee mismatch. LegsController allows REFEREE too,
