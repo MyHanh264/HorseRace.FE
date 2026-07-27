@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Wallet, Download, AlertCircle, ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react'
+import { Wallet, AlertCircle, ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { getMyWallet, getMyPredictions, getWalletTransactions } from '../../api/spectator'
 
@@ -130,13 +130,6 @@ export default function PointWalletPage() {
               </div>
             </div>
             <div className="h-[2px] w-20 rounded-full bg-gradient-to-r from-secondary to-primary mt-3" />
-          </div>
-
-          <div className="flex items-center gap-3 shrink-0">
-            <button className="gs-btn gs-btn-ghost flex items-center gap-2">
-              <Download size={15} />
-              Statement
-            </button>
           </div>
         </div>
 

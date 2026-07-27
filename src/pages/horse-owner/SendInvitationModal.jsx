@@ -9,6 +9,15 @@ import {
 } from "../../api/horseOwner";
 import { useAuth } from "../../context/AuthContext";
 
+// Registration is only open once Admin has explicitly opened it, and only until
+// they close it (or the deadline passes) — Race.status alone doesn't reflect this.
+function isRegistrationOpen(race) {
+  if (!race || race.status !== "Scheduled") return false;
+  if (!race.registrationOpenAt) return false;
+  if (race.registrationCloseAt && new Date(race.registrationCloseAt) <= new Date()) return false;
+  return true;
+}
+
 function StepDots({ step }) {
   return (
     <div className="flex gap-1.5 mb-3">
@@ -509,7 +518,11 @@ function Step3({ jockeys, search, onSearch, onClose, onInvite, selectedRace, sel
 // ─── Main Modal ────────────────────────────────────────────────────────────
 export default function SendInvitationModal({ onClose, onSuccess, initialRace = null, existingEntries = [] }) {
   const { user } = useAuth();
-  const [step, setStep] = useState(initialRace ? 2 : 1);
+  // A race passed in from a card action (e.g. "Register Horse") can still have
+  // registration not-yet-opened or already closed — re-check here instead of
+  // trusting the caller, since that path skips Step 1's own filtering.
+  const initialRaceOpen = isRegistrationOpen(initialRace);
+  const [step, setStep] = useState(initialRaceOpen ? 2 : 1);
   const [races, setRaces] = useState([]);
   const [horses, setHorses] = useState([]);
   const [jockeys, setJockeys] = useState([]);
@@ -517,7 +530,7 @@ export default function SendInvitationModal({ onClose, onSuccess, initialRace = 
   const [loading, setLoading] = useState(true);
   const [loadError] = useState("");
 
-  const [selectedRace, setSelectedRace] = useState(initialRace);
+  const [selectedRace, setSelectedRace] = useState(initialRaceOpen ? initialRace : null);
   const [selectedHorse, setSelectedHorse] = useState(null);
 
   const activeEntriesForRace = existingEntries.filter((e) =>
@@ -572,14 +585,8 @@ export default function SendInvitationModal({ onClose, onSuccess, initialRace = 
     return new Date(dateStr).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
   };
 
-  const now = new Date();
   const filteredRaces = races
-    .filter((r) => {
-      if (r.status !== "Scheduled") return false;
-      if (!r.registrationOpenAt) return false;
-      if (r.registrationCloseAt && new Date(r.registrationCloseAt) <= now) return false;
-      return true;
-    })
+    .filter(isRegistrationOpen)
     .filter((r) =>
       `${r.name ?? ""} ${r.tournamentName ?? ""}`.toLowerCase().includes(raceSearch.toLowerCase())
     );
@@ -626,7 +633,7 @@ export default function SendInvitationModal({ onClose, onSuccess, initialRace = 
                 selected={selectedHorse}
                 onSelect={setSelectedHorse}
                 onClose={onClose}
-                onBack={initialRace ? onClose : () => setStep(1)}
+                onBack={initialRaceOpen ? onClose : () => setStep(1)}
                 onNext={() => setStep(3)}
                 selectedRace={selectedRace}
                 registeredHorseIds={registeredHorseIds}

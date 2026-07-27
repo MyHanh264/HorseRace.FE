@@ -156,8 +156,18 @@ function StatCard({ label, value, sub, subCls = "text-gray-500", valueCls = "tex
 
 // ─── RaceCard ─────────────────────────────────────────────────────────────────
 
+// Race.status alone doesn't tell us whether Admin has actually opened the
+// registration window — a race can be Scheduled while registration is still
+// closed (not opened yet) or has already been closed by Admin.
+function isRegistrationOpen(race) {
+  if (race.status !== "Scheduled") return false;
+  if (!race.registrationOpenAt) return false;
+  if (race.registrationCloseAt && new Date(race.registrationCloseAt) <= new Date()) return false;
+  return true;
+}
+
 function RaceCard({ race, myEntry, myInvitation, index, onRegister, onConfirm }) {
-  const canRegister = race.status === "Scheduled";
+  const canRegister = isRegistrationOpen(race);
   const filled = race.currentEntries ?? 0;
   const max = race.maxHorses ?? 1;
   const pct = Math.min(100, Math.round((filled / max) * 100));
@@ -260,7 +270,15 @@ function RaceCard({ race, myEntry, myInvitation, index, onRegister, onConfirm })
             {myEntry ? "Register Another" : "Register Horse"}
           </button>
         ) : (
-          !myEntry && <span className="text-gray-600 text-xs text-center">{race.status}</span>
+          !myEntry && (
+            <span className="text-gray-600 text-xs text-center">
+              {race.status !== "Scheduled"
+                ? race.status
+                : !race.registrationOpenAt
+                  ? "Registration not open yet"
+                  : "Registration closed"}
+            </span>
+          )
         )}
       </div>
     </div>

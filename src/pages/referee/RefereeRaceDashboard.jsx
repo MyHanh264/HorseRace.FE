@@ -12,7 +12,9 @@ import {
   getRefereeLegView,
   getAllTournaments,
   getLegDetail,
+  getRaceResults,
 } from '../../api/referee'
+import RaceResultsModal from '../../components/RaceResultsModal'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -310,6 +312,7 @@ export default function RefereeRaceDashboard() {
   const [legView, setLegView] = useState(null)
   const [resolutionNotes, setResolutionNotes] = useState({})
   const [resolutionNotesLoading, setResolutionNotesLoading] = useState(false)
+  const [showResults, setShowResults] = useState(false)
 
   // UI state
   const [loading, setLoading] = useState(true)
@@ -443,7 +446,7 @@ export default function RefereeRaceDashboard() {
   }
 
   function handleViewResults() {
-    navigate(`/referee/races/${raceId}/legs/${currentLegIndex}`)
+    setShowResults(true)
   }
 
   // ── Derived ──
@@ -786,6 +789,16 @@ export default function RefereeRaceDashboard() {
           </p>
         </div>
       </div>
+
+      {showResults && (
+        <RaceResultsModal
+          raceId={Number(raceId)}
+          raceName={race?.name}
+          onClose={() => setShowResults(false)}
+          fetchStandings={getRaceStandings}
+          fetchResults={getRaceResults}
+        />
+      )}
     </div>
   )
 }
