@@ -753,8 +753,8 @@ export default function AdminRaceExecutionPage() {
                     <th>Submitted</th>
                     <th>
                       {isRegClosed
-                        ? <span className="flex items-center gap-1.5 text-amber-400">Locked Odds <Lock className="w-3 h-3" /></span>
-                        : <span>Current Odds<span className="block text-[10px] font-normal text-on-surface-variant normal-case tracking-normal">(calculated on close)</span></span>}
+                        ? <span className="flex items-center gap-1.5 text-amber-400">Base Odds <Lock className="w-3 h-3" /></span>
+                        : <span>Base Odds<span className="block text-[10px] font-normal text-on-surface-variant normal-case tracking-normal">(calculated on close)</span></span>}
                     </th>
                     <th>Status</th>
                     {!isRegClosed && <th>Action</th>}
@@ -1027,14 +1027,16 @@ export default function AdminRaceExecutionPage() {
                 <h3 className="font-semibold text-on-surface text-sm">Live Standings</h3>
                 <p className="text-[10px] text-gray-500 mt-0.5">{standings.length} entries · auto refresh</p>
               </div>
-              {/* Tie warning — same total points alone doesn't tell you who's actually ahead;
-                  this is exactly the ranking Publish will use (points → leg wins → top-3
-                  finishes), spelled out so it's not "why is #1 still #1 with the same points". */}
+              {/* Tie warning — same total points alone doesn't tell you who's actually ahead.
+                  The criteria listed here must match RaceRankingCalculator on the BE exactly:
+                  it used to say "top-3 finishes", which was the old standings-only formula —
+                  Publish actually used 2nd places then last-leg position, so Admin and the
+                  published result disagreed whenever entries tied on points. */}
               {standings.some((s, i) => i > 0 && s.totalPoints === standings[0].totalPoints) && (
                 <div className="px-5 py-2.5 bg-sky-500/10 border-b border-sky-500/20 flex items-start gap-2">
                   <AlertTriangle size={12} className="text-sky-400 shrink-0 mt-0.5" />
                   <p className="text-[11px] text-sky-300">
-                    2 or more entries are tied on points — ranking is decided by <strong>most leg wins</strong>, then <strong>most top-3 finishes</strong> (see W / Top3 below each entry). This is the same order Publish will use.
+                    2 or more entries are tied on points — ranking is decided by <strong>most leg wins</strong>, then <strong>most 2nd places</strong>, then the <strong>better position in the final leg</strong> (see W / 2nd below each entry). Race-DQ entries always sit at the bottom. This is the same order Publish will use.
                   </p>
                 </div>
               )}
@@ -1081,7 +1083,7 @@ export default function AdminRaceExecutionPage() {
                         {/* Tie-break stats — always visible, not just on hover, since a tied
                             point total gives no clue on its own why one entry outranks another. */}
                         <p className="text-[10px] text-gray-500">
-                          W:{s.legWins ?? 0} · Top3:{s.legTop3 ?? 0}
+                          W:{s.legWins ?? 0} · 2nd:{s.leg2nds ?? 0}
                         </p>
                         {isRaceDQ && <span className="text-[10px] text-red-400 ml-1">DQ</span>}
                       </div>

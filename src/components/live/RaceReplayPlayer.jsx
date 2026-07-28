@@ -262,7 +262,7 @@ export default function RaceReplayPlayer({ raceId, leg, entries, highlightEntryI
   if (!leg) {
     return (
       <div className="gs-card p-10 text-center text-on-surface-variant">
-        Chọn một chặng để xem.
+        Select a leg to view.
       </div>
     )
   }
@@ -274,7 +274,7 @@ export default function RaceReplayPlayer({ raceId, leg, entries, highlightEntryI
       {/* ── Thanh trạng thái ── */}
       <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-outline-variant/40 flex-wrap">
         <div className="flex items-center gap-2.5">
-          <span className="font-serif text-lg text-on-surface">Chặng {leg.legNumber}</span>
+          <span className="font-serif text-lg text-on-surface">Leg {leg.legNumber}</span>
           <PhaseBadge phase={phase} leg={leg} nowMs={nowMs} />
         </div>
 
@@ -284,27 +284,27 @@ export default function RaceReplayPlayer({ raceId, leg, entries, highlightEntryI
               <button
                 onClick={() => setSpeed((s) => (s === 1 ? 2 : 1))}
                 className="gs-btn text-xs flex items-center gap-1.5 px-2.5 py-1.5"
-                title="Đổi tốc độ phát"
+                title="Change playback speed"
               >
                 <Gauge className="w-3.5 h-3.5" />
                 {speed}×
               </button>
               <button onClick={skip} className="gs-btn text-xs flex items-center gap-1.5 px-2.5 py-1.5">
                 <SkipForward className="w-3.5 h-3.5" />
-                Bỏ qua
+                Skip
               </button>
             </>
           )}
           {phase === 'finished' && trajectory && (
             <button onClick={replay} className="gs-btn text-xs flex items-center gap-1.5 px-2.5 py-1.5">
               <RotateCcw className="w-3.5 h-3.5" />
-              Xem lại
+              Replay
             </button>
           )}
           {phase === 'countdown' && (
             <span className="font-mono text-xs text-on-surface-variant flex items-center gap-1.5">
               <Play className="w-3.5 h-3.5" />
-              Sắp bắt đầu…
+              Starting soon…
             </span>
           )}
         </div>
@@ -323,7 +323,7 @@ export default function RaceReplayPlayer({ raceId, leg, entries, highlightEntryI
             dnfIds={visibleDnfIds}
           />
         ) : (
-          <div className="p-10 text-center text-on-surface-variant text-sm">Chưa có ngựa dự chặng này.</div>
+          <div className="p-10 text-center text-on-surface-variant text-sm">No horses entered in this leg.</div>
         )}
 
         {/* Đếm ngược */}
@@ -340,15 +340,15 @@ export default function RaceReplayPlayer({ raceId, leg, entries, highlightEntryI
           <div className="absolute inset-x-0 bottom-0 px-4 py-2.5 bg-gradient-to-t from-surface-container-lowest via-surface-container-lowest/85 to-transparent">
             <p className="text-xs text-amber-400 flex items-center gap-2">
               <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
-              Đang đua — thứ hạng chỉ hiện sau khi <strong>cả hai trọng tài</strong> nộp kết quả khớp nhau.
-              Vị trí ngựa trên màn hình lúc này <strong>không phản ánh</strong> thứ tự thật.
+              Racing — rankings only appear once <strong>both referees</strong> submit matching results.
+              Horse positions on screen right now <strong>do not reflect</strong> the real order.
             </p>
           </div>
         )}
 
         {phase === 'waiting' && (
           <div className="absolute inset-0 flex items-center justify-center bg-surface-container-lowest/60">
-            <p className="text-sm text-on-surface-variant">Chặng chưa xuất phát</p>
+            <p className="text-sm text-on-surface-variant">Leg hasn't started</p>
           </div>
         )}
 
@@ -356,9 +356,9 @@ export default function RaceReplayPlayer({ raceId, leg, entries, highlightEntryI
           <div className="absolute inset-0 flex items-center justify-center bg-surface-container-lowest/80 backdrop-blur-[2px] px-6">
             <div className="text-center">
               <AlertTriangle className="w-8 h-8 text-orange-400 mx-auto mb-2" />
-              <p className="text-on-surface font-medium">Kết quả đang được xem xét</p>
+              <p className="text-on-surface font-medium">Result under review</p>
               <p className="text-xs text-on-surface-variant mt-1 max-w-md">
-                Hai trọng tài nhập thứ hạng lệch nhau. Cuộc đua tạm dừng cho tới khi Admin xử lý.
+                The two referees submitted mismatched rankings. The race is paused until Admin resolves it.
               </p>
             </div>
           </div>
@@ -369,8 +369,8 @@ export default function RaceReplayPlayer({ raceId, leg, entries, highlightEntryI
       {(phase === 'running' || phase === 'finished') && (
         <div className="px-4 py-2 border-t border-outline-variant/40">
           <p className="text-[11px] text-on-surface-variant">
-            Phát lại mô phỏng — thứ tự về đích khớp <strong>kết quả chính thức</strong> đã được hai trọng tài
-            xác nhận. Diễn biến giữa đường là dựng lại, hệ thống không ghi nhận thời gian từng ngựa.
+            Simulated replay — the finishing order matches the <strong>official result</strong> confirmed by
+            both referees. The in-between action is reconstructed; the system doesn't record per-horse timing.
           </p>
         </div>
       )}
@@ -390,25 +390,25 @@ function PhaseBadge({ phase, leg, nowMs }) {
     return (
       <span className="gs-badge bg-amber-500/15 text-amber-400 border border-amber-500/25 flex items-center gap-1.5">
         <Radio className="w-3 h-3 pulse-live rounded-full" />
-        Đang đua
+        Racing
         {elapsed != null && <span className="font-mono">{fmtElapsed(elapsed)}</span>}
       </span>
     )
   }
   if (phase === 'conflicted') {
-    return <span className="gs-badge bg-orange-500/15 text-orange-400 border border-orange-500/25">Đang xem xét</span>
+    return <span className="gs-badge bg-orange-500/15 text-orange-400 border border-orange-500/25">Under review</span>
   }
   if (phase === 'countdown' || phase === 'running') {
-    return <span className="gs-badge bg-primary/15 text-primary border border-primary/25">Đang phát lại</span>
+    return <span className="gs-badge bg-primary/15 text-primary border border-primary/25">Replaying</span>
   }
   if (phase === 'finished') {
     return (
       <span className="gs-badge bg-surface-container-high text-on-surface-variant border border-outline-variant/50">
-        {leg.confirmationType === 'AdminOverride' ? 'Admin xử lý' : 'Đã xác nhận'}
+        {leg.confirmationType === 'AdminOverride' ? 'Admin resolved' : 'Confirmed'}
       </span>
     )
   }
-  return <span className="gs-badge bg-surface-container-high text-on-surface-variant border border-outline-variant/50">Chưa bắt đầu</span>
+  return <span className="gs-badge bg-surface-container-high text-on-surface-variant border border-outline-variant/50">Not started</span>
 }
 
 // ─── Bảng kết quả chặng ───────────────────────────────────────────────────────
@@ -423,10 +423,10 @@ function ResultBoard({ entries, results, highlightEntryId }) {
       <table className="admin-table w-full text-sm">
         <thead>
           <tr>
-            <th className="w-16">Hạng</th>
-            <th>Ngựa</th>
-            <th>Nài</th>
-            <th className="w-20 text-right">Điểm</th>
+            <th className="w-16">Rank</th>
+            <th>Horse</th>
+            <th>Jockey</th>
+            <th className="w-20 text-right">Points</th>
           </tr>
         </thead>
         <tbody>
@@ -458,7 +458,7 @@ function ResultBoard({ entries, results, highlightEntryId }) {
                     {e?.gateNumber != null && (
                       <span className="font-mono text-xs text-on-surface-variant">({e.gateNumber})</span>
                     )}
-                    {isHi && <span className="gs-badge bg-secondary/15 text-secondary text-[10px]">Bạn cược</span>}
+                    {isHi && <span className="gs-badge bg-secondary/15 text-secondary text-[10px]">Your bet</span>}
                   </span>
                 </td>
                 <td className="text-on-surface-variant">{e?.jockeyName ?? '—'}</td>
@@ -470,8 +470,8 @@ function ResultBoard({ entries, results, highlightEntryId }) {
       </table>
       {hasDq && (
         <p className="px-4 py-2 text-[11px] text-on-surface-variant border-t border-outline-variant/40">
-          Ngựa bị <strong>DQ</strong> vẫn chạy hết chặng — đây là án phạt sau đua, hệ thống không ghi nhận
-          vị trí vật lý của chúng, nên phần mô phỏng cho về đích ở nhóm cuối.
+          A <strong>DQ</strong>'d horse still runs the full leg — it's a post-race penalty, and the system
+          doesn't record its physical position, so the simulation shows it finishing with the back group.
         </p>
       )}
     </div>

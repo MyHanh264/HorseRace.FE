@@ -35,8 +35,14 @@ export async function getSpectatorBettingLeaderboard() {
 // ─── Cược race-level (Flow 7) ───────────────────────────────────────────────
 // Spectator cược 1 Entry về 1st của cả Race; cửa mở khi race Scheduled và odds đã khóa.
 
-export async function getRaceOdds(raceId) {
-  const res = await api.get(`/api/predictions/races/${raceId}/odds`)
+// betAmount (tùy chọn) → mỗi entry trả thêm `effectiveOdds` = giá SẼ BỊ KHÓA nếu đặt đúng số
+// tiền đó vào entry ấy. Bắt buộc dùng cho "Est. Payout": odds động theo pool và BE cộng chính
+// số tiền đang đặt vào pool trước khi khóa giá, nên `currentOdds × betAmount` luôn CAO HƠN số
+// thực nhận. Tham số thuần tính toán — không ghi DB, không giữ chỗ, gọi bao nhiêu lần cũng được.
+export async function getRaceOdds(raceId, betAmount) {
+  const amount = Number(betAmount)
+  const params = Number.isFinite(amount) && amount > 0 ? { betAmount: amount } : undefined
+  const res = await api.get(`/api/predictions/races/${raceId}/odds`, { params })
   return res.data
 }
 

@@ -128,7 +128,8 @@ export async function reportViolation({
   reportedByRefereeId = 0,
   violationType,
   description = null,
-  penalty = 'Warning',
+  // Án phạt do ADMIN quyết khi duyệt — báo cáo của trọng tài không mang đề xuất.
+  // BE luôn ghi "None" lúc tạo và bỏ qua field này; gửi kèm chỉ để hợp lệ hoá DTO cũ.
   status = 'Pending',
   reviewedByAdminId = null,
   adminNote = null,
@@ -140,7 +141,7 @@ export async function reportViolation({
     ReportedByRefereeId:  Number(reportedByRefereeId) || 0,
     ViolationType:        String(violationType ?? '').trim(),
     Description:          description ? String(description).trim() : null,
-    Penalty:              String(penalty ?? 'Warning').trim(),
+    Penalty:              'None',
     Status:               String(status ?? 'Pending').trim(),
     ReviewedByAdminId:    reviewedByAdminId ?? null,
     AdminNote:            adminNote ?? null,

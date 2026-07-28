@@ -336,12 +336,16 @@ export default function AdminRaceEntriesPage() {
                   <th>Owner</th>
                   <th>Submitted</th>
                   <th>
+                    {/* "Base Odds", KHÔNG phải "Locked Odds": đây là Entry.Odds — giá gốc tính
+                        theo lịch sử thắng, khóa lúc đóng đăng ký. Spectator nhìn thấy một con số
+                        KHÁC (giá thị trường động theo pool cược). Hai chỗ từng cùng gọi là
+                        "Locked Odds" nên admin và người chơi cãi nhau xem số nào đúng. */}
                     {isRegClosed
                       ? <span className="flex items-center gap-1.5 text-amber-400">
-                          Locked Odds <Lock className="w-3 h-3" />
+                          Base Odds <Lock className="w-3 h-3" />
                         </span>
                       : <span>
-                          Current Odds
+                          Base Odds
                           <span className="block text-[10px] font-normal text-on-surface-variant normal-case tracking-normal">
                             (calculated on close)
                           </span>
@@ -395,7 +399,7 @@ export default function AdminRaceEntriesPage() {
                         {isRegClosed ? (
                           entry.currentOdds
                             ? <div className="flex items-center gap-1.5">
-                                <span className="font-bold text-on-surface font-mono">{entry.currentOdds}</span>
+                                <span className="font-bold text-on-surface font-mono">{Number(entry.currentOdds).toFixed(2)}</span>
                                 <Lock className="w-3 h-3 text-amber-400" />
                                 {isFav && (
                                   <span className="text-[10px] bg-primary/15 text-primary border border-primary/25 px-1.5 py-0.5 rounded font-semibold">
@@ -469,7 +473,8 @@ export default function AdminRaceEntriesPage() {
 
             {isRegClosed && (
               <p className="text-center text-xs text-on-surface-variant py-3 border-t border-outline-variant/30">
-                Odds calculated based on historical win rates. Locked at {fmtDate(regInfo.registrationCloseAt)}.
+                Base odds calculated from historical win rates, locked at {fmtDate(regInfo.registrationCloseAt)}.
+                Spectators see a different, higher-or-lower number: their price moves with the betting pool.
               </p>
             )}
 

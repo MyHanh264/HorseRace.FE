@@ -23,7 +23,7 @@ function fmtTime(dt) {
   const d = new Date(dt)
   const isToday = d.toDateString() === new Date().toDateString()
   const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-  return isToday ? `Hôm nay, ${time}` : `${d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}, ${time}`
+  return isToday ? `Today, ${time}` : `${d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}, ${time}`
 }
 
 export default function LiveRacesPage() {
@@ -51,7 +51,7 @@ export default function LiveRacesPage() {
         setRaces(live)
         setError(null)
       } catch (e) {
-        if (active) setError(e?.response?.data?.message || e.message || 'Không tải được danh sách cuộc đua')
+        if (active) setError(e?.response?.data?.message || e.message || 'Failed to load race list')
       } finally {
         if (active) setLoading(false)
       }
@@ -82,8 +82,8 @@ export default function LiveRacesPage() {
           Live Race
         </h1>
         <p className="text-sm text-on-surface-variant mt-1">
-          Theo dõi diễn biến các cuộc đua đang diễn ra. Mỗi chặng được phát lại bằng mô phỏng ngay khi
-          hai trọng tài xác nhận kết quả.
+          Follow races currently in progress. Each leg is replayed as a simulation as soon as both
+          referees confirm the result.
         </p>
       </header>
 
@@ -100,13 +100,13 @@ export default function LiveRacesPage() {
       {!loading && !error && races.length === 0 && (
         <div className="gs-card p-10 text-center">
           <Radio className="w-8 h-8 text-outline mx-auto mb-3" />
-          <p className="text-on-surface">Hiện không có cuộc đua nào đang diễn ra</p>
+          <p className="text-on-surface">No races are currently in progress</p>
           <p className="text-sm text-on-surface-variant mt-1 mb-4">
-            Quay lại khi có cuộc đua bắt đầu, hoặc đặt cược trước cho các chặng sắp tới.
+            Check back once a race starts, or place a bet ahead of time for upcoming races.
           </p>
           <Link to="/spectator/races" className="gs-btn gs-btn-primary inline-flex items-center gap-2 text-sm">
             <Target className="w-4 h-4" />
-            Xem lịch & đặt cược
+            View schedule & place bets
           </Link>
         </div>
       )}
@@ -127,7 +127,7 @@ export default function LiveRacesPage() {
                   <span className={`gs-badge ${meta.cls}`}>{meta.label}</span>
                 </div>
                 <p className="text-sm text-on-surface-variant mt-1">
-                  {r.tournamentName ?? `Giải #${r.tournamentId}`} · {r.numberOfLegs} chặng ·{' '}
+                  {r.tournamentName ?? `Tournament #${r.tournamentId}`} · {r.numberOfLegs} legs ·{' '}
                   <span className="font-mono">{fmtTime(r.scheduledStartTime ?? r.scheduledAt)}</span>
                 </p>
               </div>
@@ -140,7 +140,7 @@ export default function LiveRacesPage() {
       {!loading && !error && races.length > PAGE_SIZE && (
         <div className="flex items-center justify-between mt-4">
           <p className="text-xs text-on-surface-variant">
-            Hiện {(pageSafe - 1) * PAGE_SIZE + 1}–{Math.min(pageSafe * PAGE_SIZE, races.length)} / {races.length} cuộc đua
+            Showing {(pageSafe - 1) * PAGE_SIZE + 1}–{Math.min(pageSafe * PAGE_SIZE, races.length)} of {races.length} races
           </p>
           <div className="flex items-center gap-1">
             <button
