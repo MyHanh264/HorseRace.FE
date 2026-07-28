@@ -4,6 +4,7 @@ import {
   Flag, AlertTriangle,
   RefreshCw, Loader2, AlertCircle, Lock, Eye, Shield, Send,
   ChevronLeft, ChevronRight, ArrowLeft, Users, UserCheck, CheckCircle, XCircle, X,
+  TrendingUp,
 } from 'lucide-react'
 import {
   getRaces, getRaceDetail, getAllTournaments, getAllUser,
@@ -13,6 +14,7 @@ import {
   publishRace, getAllViolations, getViolationsWithEntryDetail, getRaceResults,
 } from '../../api/admin'
 import RaceResultsModal from '../../components/RaceResultsModal'
+import OddsManagementModal from '../../components/OddsManagementModal'
 
 const EXECUTION_RACE_STATUSES = ['Scheduled', 'InProgress', 'Paused', 'PendingResult', 'Finished']
 
@@ -100,7 +102,7 @@ function LegStatusChip({ status }) {
 
 // ─── Race List Card ───────────────────────────────────────────────────────────
 
-function RaceListCard({ race, onViewEntries, onMonitor, onStartRace, onViewConflict, pendingViolationCount = 0 }) {
+function RaceListCard({ race, onViewEntries, onMonitor, onStartRace, onManageOdds, onViewConflict, pendingViolationCount = 0 }) {
   const navigate = useNavigate()
   const isFinished   = race.status === 'Finished'
   const isScheduled  = race.status === 'Scheduled'
@@ -144,25 +146,50 @@ function RaceListCard({ race, onViewEntries, onMonitor, onStartRace, onViewConfl
       </div>
 
       <div className="px-5 py-4 flex items-center justify-end gap-2">
-        {isScheduled && (
-          <>
-            <button onClick={() => onViewEntries(race)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-white/20 text-xs text-gray-300 hover:bg-white/10 transition-all">
-              <Users size={13} /> View Entries
-            </button>
-            <button
-              onClick={() => race.registrationCloseAt && onStartRace(race)}
-              disabled={!race.registrationCloseAt}
-              title={!race.registrationCloseAt ? 'Registration must be closed before starting' : ''}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                race.registrationCloseAt
-                  ? 'bg-yellow-400 hover:bg-yellow-300 text-black'
-                  : 'bg-yellow-400/30 text-black/40 cursor-not-allowed'
-              }`}>
-              <Flag size={13} /> Start Race
-            </button>
-          </>
-        )}
+        {isScheduled && (() => {
+          // Thứ tự bắt buộc (BE ép, không chỉ UI): đóng đăng ký → publish odds → khóa cược
+          // → mới start được. Nút Start chỉ sáng ở bước cuối, kèm tooltip nói đang thiếu bước nào.
+          const regClosed  = Boolean(race.registrationCloseAt)
+          const bettingLocked = Boolean(race.bettingLockedAt)
+          const startBlockedReason = !regClosed
+            ? 'Registration must be closed before starting'
+            : !bettingLocked
+              ? 'Lock betting first — open bets cannot be settled once the race is running'
+              : ''
+
+          return (
+            <>
+              <button onClick={() => onViewEntries(race)}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-white/20 text-xs text-gray-300 hover:bg-white/10 transition-all">
+                <Users size={13} /> View Entries
+              </button>
+              {regClosed && (
+                <button onClick={() => onManageOdds(race)}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-lg border text-xs font-semibold transition-all ${
+                    bettingLocked
+                      ? 'border-white/20 text-gray-300 hover:bg-white/10'
+                      : race.oddsPublishedAt
+                        ? 'border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10'
+                        : 'border-amber-500/50 text-amber-400 hover:bg-amber-500/10'
+                  }`}>
+                  <TrendingUp size={13} />
+                  {bettingLocked ? 'Odds' : race.oddsPublishedAt ? 'Odds · Lock Betting' : 'Set Odds'}
+                </button>
+              )}
+              <button
+                onClick={() => !startBlockedReason && onStartRace(race)}
+                disabled={Boolean(startBlockedReason)}
+                title={startBlockedReason}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                  startBlockedReason
+                    ? 'bg-yellow-400/30 text-black/40 cursor-not-allowed'
+                    : 'bg-yellow-400 hover:bg-yellow-300 text-black'
+                }`}>
+                <Flag size={13} /> Start Race
+              </button>
+            </>
+          )
+        })()}
         {(isInProgress || isPending || isFinished) && (
           <button onClick={() => onMonitor(race)}
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-white/20 text-xs text-gray-300 hover:bg-white/10 transition-all">
@@ -276,6 +303,8 @@ export default function AdminRaceExecutionPage() {
   const [rejectingEntryId, setRejectingEntryId] = useState(null)
   const [rejectReason,     setRejectReason]     = useState('')
   const [regLoading,       setRegLoading]       = useState(false)
+  // Race đang mở modal odds (Flow 3+7) — dùng chung cho cả list view lẫn entries view.
+  const [oddsRace,         setOddsRace]         = useState(null)
 
   // ── Monitor view ───────────────────────────────────────────────────────────
   const [execution,  setExecution]  = useState(null)
@@ -334,6 +363,8 @@ export default function AdminRaceExecutionPage() {
       setRegInfo(found ? {
         registrationOpenAt:  found.registrationOpenAt  ?? null,
         registrationCloseAt: found.registrationCloseAt ?? null,
+        oddsPublishedAt:     found.oddsPublishedAt     ?? null,
+        bettingLockedAt:     found.bettingLockedAt     ?? null,
       } : {})
     } catch (err) {
       if (isMountedRef.current) setEntryError(err?.message || 'Failed to load entries')
@@ -571,11 +602,21 @@ export default function AdminRaceExecutionPage() {
                     onViewEntries={openEntries}
                     onMonitor={openMonitor}
                     onStartRace={handleStartRace}
+                    onManageOdds={setOddsRace}
                     onViewConflict={viewConflict}
                     pendingViolationCount={pendingViolationCountByRace[race.raceId] ?? 0}
                   />
                 ))}
               </div>
+
+              {oddsRace && (
+                <OddsManagementModal
+                  raceId={oddsRace.raceId}
+                  raceName={oddsRace.name}
+                  onClose={() => setOddsRace(null)}
+                  onChanged={loadRaces}
+                />
+              )}
 
               {totalPages > 1 && (
                 <div className="flex items-center justify-between mt-4">
@@ -623,11 +664,35 @@ export default function AdminRaceExecutionPage() {
           onRefreshMonitor={() => loadExecution(selectedRace?.raceId)} />
         <ErrorBanner msg={error} onDismiss={() => setError('')} />
 
-        {/* Closed banner */}
+        {/* Closed banner — kèm bước odds đang dang dở, vì đóng đăng ký MỚI CHỈ tính giá đề
+            xuất; spectator chưa thấy gì cho tới khi Admin publish odds. */}
         {isRegClosed && (
           <div className="flex items-center gap-2.5 bg-amber-500/10 border border-amber-500/25 rounded-xl px-5 py-3 mb-5 text-amber-400 text-sm font-semibold">
-            <Lock className="w-4 h-4 shrink-0" /> Registration Closed · Odds Locked
+            <Lock className="w-4 h-4 shrink-0" />
+            <span>
+              Registration Closed ·{' '}
+              {regInfo.bettingLockedAt
+                ? 'Betting locked — ready to start'
+                : regInfo.oddsPublishedAt
+                  ? 'Odds published — betting open'
+                  : 'Odds not published yet — spectators cannot bet'}
+            </span>
+            <button
+              onClick={() => setOddsRace(selectedRace)}
+              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold transition-all"
+            >
+              <TrendingUp size={12} /> Manage Odds
+            </button>
           </div>
+        )}
+
+        {oddsRace && (
+          <OddsManagementModal
+            raceId={oddsRace.raceId}
+            raceName={oddsRace.name}
+            onClose={() => setOddsRace(null)}
+            onChanged={() => { loadEntries(oddsRace.raceId); loadRaces() }}
+          />
         )}
 
         {/* Race card */}
@@ -751,10 +816,15 @@ export default function AdminRaceExecutionPage() {
                     <th>Horse / Jockey</th>
                     <th>Owner</th>
                     <th>Submitted</th>
+                    {/* Hai cột odds — cùng khái niệm nhưng KHÁC người xem: đề xuất là số nội bộ
+                        máy tính ra, công bố là số spectator thật sự cược và bị khóa vào lệnh. */}
                     <th>
-                      {isRegClosed
-                        ? <span className="flex items-center gap-1.5 text-amber-400">Base Odds <Lock className="w-3 h-3" /></span>
-                        : <span>Base Odds<span className="block text-[10px] font-normal text-on-surface-variant normal-case tracking-normal">(calculated on close)</span></span>}
+                      <span>Suggested<span className="block text-[10px] font-normal text-on-surface-variant normal-case tracking-normal">
+                        {isRegClosed ? '(internal)' : '(calculated on close)'}
+                      </span></span>
+                    </th>
+                    <th>
+                      <span className={isRegClosed ? 'text-amber-400' : ''}>Published<span className="block text-[10px] font-normal text-on-surface-variant normal-case tracking-normal">(spectators bet this)</span></span>
                     </th>
                     <th>Status</th>
                     {!isRegClosed && <th>Action</th>}
@@ -785,9 +855,16 @@ export default function AdminRaceExecutionPage() {
                         <td>
                           {isRegClosed && entry.currentOdds
                             ? <div className="flex items-center gap-1.5">
-                                <span className="font-bold text-on-surface font-mono">{entry.currentOdds}</span>
-                                <Lock className="w-3 h-3 text-amber-400" />
+                                <span className="text-on-surface-variant font-mono">{Number(entry.currentOdds).toFixed(2)}</span>
                                 {isFav && <span className="text-[10px] bg-primary/15 text-primary border border-primary/25 px-1.5 py-0.5 rounded font-semibold">Fav</span>}
+                              </div>
+                            : <span className="text-on-surface-variant">—</span>}
+                        </td>
+                        <td>
+                          {isRegClosed && entry.publishedOdds
+                            ? <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-secondary font-mono">{Number(entry.publishedOdds).toFixed(2)}</span>
+                                {regInfo.bettingLockedAt && <Lock className="w-3 h-3 text-amber-400" />}
                               </div>
                             : <span className="text-on-surface-variant">—</span>}
                         </td>
@@ -843,7 +920,8 @@ export default function AdminRaceExecutionPage() {
 
               {isRegClosed && (
                 <p className="text-center text-xs text-on-surface-variant py-3 border-t border-outline-variant/30">
-                  Odds locked at {fmtDate(regInfo.registrationCloseAt)}.
+                  Suggested odds calculated from historical win rates at {fmtDate(regInfo.registrationCloseAt)}.
+                  Published odds default to suggested − 10% and are what spectators bet against.
                 </p>
               )}
             </div>

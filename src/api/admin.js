@@ -109,25 +109,30 @@ export async function deleteUser(id) {
 // Backend expects: UserId, Email, FullName, PhoneNumber, AvatarUrl, RoleId, IsActive, LockedUntil, LicenseNumber, Weight, Bio, IsProfileComplete
 export async function updateUser(id, data) {
   const roleMap = await getRoleMap()
-  let roleId = data.roleId
-  if (typeof data.roleCode === 'string' && roleMap.length > 0) {
-    roleId = roleMap.find((r) => r.code === data.roleCode)?.roleId || data.roleId
+  let roleId = data.RoleId ?? data.roleId
+  const code = data.RoleCode ?? data.roleCode
+  if (typeof code === 'string' && roleMap.length > 0) {
+    roleId = roleMap.find((r) => r.code === code)?.roleId || roleId
   }
   if (!roleId) roleId = FALLBACK_ROLE_ID
 
+  // Accepts both PascalCase (as sent by UserModal, mirroring the BE command) and
+  // camelCase — same defensive `??` pattern as createUser, which this previously lacked.
   const payload = {
     UserId: id,
-    Email: data.email,
-    FullName: data.fullName,
-    PhoneNumber: data.phoneNumber || null,
-    AvatarUrl: data.avatarUrl || null,
+    Email: data.Email ?? data.email,
+    FullName: data.FullName ?? data.fullName,
+    PhoneNumber: data.PhoneNumber ?? data.phoneNumber ?? null,
+    AvatarUrl: data.AvatarUrl ?? data.avatarUrl ?? null,
     RoleId: roleId,
-    IsActive: data.isActive !== undefined ? data.isActive : true,
-    LockedUntil: data.lockedUntil || null,
-    LicenseNumber: data.licenseNumber || null,
-    Weight: data.weight || null,
-    Bio: data.bio || null,
-    IsProfileComplete: data.isProfileComplete !== undefined ? data.isProfileComplete : true,
+    IsActive: (data.IsActive ?? data.isActive) !== undefined ? (data.IsActive ?? data.isActive) : true,
+    LockedUntil: data.LockedUntil ?? data.lockedUntil ?? null,
+    LicenseNumber: data.LicenseNumber ?? data.licenseNumber ?? null,
+    Weight: data.Weight ?? data.weight ?? null,
+    Bio: data.Bio ?? data.bio ?? null,
+    IsProfileComplete: (data.IsProfileComplete ?? data.isProfileComplete) !== undefined
+      ? (data.IsProfileComplete ?? data.isProfileComplete)
+      : true,
   }
   const res = await api.put(`/api/users/${id}`, payload)
   return res.data
@@ -427,11 +432,45 @@ export async function closeRegistration(raceId) {
   return res.data
 }
 
+// ─── Odds: đề xuất → công bố → khóa cược (Flow 3 + 7) ────────────────────────
+// Đóng đăng ký sinh ra 2 con số cho mỗi ngựa: ODDS ĐỀ XUẤT (máy tính từ lịch sử thắng, chỉ
+// Admin thấy) và ODDS CÔNG BỐ (= đề xuất − 10% biên nhà cái, là giá spectator thật sự cược).
+// Admin sửa lại trong modal → Publish Odds (mở cửa cược) → Lock Betting (đóng sổ, bắt buộc
+// trước khi Start Race).
+
+/** GET /api/races/{raceId}/odds-board — bảng odds cho modal điều chỉnh. */
+export async function getRaceOddsBoard(raceId) {
+  const res = await api.get(`/api/races/${raceId}/odds-board`)
+  return res.data
+}
+
+/**
+ * PUT /api/races/{raceId}/odds
+ * entries: [{ entryId, suggestedOdds?, publishedOdds? }]
+ * Bỏ trống publishedOdds = nhờ BE tính lại theo công thức mặc định (đề xuất − 10%).
+ */
+export async function updateRaceOdds(raceId, entries) {
+  const res = await api.put(`/api/races/${raceId}/odds`, { entries })
+  return res.data
+}
+
+/** POST /api/races/{raceId}/publish-odds — mở cửa cược cho spectator. */
+export async function publishRaceOdds(raceId) {
+  const res = await api.post(`/api/races/${raceId}/publish-odds`)
+  return res.data
+}
+
+/** POST /api/races/{raceId}/lock-betting — đóng sổ cược; điều kiện bắt buộc để Start Race. */
+export async function lockRaceBetting(raceId) {
+  const res = await api.post(`/api/races/${raceId}/lock-betting`)
+  return res.data
+}
+
 // ─── Race Execution ──────────────────────────────────────────────────────────
 
 /**
  * POST /api/races/{raceId}/start
- * Admin starts the race → locks bets.
+ * BE từ chối (400) nếu chưa gọi lock-betting — khóa sổ cược là bước bắt buộc trước.
  */
 export async function startRace(raceId, payload = {}) {
   const res = await api.post(`/api/races/${raceId}/start`, payload)

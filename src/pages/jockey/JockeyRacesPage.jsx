@@ -113,8 +113,10 @@ function RaceDetailModal({ race, entries, onClose }) {
                 <p className="text-white text-sm font-bold">{race.entry?.horseName ?? "—"}</p>
                 <p className="text-gray-500 text-xs">{race.entry?.gateNumber ? `Gate ${race.entry.gateNumber}` : "Gate not assigned yet"}</p>
               </div>
-              {oddsLocked && race.entry?.currentOdds != null && (
-                <span className="text-secondary font-bold font-mono text-sm">{race.entry.currentOdds}x</span>
+              {/* Odds CÔNG BỐ — cùng con số spectator cược. `currentOdds` là giá đề xuất nội
+                  bộ của Admin, không phải thứ nên hiện cho nài. */}
+              {oddsLocked && race.entry?.publishedOdds != null && (
+                <span className="text-secondary font-bold font-mono text-sm">{Number(race.entry.publishedOdds).toFixed(2)}x</span>
               )}
             </div>
           </div>
@@ -146,8 +148,8 @@ function RaceDetailModal({ race, entries, onClose }) {
                         <p className="text-xs text-gray-500 truncate">{e.jockeyName ?? "—"}</p>
                       </div>
                     </div>
-                    {oddsLocked && e.currentOdds != null && (
-                      <span className="text-xs font-mono text-gray-400 flex-shrink-0">{e.currentOdds}x</span>
+                    {oddsLocked && e.publishedOdds != null && (
+                      <span className="text-xs font-mono text-gray-400 flex-shrink-0">{Number(e.publishedOdds).toFixed(2)}x</span>
                     )}
                   </div>
                 ))}

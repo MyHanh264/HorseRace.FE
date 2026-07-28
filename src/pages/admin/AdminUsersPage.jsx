@@ -480,7 +480,6 @@ function UserModal({ user, onClose, onSubmit, submitting, error }) {
 function UserDetailModal({
   user,
   onClose,
-  onEdit,
   onLock,
   onUnlock,
   loading,
@@ -649,10 +648,6 @@ function UserDetailModal({
                     Lock
                   </button>
                 )}
-                <button onClick={onEdit} className="gs-btn gs-btn-primary flex items-center gap-2">
-                  <Edit2 className="w-4 h-4" />
-                  Edit
-                </button>
               </>
             )}
           </div>
@@ -1662,7 +1657,6 @@ export default function AdminUsersPage() {
             setShowDetailModal(false);
             setSelectedUser(null);
           }}
-          onEdit={() => openEdit(selectedUser)}
           onLock={openLock}
           onUnlock={handleUnlockUser}
           onRestore={handleRestoreUser}

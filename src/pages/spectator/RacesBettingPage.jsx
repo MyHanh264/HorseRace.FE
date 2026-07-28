@@ -150,40 +150,21 @@ function BetPanel({ race, raceDetail, wallet, onBetPlaced }) {
 
   useEffect(() => { loadRaceOdds() }, [loadRaceOdds])
 
-  // Hỏi lại BE giá SẼ KHÓA mỗi khi số tiền đổi. Phải hỏi server chứ không tự tính ở client:
-  // công thức odds động phụ thuộc pool của cả race, client không có đủ dữ liệu và nếu tự tính
-  // thì sớm muộn cũng lệch với đường ghi. Debounce 350ms để không bắn request theo từng phím.
-  // KHÔNG đụng tới selectedEntryId — người dùng đang chọn dở.
-  useEffect(() => {
-    const raceId = race?.raceId
-    const amt = Number(betAmount)
-    if (!raceId || race?.status !== 'Scheduled') return
-    if (!Number.isFinite(amt) || amt <= 0) return
-
-    let cancelled = false
-    const timer = setTimeout(() => {
-      getRaceOdds(raceId, amt)
-        .then(d => { if (!cancelled) setRaceOdds(d) })
-        .catch(() => { /* giữ nguyên bảng giá cũ — đây chỉ là báo giá, không phải ghi lệnh */ })
-    }, 350)
-
-    return () => { cancelled = true; clearTimeout(timer) }
-  }, [race?.raceId, race?.status, betAmount])
-
   const balance      = Number(wallet?.balance ?? 0)
   const raceEntries  = raceOdds?.entries ?? []
+  // Cửa cược = [Admin publish odds → Admin khóa cược]. Đóng đăng ký thôi CHƯA đủ: lúc đó giá
+  // vẫn đang được Admin chỉnh trong modal.
   const bettingOpen  = race?.status === 'Scheduled'
-    && raceOdds?.oddsComputedAt != null
+    && raceOdds?.oddsPublishedAt != null
+    && raceOdds?.bettingLockedAt == null
     && String(raceOdds?.raceStatus ?? '').toLowerCase() === 'scheduled'
   const selectedEntry = raceEntries.find(e => e.entryId === Number(selectedEntryId))
   const amount        = Number(betAmount) || 0
 
-  // Giá hiển thị trên bảng là giá THỊ TRƯỜNG hiện tại; giá thực sự khóa vào lệnh cược là
-  // `effectiveOdds` — thấp hơn, vì chính số tiền bạn đặt cũng chảy vào pool của con ngựa đó
-  // trước khi BE chốt giá. Dùng currentOdds để tính payout là hứa nhiều hơn số thực trả.
-  const marketOdds  = Number(selectedEntry?.currentOdds ?? 0)
-  const lockedOdds  = Number(selectedEntry?.effectiveOdds ?? selectedEntry?.currentOdds ?? 0)
-  const oddsWillDrop = amount > 0 && lockedOdds > 0 && marketOdds > 0 && lockedOdds < marketOdds
+  // MỘT giá duy nhất: `odds` = odds công bố Admin đã duyệt, cũng chính là giá khóa vào lệnh.
+  // (Trước đây bảng hiện `currentOdds` còn lệnh khóa `effectiveOdds` thấp hơn — cùng một cột
+  // "Odds" mà ra hai con số khác nhau, người chơi đọc thành gian lận.)
+  const lockedOdds  = Number(selectedEntry?.odds ?? 0)
   const estPayout   = selectedEntryId && amount > 0 && lockedOdds > 0
     ? `${fmtBalance(Math.round(amount * lockedOdds * 100) / 100)} pts`
     : '—'
@@ -295,8 +276,8 @@ function BetPanel({ race, raceDetail, wallet, onBetPlaced }) {
                   <td className="px-3 py-2.5 text-on-surface-variant">{e.gateNumber ?? '—'}</td>
                   <td className="px-3 py-2.5 font-semibold text-on-surface">{e.horseName ?? `Entry #${e.entryId}`}</td>
                   <td className="px-3 py-2.5 text-right text-secondary font-bold font-mono whitespace-nowrap">
-                    {Number.isFinite(Number(e.currentOdds)) && Number(e.currentOdds) > 0
-                      ? `${Number(e.currentOdds).toFixed(2)}x`
+                    {Number.isFinite(Number(e.odds)) && Number(e.odds) > 0
+                      ? `${Number(e.odds).toFixed(2)}x`
                       : '—'}
                   </td>
                 </tr>
@@ -345,7 +326,8 @@ function BetPanel({ race, raceDetail, wallet, onBetPlaced }) {
               </div>
             )}
 
-            {race.status === 'Scheduled' && (
+            {/* Hủy cược đóng cùng lúc với đặt cược: sổ đã khóa thì lệnh không rút ra được nữa. */}
+            {race.status === 'Scheduled' && raceOdds?.bettingLockedAt == null && (
               <button
                 onClick={handleCancelActive}
                 disabled={cancelling}
@@ -362,7 +344,9 @@ function BetPanel({ race, raceDetail, wallet, onBetPlaced }) {
           <>
             {!bettingOpen && raceEntries.length > 0 && !betSuccess && (
               <div className="mb-3 p-3 rounded-lg bg-surface-container border border-outline-variant/40 text-on-surface-variant text-sm">
-                Betting is closed for this race.
+                {raceOdds?.bettingLockedAt
+                  ? 'Betting is locked — the race is about to start.'
+                  : 'Betting is closed for this race.'}
               </div>
             )}
 
@@ -384,7 +368,7 @@ function BetPanel({ race, raceDetail, wallet, onBetPlaced }) {
                   <option value="">Select Entry...</option>
                   {raceEntries.map(e => (
                     <option key={e.entryId} value={e.entryId}>
-                      {e.horseName ?? `Entry #${e.entryId}`} — {Number(e.currentOdds ?? 0).toFixed(2)}x
+                      {e.horseName ?? `Entry #${e.entryId}`} — {Number(e.odds ?? 0).toFixed(2)}x
                     </option>
                   ))}
                 </select>
@@ -404,9 +388,8 @@ function BetPanel({ race, raceDetail, wallet, onBetPlaced }) {
                 />
               </div>
 
-              {/* Odds tụt khi bạn đặt tiền là hành vi ĐÚNG của cược theo pool, nhưng trước đây
-                  không nói ra chỗ nào: bảng hiện 2.83x, cược 50 rồi mở lịch sử thấy khóa 2.00x
-                  và tưởng bị ăn gian. Nay hiện thẳng giá sẽ khóa + một câu giải thích. */}
+              {/* Giá trong bảng = giá khóa vào lệnh = giá dùng để trả thưởng. Một con số duy
+                  nhất, không phụ thuộc số tiền đặt hay số người đã cược. */}
               <div className="py-2 px-3 rounded-lg bg-surface-container border border-outline-variant/30 text-sm space-y-1.5">
                 <div className="flex items-center justify-between">
                   <span className="text-on-surface-variant">Locked Odds</span>
@@ -418,15 +401,10 @@ function BetPanel({ race, raceDetail, wallet, onBetPlaced }) {
                   <span className="text-on-surface-variant">Est. Payout</span>
                   <span className="text-secondary font-bold font-mono">{estPayout}</span>
                 </div>
-                {oddsWillDrop && (
-                  <p className="text-xs text-on-surface-variant pt-1 border-t border-outline-variant/30">
-                    Odds move with the betting pool. Your {fmtBalance(amount)} pts join this
-                    horse's pool before the price is fixed, so the rate locked into your bet is{' '}
-                    <span className="font-mono text-on-surface">{lockedOdds.toFixed(2)}x</span>,
-                    not the {marketOdds.toFixed(2)}x shown in the table. The payout above already
-                    uses the locked rate.
-                  </p>
-                )}
+                <p className="text-xs text-on-surface-variant pt-1 border-t border-outline-variant/30">
+                  Odds are fixed by the race organiser and don't move with the betting pool — the
+                  rate shown here is exactly the one locked into your bet. Payout = stake × odds.
+                </p>
               </div>
 
               <button
@@ -442,7 +420,7 @@ function BetPanel({ race, raceDetail, wallet, onBetPlaced }) {
                 Current Balance: <span className="font-bold text-on-surface">{fmtBalance(balance)} pts</span>
               </p>
               <p className="text-center text-[11px] text-error/70">
-                Points are deducted immediately. Cancel only while the race is still Scheduled.
+                Points are deducted immediately. You can cancel until the organiser locks betting.
               </p>
             </div>
           </>

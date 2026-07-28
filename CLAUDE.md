@@ -668,7 +668,26 @@ server: {
 - **Audit trail** — `AdminAuditLogPage` + route `/admin/audit-log`, nối `GET /api/admin/review-history`.
 - **Race:** form Tạo/Sửa Race gửi **`scheduledEndTime`** (ISO, bắt buộc — thiếu → 400). BE chống trùng lịch trả lỗi ở `error.response.data.detail`.
 - **Live Race:** `GET /api/races/{id}/live` + SignalR; replay dùng `startedAt`/`confirmedAt` (không còn `executionStatus`).
-- **Đặt cược:** `POST /api/predictions/races/{raceId}` body **`{ entryId, betAmount }`** — ⚠️ tên field phải đúng `entryId` (ASP.NET Core bind case-insensitive nhưng **không** đồng nghĩa; `FirstEntryId` từng làm hỏng cả tính năng — T-23).
+- **Đặt cược:** `POST /api/predictions/races/{raceId}` body **`{ entryId, betAmount }`** — ⚠️ tên field phải đúng `entryId` (ASP.NET Core bind case-insensitive nhưng **không** đồng nghĩa; `FirstEntryId` từng làm hỏng cả tính năng — T-23). Odds khóa vào lệnh = `entry.publishedOdds`, đúng bằng số hiện trên bảng.
+
+### 🆕 Đợt 2026-07-28 — ODDS HAI TẦNG + KHÓA CƯỢC
+
+**Component mới: `src/components/OddsManagementModal.jsx`** — modal Admin điều chỉnh odds sau khi đóng đăng ký. Nối 4 endpoint mới trong `api/admin.js`: `getRaceOddsBoard` · `updateRaceOdds` · `publishRaceOdds` · `lockRaceBetting`. Nhúng ở **cả 3 trang** có bảng entry (`AdminRacesPage`, `AdminRaceExecutionPage`, `AdminRaceEntriesPage`) qua nút **Manage Odds** trong banner "Registration Closed".
+
+**Hai cột odds thay cho một cột "Base Odds"** ở cả 3 trang admin:
+- **Suggested** = `entry.currentOdds` (`Entry.Odds`) — giá máy tính, **nội bộ**.
+- **Published** = `entry.publishedOdds` (`Entry.PublishedOdds`) — **giá spectator thật sự cược**, mặc định = suggested − 10%.
+
+**Trang cược của Spectator (`RacesBettingPage`) — đã hết cảnh "bảng 4.00x, khóa 2.00x":**
+- `getRaceOdds(raceId)` **bỏ tham số `betAmount`**; response mỗi entry chỉ còn **`odds`** (thay `baseOdds`/`currentOdds`/`effectiveOdds` — cả ba **không còn tồn tại**).
+- Bỏ hẳn effect debounce 350ms hỏi lại giá theo số tiền — giá không phụ thuộc số tiền nữa. `Est. Payout = betAmount × odds`.
+- **Cửa cược mới:** `race.status === 'Scheduled' && raceOdds.oddsPublishedAt != null && raceOdds.bettingLockedAt == null`. ⚠️ **Đóng đăng ký KHÔNG còn tự mở cược** — Admin phải bấm Publish Odds. Nút Cancel Bet cũng ẩn khi đã khóa.
+
+**Start Race nay phụ thuộc `bettingLockedAt`:** cả 3 trang admin + `RefereeAssignedRacesPage` disable nút Start kèm tooltip khi chưa khóa cược (BE trả 400). Referee có nút **Lock Betting** riêng trong `RaceControlModal` (`lockRaceBetting` trong `api/referee.js`) — chặn họ ở bước này thì trận đấu kẹt chờ Admin.
+
+**`raceRegMap`/`regInfo` ở 3 trang admin nay mang thêm `oddsPublishedAt` + `bettingLockedAt`** (BE thêm vào `GET /api/races`). Banner "Registration Closed" hiện luôn đang ở bước nào: *chưa publish odds* → *đã publish, cược mở* → *đã khóa cược, sẵn sàng start*.
+
+**`JockeyRacesPage`** đổi từ `currentOdds` sang `publishedOdds` — nài nên thấy đúng con số công khai, không phải giá đề xuất nội bộ của Admin.
 
 ### 🆕 Đợt 2026-07-26 (5 commit: `9523820` → `d421935`)
 
