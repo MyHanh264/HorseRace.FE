@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Search, Settings } from "lucide-react";
+import { Settings } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import NotificationBell from "../NotificationBell";
 import { useAdminNotifications } from "../../hooks/useAdminNotifications";
@@ -61,16 +61,8 @@ export default function AdminHeader() {
         </nav>
       </div>
 
-      {/* Right — search + icons + profile */}
+      {/* Right — icons + profile */}
       <div className="flex items-center gap-2">
-        <div className="relative">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-          <input
-            type="text"
-            placeholder="Search..."
-            className="bg-white/5 border border-white/10 rounded-lg pl-8 pr-4 py-1.5 text-xs text-gray-300 placeholder:text-gray-600 focus:outline-none focus:border-primary/50 w-40 transition-colors"
-          />
-        </div>
         <NotificationBell items={notifItems} {...notifRead} />
         <button className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
           <Settings size={16} />

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import {
   Flag, Plus, ChevronDown, ChevronLeft, ChevronRight, Edit2, Trash2, X, AlertCircle,
-  Users, CheckCircle, XCircle, ArrowLeft, UserCheck, Eye, Trophy,
+  Users, CheckCircle, XCircle, ArrowLeft, UserCheck, Eye, Trophy, Search,
   LockOpen, Lock, RotateCcw, MoreVertical, TrendingUp,
 } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -586,6 +586,8 @@ export default function AdminRacesPage() {
 
   // ── Filters ── (reads ?tournamentId= from URL — navigated here from Tournament Management)
   const [selectedTournamentId, setSelectedTournamentId] = useState(() => searchParams.get('tournamentId') || '')
+  const [raceSearch, setRaceSearch] = useState('')
+  const [raceStatusFilter, setRaceStatusFilter] = useState('')
 
   // ── Pagination (races table) ──
   const [racesPage, setRacesPage] = useState(1)
@@ -747,16 +749,21 @@ export default function AdminRacesPage() {
     return counts
   }, [pendingViolations])
 
-  const filteredRaces = useMemo(() =>
-    selectedTournamentId
-      ? raceDetails.filter(r => String(r.tournamentId) === String(selectedTournamentId))
-      : raceDetails,
-  [raceDetails, selectedTournamentId])
+  const filteredRaces = useMemo(() => {
+    const q = raceSearch.trim().toLowerCase()
+    return raceDetails.filter(r => {
+      if (selectedTournamentId && String(r.tournamentId) !== String(selectedTournamentId)) return false
+      if (raceStatusFilter && r.status !== raceStatusFilter) return false
+      if (q && !(r.name?.toLowerCase().includes(q) || String(r.raceId).includes(q))) return false
+      return true
+    })
+  }, [raceDetails, selectedTournamentId, raceStatusFilter, raceSearch])
 
-  // Reset to page 1 whenever the visible set changes shape (tournament filter).
-  useEffect(() => {
-    setRacesPage(1)
-  }, [selectedTournamentId])
+  // Page reset lives in each filter's own onChange (below) rather than an effect —
+  // it's a direct response to a user action, not a sync with an external system.
+  const handleRaceSearchChange = (value) => { setRaceSearch(value); setRacesPage(1) }
+  const handleRaceStatusFilterChange = (value) => { setRaceStatusFilter(value); setRacesPage(1) }
+  const handleTournamentFilterChange = (value) => { setSelectedTournamentId(value); setRacesPage(1) }
 
   const racesTotalPages = Math.max(1, Math.ceil(filteredRaces.length / RACES_PAGE_SIZE))
   const racesPageSafe = Math.min(racesPage, racesTotalPages)
@@ -947,24 +954,9 @@ export default function AdminRacesPage() {
             <div className="h-[2px] w-20 rounded-full bg-gradient-to-r from-primary to-secondary mt-3" />
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="relative">
-              <select
-                value={selectedTournamentId}
-                onChange={e => setSelectedTournamentId(e.target.value)}
-                className="appearance-none bg-surface-container-low border border-outline-variant/40 rounded-lg pl-3 pr-9 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all cursor-pointer min-w-[200px]"
-              >
-                <option value="">All Tournaments</option>
-                {tournaments.map(t => (
-                  <option key={t.tournamentId} value={t.tournamentId}>{t.name}</option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
-            </div>
-            <button onClick={openCreate} className="gs-btn gs-btn-primary flex items-center gap-2">
-              <Plus className="w-4 h-4" /> Create Race
-            </button>
-          </div>
+          <button onClick={openCreate} className="gs-btn gs-btn-primary flex items-center gap-2 shrink-0">
+            <Plus className="w-4 h-4" /> Create Race
+          </button>
         </div>
 
         {/* Error */}
@@ -976,11 +968,51 @@ export default function AdminRacesPage() {
         )}
 
         {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatCard icon={Flag}        iconCls="bg-primary/10 border border-primary/20 text-primary"       label="Active Races"       value={statsRaces.active} />
           <StatCard icon={Users}       iconCls="bg-secondary/10 border border-secondary/20 text-secondary" label="Total Entries"       value={statsRaces.totalEntries} />
           <StatCard icon={UserCheck}   iconCls="bg-blue-400/10 border border-blue-400/20 text-blue-400"    label="Referees Assigned"  value={`${statsRaces.withRefs}/${statsRaces.total}`} />
           <StatCard icon={AlertCircle} iconCls="bg-error/10 border border-error/20 text-error"             label="Pending Ref. Assign" value={statsRaces.noRefs} />
+        </div>
+
+        {/* Filters */}
+        <div className="flex items-center gap-3 flex-wrap mb-8">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
+            <input
+              type="text"
+              value={raceSearch}
+              onChange={e => handleRaceSearchChange(e.target.value)}
+              placeholder="Search race name or #ID..."
+              className="bg-surface-container-low border border-outline-variant/40 rounded-lg pl-9 pr-3 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-secondary transition-all w-[220px]"
+            />
+          </div>
+          <div className="relative">
+            <select
+              value={raceStatusFilter}
+              onChange={e => handleRaceStatusFilterChange(e.target.value)}
+              className="appearance-none bg-surface-container-low border border-outline-variant/40 rounded-lg pl-3 pr-9 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all cursor-pointer min-w-[160px]"
+            >
+              <option value="">All Statuses</option>
+              {Object.entries(RACE_STATUS_META).map(([status, meta]) => (
+                <option key={status} value={status}>{meta.label}</option>
+              ))}
+            </select>
+            <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
+          </div>
+          <div className="relative">
+            <select
+              value={selectedTournamentId}
+              onChange={e => handleTournamentFilterChange(e.target.value)}
+              className="appearance-none bg-surface-container-low border border-outline-variant/40 rounded-lg pl-3 pr-9 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all cursor-pointer min-w-[200px]"
+            >
+              <option value="">All Tournaments</option>
+              {tournaments.map(t => (
+                <option key={t.tournamentId} value={t.tournamentId}>{t.name}</option>
+              ))}
+            </select>
+            <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
+          </div>
         </div>
 
         {/* Table card */}

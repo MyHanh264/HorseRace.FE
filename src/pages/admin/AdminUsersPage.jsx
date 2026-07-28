@@ -205,7 +205,7 @@ function UserModal({ user, onClose, onSubmit, submitting, error }) {
       if (form.password !== form.confirmPassword)
         return "Passwords do not match.";
     }
-    if (isJockey && form.weight !== "" && form.weight !== null) {
+    if (isJockey && !isEdit && form.weight !== "" && form.weight !== null) {
       const w = parseFloat(form.weight);
       if (Number.isNaN(w) || w <= 0)
         return "Weight must be a valid positive number.";
@@ -238,7 +238,8 @@ function UserModal({ user, onClose, onSubmit, submitting, error }) {
       payload.Password = form.password;
     }
 
-    if (isJockey) {
+    // Create-only — see the fieldset above for why Edit never touches these.
+    if (isJockey && !isEdit) {
       if (form.licenseNumber?.trim())
         payload.LicenseNumber = form.licenseNumber.trim();
       if (form.weight !== "" && form.weight !== null)
@@ -402,8 +403,13 @@ function UserModal({ user, onClose, onSubmit, submitting, error }) {
             )}
           </div>
 
-          {/* Jockey fields (optional — BE accepts null for non-jockey profiles) */}
-          {isJockey && (
+          {/* Jockey fields — Create-only. Once the account exists, License/Weight/Bio are
+              owned by the jockey via their own Profile page (writes to JockeyProfile); this
+              form writes to the User table, which is exactly the split that made Admin edits
+              and the jockey's own edits invisible to each other. Admin still sets these at
+              creation time for the in-house/no-one-accepted-invite fallback case, but never
+              edits them afterward — see JockeyProfile as the single source of truth going forward. */}
+          {isJockey && !isEdit && (
             <fieldset className="mt-4">
               <legend className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-3">
                 Jockey Profile <span className="text-on-surface-variant/60 normal-case font-normal">(optional)</span>
@@ -448,6 +454,12 @@ function UserModal({ user, onClose, onSubmit, submitting, error }) {
                 </label>
               </div>
             </fieldset>
+          )}
+          {isJockey && isEdit && (
+            <p className="mt-4 text-xs text-on-surface-variant bg-surface-container-low border border-outline-variant/30 rounded-lg px-3 py-2.5">
+              License Number, Weight, and Bio are managed by the jockey from their own Profile
+              page and can't be edited here. View them in the user's detail view.
+            </p>
           )}
 
           {error && (

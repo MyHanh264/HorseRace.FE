@@ -4,7 +4,7 @@ import {
   Flag, AlertTriangle,
   RefreshCw, Loader2, AlertCircle, Lock, Eye, Shield, Send,
   ChevronLeft, ChevronRight, ArrowLeft, Users, UserCheck, CheckCircle, XCircle, X,
-  TrendingUp,
+  TrendingUp, Search, ChevronDown,
 } from 'lucide-react'
 import {
   getRaces, getRaceDetail, getAllTournaments, getAllUser,
@@ -17,6 +17,10 @@ import RaceResultsModal from '../../components/RaceResultsModal'
 import OddsManagementModal from '../../components/OddsManagementModal'
 
 const EXECUTION_RACE_STATUSES = ['Scheduled', 'InProgress', 'Paused', 'PendingResult', 'Finished']
+const EXECUTION_STATUS_LABEL = {
+  Scheduled: 'Scheduled', InProgress: 'In Progress', Paused: 'Paused',
+  PendingResult: 'Pending Result', Finished: 'Finished',
+}
 
 // Same map as AdminViolationsPage/RefereeViolationsPage — BE stores the Vietnamese enum code
 // (e.g. "KhoiDongSom"), so any place displaying violationType needs this to show it in English.
@@ -307,6 +311,38 @@ export default function AdminRaceExecutionPage() {
   const [pendingViolationCountByRace, setPendingViolationCountByRace] = useState({})
   const [listPage, setListPage] = useState(1)
   const LIST_PAGE_SIZE = 10
+  const [raceSearch, setRaceSearch] = useState('')
+  const [raceStatusFilter, setRaceStatusFilter] = useState('')
+  const [raceTournamentFilter, setRaceTournamentFilter] = useState('')
+
+  // Derived straight from the already-loaded race list — each race carries its own
+  // tournamentId/tournamentName, so no extra API call is needed just for this dropdown.
+  const tournamentOptions = useMemo(() => {
+    const map = new Map()
+    allRaces.forEach(r => {
+      if (r.tournamentId != null && !map.has(r.tournamentId)) {
+        map.set(r.tournamentId, r.tournamentName || `Tournament #${r.tournamentId}`)
+      }
+    })
+    return Array.from(map, ([tournamentId, name]) => ({ tournamentId, name }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [allRaces])
+
+  const filteredRaces = useMemo(() => {
+    const q = raceSearch.trim().toLowerCase()
+    return allRaces.filter(r => {
+      if (raceStatusFilter && r.status !== raceStatusFilter) return false
+      if (raceTournamentFilter && String(r.tournamentId) !== String(raceTournamentFilter)) return false
+      if (q && !(r.name?.toLowerCase().includes(q) || r.tournamentName?.toLowerCase().includes(q) || String(r.raceId).includes(q))) return false
+      return true
+    })
+  }, [allRaces, raceStatusFilter, raceTournamentFilter, raceSearch])
+
+  // Page reset lives in the filter inputs' own onChange (below) rather than an effect —
+  // it's a direct response to a user action, not a sync with an external system.
+  const handleRaceSearchChange = (value) => { setRaceSearch(value); setListPage(1) }
+  const handleRaceStatusFilterChange = (value) => { setRaceStatusFilter(value); setListPage(1) }
+  const handleRaceTournamentFilterChange = (value) => { setRaceTournamentFilter(value); setListPage(1) }
 
   // ── Entries view ───────────────────────────────────────────────────────────
   const [entries,          setEntries]          = useState([])
@@ -594,6 +630,47 @@ export default function AdminRaceExecutionPage() {
           onRefreshMonitor={() => loadExecution(selectedRace?.raceId)} />
         <ErrorBanner msg={error} onDismiss={() => setError('')} />
 
+        {!loading && allRaces.length > 0 && (
+          <div className="flex items-center gap-3 flex-wrap mb-5">
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
+              <input
+                type="text"
+                value={raceSearch}
+                onChange={e => handleRaceSearchChange(e.target.value)}
+                placeholder="Search race name, tournament, or #ID..."
+                className="bg-surface-container-low border border-outline-variant/40 rounded-lg pl-9 pr-3 py-2.5 text-sm text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:border-secondary transition-all w-[260px]"
+              />
+            </div>
+            <div className="relative">
+              <select
+                value={raceStatusFilter}
+                onChange={e => handleRaceStatusFilterChange(e.target.value)}
+                className="appearance-none bg-surface-container-low border border-outline-variant/40 rounded-lg pl-3 pr-9 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all cursor-pointer min-w-[160px]"
+              >
+                <option value="">All Statuses</option>
+                {EXECUTION_RACE_STATUSES.map(status => (
+                  <option key={status} value={status}>{EXECUTION_STATUS_LABEL[status]}</option>
+                ))}
+              </select>
+              <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
+            </div>
+            <div className="relative">
+              <select
+                value={raceTournamentFilter}
+                onChange={e => handleRaceTournamentFilterChange(e.target.value)}
+                className="appearance-none bg-surface-container-low border border-outline-variant/40 rounded-lg pl-3 pr-9 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all cursor-pointer min-w-[200px]"
+              >
+                <option value="">All Tournaments</option>
+                {tournamentOptions.map(t => (
+                  <option key={t.tournamentId} value={t.tournamentId}>{t.name}</option>
+                ))}
+              </select>
+              <ChevronDown className="w-4 h-4 absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" />
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="flex items-center justify-center py-40">
             <Loader2 className="w-10 h-10 text-yellow-400 animate-spin" />
@@ -604,10 +681,16 @@ export default function AdminRaceExecutionPage() {
             <h3 className="text-lg font-bold text-on-surface mb-2">No races need action</h3>
             <p className="text-sm text-on-surface-variant">Races will appear here when they have a status requiring action.</p>
           </div>
+        ) : filteredRaces.length === 0 ? (
+          <div className="gs-card p-16 text-center">
+            <Search size={40} className="text-gray-600 mx-auto mb-4" />
+            <h3 className="text-lg font-bold text-on-surface mb-2">No races match your filter</h3>
+            <p className="text-sm text-on-surface-variant">Try a different search term or status.</p>
+          </div>
         ) : (() => {
-          const totalPages = Math.max(1, Math.ceil(allRaces.length / LIST_PAGE_SIZE))
+          const totalPages = Math.max(1, Math.ceil(filteredRaces.length / LIST_PAGE_SIZE))
           const pageSafe = Math.min(listPage, totalPages)
-          const paginated = allRaces.slice((pageSafe - 1) * LIST_PAGE_SIZE, pageSafe * LIST_PAGE_SIZE)
+          const paginated = filteredRaces.slice((pageSafe - 1) * LIST_PAGE_SIZE, pageSafe * LIST_PAGE_SIZE)
           return (
             <>
               <div className="space-y-3">
@@ -637,7 +720,7 @@ export default function AdminRaceExecutionPage() {
               {totalPages > 1 && (
                 <div className="flex items-center justify-between mt-4">
                   <p className="text-xs text-on-surface-variant">
-                    Showing {(pageSafe - 1) * LIST_PAGE_SIZE + 1}–{Math.min(pageSafe * LIST_PAGE_SIZE, allRaces.length)} of {allRaces.length} races
+                    Showing {(pageSafe - 1) * LIST_PAGE_SIZE + 1}–{Math.min(pageSafe * LIST_PAGE_SIZE, filteredRaces.length)} of {filteredRaces.length} races
                   </p>
                   <div className="flex items-center gap-1">
                     <button onClick={() => setListPage(p => Math.max(1, p - 1))} disabled={pageSafe === 1}
