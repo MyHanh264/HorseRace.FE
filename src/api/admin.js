@@ -109,25 +109,30 @@ export async function deleteUser(id) {
 // Backend expects: UserId, Email, FullName, PhoneNumber, AvatarUrl, RoleId, IsActive, LockedUntil, LicenseNumber, Weight, Bio, IsProfileComplete
 export async function updateUser(id, data) {
   const roleMap = await getRoleMap()
-  let roleId = data.roleId
-  if (typeof data.roleCode === 'string' && roleMap.length > 0) {
-    roleId = roleMap.find((r) => r.code === data.roleCode)?.roleId || data.roleId
+  let roleId = data.RoleId ?? data.roleId
+  const code = data.RoleCode ?? data.roleCode
+  if (typeof code === 'string' && roleMap.length > 0) {
+    roleId = roleMap.find((r) => r.code === code)?.roleId || roleId
   }
   if (!roleId) roleId = FALLBACK_ROLE_ID
 
+  // Accepts both PascalCase (as sent by UserModal, mirroring the BE command) and
+  // camelCase — same defensive `??` pattern as createUser, which this previously lacked.
   const payload = {
     UserId: id,
-    Email: data.email,
-    FullName: data.fullName,
-    PhoneNumber: data.phoneNumber || null,
-    AvatarUrl: data.avatarUrl || null,
+    Email: data.Email ?? data.email,
+    FullName: data.FullName ?? data.fullName,
+    PhoneNumber: data.PhoneNumber ?? data.phoneNumber ?? null,
+    AvatarUrl: data.AvatarUrl ?? data.avatarUrl ?? null,
     RoleId: roleId,
-    IsActive: data.isActive !== undefined ? data.isActive : true,
-    LockedUntil: data.lockedUntil || null,
-    LicenseNumber: data.licenseNumber || null,
-    Weight: data.weight || null,
-    Bio: data.bio || null,
-    IsProfileComplete: data.isProfileComplete !== undefined ? data.isProfileComplete : true,
+    IsActive: (data.IsActive ?? data.isActive) !== undefined ? (data.IsActive ?? data.isActive) : true,
+    LockedUntil: data.LockedUntil ?? data.lockedUntil ?? null,
+    LicenseNumber: data.LicenseNumber ?? data.licenseNumber ?? null,
+    Weight: data.Weight ?? data.weight ?? null,
+    Bio: data.Bio ?? data.bio ?? null,
+    IsProfileComplete: (data.IsProfileComplete ?? data.isProfileComplete) !== undefined
+      ? (data.IsProfileComplete ?? data.isProfileComplete)
+      : true,
   }
   const res = await api.put(`/api/users/${id}`, payload)
   return res.data
