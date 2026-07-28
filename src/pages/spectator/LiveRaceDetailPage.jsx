@@ -177,9 +177,10 @@ function BackLink() {
 /**
  * Bảng xếp hạng TẠM TÍNH.
  *
- * GetRaceLive dùng công thức khác RaceRankingCalculator lúc publish (không xử lý
- * DQ, không tie-break theo chặng cuối) — chính BE ghi chú rằng FE phải gắn nhãn
- * đúng như vậy. Đừng bỏ dòng chú thích bên dưới.
+ * Từ 2026-07-28, GetRaceLive dùng CHUNG RaceRankingCalculator với publish (có xử lý
+ * Race DQ + tie-break 1st → 2nd → vị trí chặng cuối) nên thứ tự ở đây khớp kết quả
+ * sẽ công bố. Nhưng vẫn là TẠM TÍNH: chỉ gồm các leg đã chốt, và án phạt Admin duyệt
+ * sau đó vẫn đổi được bảng này. Giữ nguyên nhãn "Provisional" bên dưới.
  */
 function ProvisionalStandings({ standings, highlightEntryId }) {
   return (

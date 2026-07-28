@@ -1451,8 +1451,8 @@ export default function AdminRacesPage() {
                   <th>Submitted</th>
                   <th>
                     {isRegClosed
-                      ? <span className="flex items-center gap-1">Locked Odds <Lock className="w-3 h-3 text-amber-400" /></span>
-                      : <span className="flex flex-col leading-tight">Current Odds<span className="text-[10px] font-normal text-on-surface-variant normal-case tracking-normal">(calculated on close)</span></span>}
+                      ? <span className="flex items-center gap-1">Base Odds <Lock className="w-3 h-3 text-amber-400" /></span>
+                      : <span className="flex flex-col leading-tight">Base Odds<span className="text-[10px] font-normal text-on-surface-variant normal-case tracking-normal">(calculated on close)</span></span>}
                   </th>
                   <th>Status</th>
                   {!isRegClosed && <th>Action</th>}
@@ -1566,7 +1566,8 @@ export default function AdminRacesPage() {
             </table>
             {isRegClosed && (
               <p className="text-center text-xs text-on-surface-variant py-3 border-t border-outline-variant/30">
-                Odds calculated based on historical win rates. Locked at {fmtDate(regInfo.registrationCloseAt)}.
+                Base odds calculated from historical win rates, locked at {fmtDate(regInfo.registrationCloseAt)}.
+                Spectators see a different number — their price moves with the betting pool.
               </p>
             )}
           </div>
