@@ -53,6 +53,7 @@ HorseRace.FE/
 │   │   │   ├── RaceTrack.jsx
 │   │   │   ├── HorseSprite.jsx
 │   │   │   └── RaceReplayPlayer.jsx
+│   │   ├── OddsBoardModal.jsx     # Bảng odds READ-ONLY cho Admin (3 trang admin dùng chung)
 │   │   ├── AuthSessionSync.jsx    # Sync auth state with tab
 │   │   ├── RequireRole.jsx        # Role-based route guard
 │   │   ├── NotificationBell.jsx   # Dropdown chuông thông báo (mọi role)
@@ -668,26 +669,28 @@ server: {
 - **Audit trail** — `AdminAuditLogPage` + route `/admin/audit-log`, nối `GET /api/admin/review-history`.
 - **Race:** form Tạo/Sửa Race gửi **`scheduledEndTime`** (ISO, bắt buộc — thiếu → 400). BE chống trùng lịch trả lỗi ở `error.response.data.detail`.
 - **Live Race:** `GET /api/races/{id}/live` + SignalR; replay dùng `startedAt`/`confirmedAt` (không còn `executionStatus`).
-- **Đặt cược:** `POST /api/predictions/races/{raceId}` body **`{ entryId, betAmount }`** — ⚠️ tên field phải đúng `entryId` (ASP.NET Core bind case-insensitive nhưng **không** đồng nghĩa; `FirstEntryId` từng làm hỏng cả tính năng — T-23). Odds khóa vào lệnh = `entry.publishedOdds`, đúng bằng số hiện trên bảng.
+- **Đặt cược:** `POST /api/predictions/races/{raceId}` body **`{ entryId, betAmount }`** — ⚠️ tên field phải đúng `entryId` (ASP.NET Core bind case-insensitive nhưng **không** đồng nghĩa; `FirstEntryId` từng làm hỏng cả tính năng — T-23). Odds khóa vào lệnh = `entry.odds`, đúng bằng số hiện trên bảng.
 
-### 🆕 Đợt 2026-07-28 — ODDS HAI TẦNG + KHÓA CƯỢC
+### 🆕 Đợt 2026-07-28 (đợt 2) — ODDS RÚT VỀ **MỘT CON SỐ TĨNH**
 
-**Component mới: `src/components/OddsManagementModal.jsx`** — modal Admin điều chỉnh odds sau khi đóng đăng ký. Nối 4 endpoint mới trong `api/admin.js`: `getRaceOddsBoard` · `updateRaceOdds` · `publishRaceOdds` · `lockRaceBetting`. Nhúng ở **cả 3 trang** có bảng entry (`AdminRacesPage`, `AdminRaceExecutionPage`, `AdminRaceEntriesPage`) qua nút **Manage Odds** trong banner "Registration Closed".
+> ⚠️ Đợt này **thay thế hoàn toàn** mô hình "odds hai tầng + khóa cược" ban hành sáng cùng ngày (mô tả cũ đã gỡ khỏi file này). Mọi thứ liên quan tới `publishedOdds` · `suggestedOdds` · `oddsPublishedAt` · `bettingLockedAt` · `isBettingOpen` · `canEdit` · `houseMarginPercent` đều **không còn tồn tại ở cả BE lẫn FE**.
 
-**Hai cột odds thay cho một cột "Base Odds"** ở cả 3 trang admin:
-- **Suggested** = `entry.currentOdds` (`Entry.Odds`) — giá máy tính, **nội bộ**.
-- **Published** = `entry.publishedOdds` (`Entry.PublishedOdds`) — **giá spectator thật sự cược**, mặc định = suggested − 10%.
+**Mô hình:** đóng đăng ký sinh **một** con số `odds` cho mỗi ngựa (máy tính từ lịch sử thắng), rồi giữ nguyên tới hết cuộc đua. Không biên nhà cái, không ai sửa được, mọi role nhìn cùng một số — và đó cũng là số khóa vào lệnh cược. **Cửa cược mở ngay khi đóng đăng ký, tự đóng khi race start.**
 
-**Trang cược của Spectator (`RacesBettingPage`) — đã hết cảnh "bảng 4.00x, khóa 2.00x":**
-- `getRaceOdds(raceId)` **bỏ tham số `betAmount`**; response mỗi entry chỉ còn **`odds`** (thay `baseOdds`/`currentOdds`/`effectiveOdds` — cả ba **không còn tồn tại**).
-- Bỏ hẳn effect debounce 350ms hỏi lại giá theo số tiền — giá không phụ thuộc số tiền nữa. `Est. Payout = betAmount × odds`.
-- **Cửa cược mới:** `race.status === 'Scheduled' && raceOdds.oddsPublishedAt != null && raceOdds.bettingLockedAt == null`. ⚠️ **Đóng đăng ký KHÔNG còn tự mở cược** — Admin phải bấm Publish Odds. Nút Cancel Bet cũng ẩn khi đã khóa.
+| Thay đổi | Chi tiết |
+|---|---|
+| **`OddsManagementModal` → `OddsBoardModal`** | File cũ **đã xóa**. Bản mới `src/components/OddsBoardModal.jsx` là bảng **read-only** 5 cột (Gate · Horse/Jockey · Career 1st · Odds · Bets) — không ô nhập, không Save/Publish/Lock/Reset. Vẫn nhúng ở cả 3 trang admin, nút đổi tên **View Odds** |
+| **`api/admin.js`** | **Xóa** `updateRaceOdds`, `publishRaceOdds`, `lockRaceBetting`. Giữ mỗi `getRaceOddsBoard` |
+| **`api/referee.js`** | **Xóa** `lockRaceBetting` |
+| **3 trang admin** | Hai cột odds → **một cột `Odds`** đọc `entry.odds` (BE đổi tên `currentOdds` → `odds`, bỏ `publishedOdds`). `minOdds` (chip "Fav") đọc `odds`. Banner "Registration Closed" từ **3 trạng thái xuống 1 câu**. `regInfo` chỉ còn `oddsComputedAt` |
+| **Start Race** | Điều kiện **duy nhất** là `oddsComputedAt != null` (đăng ký đã đóng) — ở cả 3 trang admin lẫn `RefereeAssignedRacesPage`. Tooltip đổi thành *"Close registration first"* |
+| **`RefereeAssignedRacesPage`** | **Xóa nút "Lock Betting"** + state `bettingLockedAt`/`locking` + handler. Panel start nay nói rõ: *"Starting the race closes betting automatically"* |
+| **`RacesBettingPage`** | `bettingOpen = race.status === 'Scheduled' && raceOdds.oddsComputedAt != null && raceStatus === 'scheduled'`. Nút **Cancel Bet** dùng chung `bettingOpen`. `Est. Payout = betAmount × odds` **giữ nguyên** |
+| **`JockeyRacesPage`** | `publishedOdds` → `odds` (cả entry của nài lẫn danh sách contenders). `oddsLocked = !!race.oddsComputedAt` **giữ nguyên** — trang này vốn chưa từng migrate sang `oddsPublishedAt` nên nay lại thành đúng |
 
-**Start Race nay phụ thuộc `bettingLockedAt`:** cả 3 trang admin + `RefereeAssignedRacesPage` disable nút Start kèm tooltip khi chưa khóa cược (BE trả 400). Referee có nút **Lock Betting** riêng trong `RaceControlModal` (`lockRaceBetting` trong `api/referee.js`) — chặn họ ở bước này thì trận đấu kẹt chờ Admin.
+**Không phải sửa** (đã rà): `LiveRaceDetailPage`/`LiveRacesPage`/`components/live/*`/`useRaceLiveHub`/`raceSim` không đọc `odds`; `MyPredictionsPage`/`SpectatorDashboard` đọc `oddsLocked1` — **field này không đổi**; `PointWalletPage`/`LeaderboardPage` không đụng odds.
 
-**`raceRegMap`/`regInfo` ở 3 trang admin nay mang thêm `oddsPublishedAt` + `bettingLockedAt`** (BE thêm vào `GET /api/races`). Banner "Registration Closed" hiện luôn đang ở bước nào: *chưa publish odds* → *đã publish, cược mở* → *đã khóa cược, sẵn sàng start*.
-
-**`JockeyRacesPage`** đổi từ `currentOdds` sang `publishedOdds` — nài nên thấy đúng con số công khai, không phải giá đề xuất nội bộ của Admin.
+**Trạng thái:** `npm run build` **pass**. `npx eslint src` = 79 vấn đề — **mức nền có sẵn của repo** (39 `no-unused-vars` rải khắp nơi + các rule `react-hooks/*` là idiom chung của codebase), không phải do đợt này; 2 unused-vars còn lại trong `RefereeAssignedRacesPage` (`userMap` prop, `horseMap`) là nợ có từ trước, không nằm trong phạm vi đợt.
 
 ### 🆕 Đợt 2026-07-26 (5 commit: `9523820` → `d421935`)
 

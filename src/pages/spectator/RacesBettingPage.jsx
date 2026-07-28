@@ -152,18 +152,16 @@ function BetPanel({ race, raceDetail, wallet, onBetPlaced }) {
 
   const balance      = Number(wallet?.balance ?? 0)
   const raceEntries  = raceOdds?.entries ?? []
-  // Cửa cược = [Admin publish odds → Admin khóa cược]. Đóng đăng ký thôi CHƯA đủ: lúc đó giá
-  // vẫn đang được Admin chỉnh trong modal.
+  // Cửa cược = [Admin đóng đăng ký → race xuất phát]. Đóng đăng ký là sinh odds và mở cược
+  // luôn; race rời "Scheduled" là sổ tự đóng. Không có mốc nào khác ở giữa.
   const bettingOpen  = race?.status === 'Scheduled'
-    && raceOdds?.oddsPublishedAt != null
-    && raceOdds?.bettingLockedAt == null
+    && raceOdds?.oddsComputedAt != null
     && String(raceOdds?.raceStatus ?? '').toLowerCase() === 'scheduled'
   const selectedEntry = raceEntries.find(e => e.entryId === Number(selectedEntryId))
   const amount        = Number(betAmount) || 0
 
-  // MỘT giá duy nhất: `odds` = odds công bố Admin đã duyệt, cũng chính là giá khóa vào lệnh.
-  // (Trước đây bảng hiện `currentOdds` còn lệnh khóa `effectiveOdds` thấp hơn — cùng một cột
-  // "Odds" mà ra hai con số khác nhau, người chơi đọc thành gian lận.)
+  // MỘT giá duy nhất: `odds` máy tính lúc đóng đăng ký, đứng yên tới hết race, và cũng chính
+  // là giá khóa vào lệnh. Không có giá thứ hai nào để đối chiếu.
   const lockedOdds  = Number(selectedEntry?.odds ?? 0)
   const estPayout   = selectedEntryId && amount > 0 && lockedOdds > 0
     ? `${fmtBalance(Math.round(amount * lockedOdds * 100) / 100)} pts`
@@ -326,8 +324,8 @@ function BetPanel({ race, raceDetail, wallet, onBetPlaced }) {
               </div>
             )}
 
-            {/* Hủy cược đóng cùng lúc với đặt cược: sổ đã khóa thì lệnh không rút ra được nữa. */}
-            {race.status === 'Scheduled' && raceOdds?.bettingLockedAt == null && (
+            {/* Hủy cược đóng cùng lúc với đặt cược: race chạy rồi thì lệnh không rút ra được. */}
+            {bettingOpen && (
               <button
                 onClick={handleCancelActive}
                 disabled={cancelling}
@@ -344,9 +342,9 @@ function BetPanel({ race, raceDetail, wallet, onBetPlaced }) {
           <>
             {!bettingOpen && raceEntries.length > 0 && !betSuccess && (
               <div className="mb-3 p-3 rounded-lg bg-surface-container border border-outline-variant/40 text-on-surface-variant text-sm">
-                {raceOdds?.bettingLockedAt
-                  ? 'Betting is locked — the race is about to start.'
-                  : 'Betting is closed for this race.'}
+                {raceOdds?.oddsComputedAt == null
+                  ? 'Betting opens once the admin closes registration for this race.'
+                  : 'Betting is closed for this race — it has already started.'}
               </div>
             )}
 
@@ -402,8 +400,8 @@ function BetPanel({ race, raceDetail, wallet, onBetPlaced }) {
                   <span className="text-secondary font-bold font-mono">{estPayout}</span>
                 </div>
                 <p className="text-xs text-on-surface-variant pt-1 border-t border-outline-variant/30">
-                  Odds are fixed by the race organiser and don't move with the betting pool — the
-                  rate shown here is exactly the one locked into your bet. Payout = stake × odds.
+                  Odds are set when registration closes and never move after that — the rate shown
+                  here is exactly the one locked into your bet. Payout = stake × odds.
                 </p>
               </div>
 

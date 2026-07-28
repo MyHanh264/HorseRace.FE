@@ -18,16 +18,10 @@ export async function getRaceDetail(id) {
   return res.data
 }
 
-// BE từ chối (400) nếu sổ cược chưa khóa — gọi lockRaceBetting trước.
+// Chỉ cần đăng ký đã đóng (race.oddsComputedAt != null). Không còn bước khóa sổ cược riêng —
+// cược tự chuyển Pending → Locked ngay trong lệnh start này.
 export async function startRace(raceId, payload = {}) {
   const res = await api.post(`/api/races/${raceId}/start`, payload)
-  return res.data
-}
-
-// POST /api/races/{raceId}/lock-betting — mở cho cả ADMIN và REFEREE: trọng tài là người bấm
-// Start Race, chặn họ ở bước khóa cược thì trận đấu kẹt lại chờ Admin có mặt.
-export async function lockRaceBetting(raceId) {
-  const res = await api.post(`/api/races/${raceId}/lock-betting`)
   return res.data
 }
 
