@@ -97,17 +97,6 @@ export async function getLegDetail(raceId, legNumber) {
   return res.data
 }
 
-// ─── Legacy alias (kept for backward compatibility) ─────────────────────────
-
-/**
- * @deprecated Use submitLegResult(raceId, legIndex, entries) instead.
- * payload: { raceId, legNumber, results: [{ entryId, finishPosition }] }
- */
-export async function submitLegResult_legacy(payload) {
-  const res = await api.post('/api/race-results', payload)
-  return res.data
-}
-
 // ─── Violations ─────────────────────────────────────────────────────────────
 
 export async function getViolations() {

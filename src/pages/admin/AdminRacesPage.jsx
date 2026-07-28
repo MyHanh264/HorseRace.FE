@@ -415,11 +415,15 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
 }
 
 // ─── Delete Confirm Modal ──────────────────────────────────────────────────────
-// Soft-delete — BE handles the IsDeleted flag internally.
-// No reason required since this is reversible (admin can ask BE to restore).
+// Soft-cancel, KHÔNG phải xóa: BE set Status = Cancelled và cascade Entry → Withdrawn,
+// JockeyInvitation → Cancelled, đồng thời hoàn 100% điểm cược đang treo. Domain không có
+// cột IsDeleted nào, và không có đường khôi phục — race đã Cancelled là chốt.
+//
+// BE chỉ nhận race còn `Scheduled` (`CancelRaceAsync`); mọi status khác trả 400
+// "Only scheduled races can be cancelled." nên danh sách dưới phải khớp đúng một giá trị.
 
 function DeleteConfirmModal({ race, entryCount, onClose, onConfirm, submitting, error }) {
-  const CAN_DELETE_STATUSES = ['Scheduled', 'Cancelled', 'Finished']
+  const CAN_DELETE_STATUSES = ['Scheduled']
   const canDelete = CAN_DELETE_STATUSES.includes(race.status)
 
   return (
