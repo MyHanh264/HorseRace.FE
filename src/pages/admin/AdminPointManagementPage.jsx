@@ -15,15 +15,34 @@ import {
   X,
   CheckCircle,
   XCircle,
+  Trophy,
+  Undo2,
+  Gift,
+  RotateCcw,
+  Settings2,
 } from "lucide-react";
 import api from "../../services/api";
 
+// Covers every literal `WalletTransaction.Type` string actually written by the BE
+// (see RegisterCommandHandler/CreatePrediction/PublishRaceResult/LockUser/RunDailyTopUp/
+// RunWeeklyTopUp/SetPointBalance/DeletePrediction/RevokeHorse/UnpublishRaceResult), plus
+// the 4 values the Adjust Points modal itself sends (Credit/Debit/Bonus/Fine) — these are
+// two different enums that happen to share this one column, not the same 4 values.
 const TRANSACTION_TYPE_CONFIG = {
-  Credit: { color: "bg-emerald-500/10 text-emerald-400", label: "Credit", icon: Plus },
-  Debit: { color: "bg-red-500/10 text-red-400", label: "Debit", icon: Minus },
-  Bonus: { color: "bg-blue-500/10 text-blue-400", label: "Bonus", icon: TrendingUp },
-  Fine: { color: "bg-orange-500/10 text-orange-400", label: "Fine", icon: TrendingDown },
+  Credit: { color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/25", label: "Credit", icon: Plus },
+  Debit: { color: "bg-red-500/10 text-red-400 border-red-500/25", label: "Debit", icon: Minus },
+  Bonus: { color: "bg-sky-500/10 text-sky-400 border-sky-500/25", label: "Bonus", icon: TrendingUp },
+  Fine: { color: "bg-orange-500/10 text-orange-400 border-orange-500/25", label: "Fine", icon: TrendingDown },
+  Initial: { color: "bg-sky-500/10 text-sky-400 border-sky-500/25", label: "Initial", icon: Gift },
+  BetPlaced: { color: "bg-red-500/10 text-red-400 border-red-500/25", label: "Bet Placed", icon: Minus },
+  Payout: { color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/25", label: "Payout", icon: Trophy },
+  PayoutRollback: { color: "bg-orange-500/10 text-orange-400 border-orange-500/25", label: "Payout Reversed", icon: RotateCcw },
+  BetRefund: { color: "bg-sky-500/10 text-sky-400 border-sky-500/25", label: "Refund", icon: Undo2 },
+  DailyTopUp: { color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/25", label: "Daily Top-Up", icon: TrendingUp },
+  WeeklyTopUp: { color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/25", label: "Weekly Top-Up", icon: TrendingUp },
+  AdminSet: { color: "bg-violet-500/10 text-violet-400 border-violet-500/25", label: "Admin Set", icon: Settings2 },
 };
+const DEFAULT_TX_TYPE_CONFIG = { color: "bg-surface-container-high text-on-surface-variant border-outline-variant/40", label: null, icon: Coins };
 
 const TABS = [
   { key: "Balances", label: "Balances" },
@@ -573,7 +592,7 @@ export default function AdminPointManagementPage() {
         <>
           {/* Type filter */}
           <div className="flex gap-1.5 mb-5 flex-wrap">
-            {["All", "Credit", "Debit", "Bonus", "Fine"].map((t) => {
+            {["All", ...Object.keys(TRANSACTION_TYPE_CONFIG)].map((t) => {
               const cfg = TRANSACTION_TYPE_CONFIG[t];
               return (
                 <button
@@ -625,22 +644,28 @@ export default function AdminPointManagementPage() {
           ) : (
             <>
               <div className="admin-table-wrap">
-                <table className="admin-table">
+                {/* table-layout: fixed makes the % widths below actually binding — without it,
+                    a long unbroken Reason string (e.g. a manual adjust note with no spaces)
+                    stretches the whole table instead of truncating inside its own column. */}
+                <table className="admin-table" style={{ tableLayout: "fixed" }}>
                   <thead>
                     <tr>
-                      <th style={{ width: "22%" }}>User</th>
-                      <th style={{ width: "12%" }}>Type</th>
-                      <th style={{ width: "12%" }}>Points</th>
-                      <th style={{ width: "12%" }}>Balance After</th>
-                      <th style={{ width: "22%" }}>Reason</th>
-                      <th style={{ width: "20%" }}>Date</th>
+                      <th style={{ width: "18%" }}>User</th>
+                      <th style={{ width: "13%" }}>Type</th>
+                      <th style={{ width: "10%" }}>Points</th>
+                      <th style={{ width: "11%" }}>Balance After</th>
+                      <th style={{ width: "30%" }}>Reason</th>
+                      <th style={{ width: "18%" }}>Date</th>
                     </tr>
                   </thead>
                   <tbody>
                     {paginatedTransactions.map((t) => {
-                      const cfg = TRANSACTION_TYPE_CONFIG[t.type] || TRANSACTION_TYPE_CONFIG.Credit;
+                      const cfg = TRANSACTION_TYPE_CONFIG[t.type] || DEFAULT_TX_TYPE_CONFIG;
                       const TxIcon = cfg.icon;
-                      const isPositive = t.type === "Credit" || t.type === "Bonus";
+                      // Derive from the real signed amount, not the type name — Payout/DailyTopUp/etc
+                      // don't literally equal "Credit"/"Bonus", so that comparison always failed and
+                      // showed every row (even winning payouts) as a red deduction.
+                      const isPositive = Number(t.amount) >= 0;
                       return (
                         <tr key={t.transactionId}>
                           <td>
@@ -655,9 +680,9 @@ export default function AdminPointManagementPage() {
                             </div>
                           </td>
                           <td>
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${cfg.color}`}>
-                              <TxIcon className="w-3 h-3 inline mr-0.5" />
-                              {cfg.label}
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border whitespace-nowrap ${cfg.color}`}>
+                              <TxIcon className="w-3 h-3 shrink-0" />
+                              {cfg.label || t.type || "—"}
                             </span>
                           </td>
                           <td>
@@ -669,7 +694,10 @@ export default function AdminPointManagementPage() {
                             {t.balanceAfter.toLocaleString("en-US")}
                           </td>
                           <td>
-                            <p className="text-sm text-on-surface truncate" title={t.reason || ""}>
+                            {/* break-words wraps to multiple lines instead of cutting text off —
+                                table-layout: fixed on the table above keeps the column width
+                                honest even for a long reason with no spaces to break on. */}
+                            <p className="text-sm text-on-surface whitespace-normal break-words">
                               {t.reason || "—"}
                             </p>
                           </td>
@@ -683,29 +711,31 @@ export default function AdminPointManagementPage() {
                 </table>
               </div>
 
-              {totalPagesTx > 1 && (
+              {totalTransactions > 0 && (
                 <div className="flex items-center justify-between mt-4 px-2">
                   <p className="text-xs text-on-surface-variant">
                     Showing {(pageTransactions - 1) * PAGE_SIZE_TRANSACTIONS + 1}–{Math.min(pageTransactions * PAGE_SIZE_TRANSACTIONS, totalTransactions)} of {totalTransactions} transactions
                   </p>
-                  <div className="flex items-center gap-1">
-                    <button onClick={() => setPageTransactions((p) => Math.max(1, p - 1))} disabled={pageTransactions === 1}
-                      className="w-7 h-7 rounded-lg bg-surface-container-high hover:bg-surface-container-highest disabled:opacity-40 flex items-center justify-center transition-all">
-                      <ChevronLeft className="w-3.5 h-3.5 text-on-surface" />
-                    </button>
-                    {getPageNumbers(pageTransactions, totalPagesTx).map((p, idx) =>
-                      p === "gap" ? <span key={`g-${idx}`} className="px-1 text-on-surface-variant text-xs">…</span> : (
-                        <button key={p} onClick={() => setPageTransactions(p)}
-                          className={`w-7 h-7 rounded-lg text-xs font-medium transition-all flex items-center justify-center ${pageTransactions === p ? "bg-secondary text-black" : "bg-surface-container-high hover:bg-surface-container-highest text-on-surface"}`}>
-                          {p}
-                        </button>
-                      )
-                    )}
-                    <button onClick={() => setPageTransactions((p) => Math.min(totalPagesTx, p + 1))} disabled={pageTransactions === totalPagesTx}
-                      className="w-7 h-7 rounded-lg bg-surface-container-high hover:bg-surface-container-highest disabled:opacity-40 flex items-center justify-center transition-all">
-                      <ChevronRight className="w-3.5 h-3.5 text-on-surface" />
-                    </button>
-                  </div>
+                  {totalPagesTx > 1 && (
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => setPageTransactions((p) => Math.max(1, p - 1))} disabled={pageTransactions === 1}
+                        className="w-7 h-7 rounded-lg bg-surface-container-high hover:bg-surface-container-highest disabled:opacity-40 flex items-center justify-center transition-all">
+                        <ChevronLeft className="w-3.5 h-3.5 text-on-surface" />
+                      </button>
+                      {getPageNumbers(pageTransactions, totalPagesTx).map((p, idx) =>
+                        p === "gap" ? <span key={`g-${idx}`} className="px-1 text-on-surface-variant text-xs">…</span> : (
+                          <button key={p} onClick={() => setPageTransactions(p)}
+                            className={`w-7 h-7 rounded-lg text-xs font-medium transition-all flex items-center justify-center ${pageTransactions === p ? "bg-secondary text-black" : "bg-surface-container-high hover:bg-surface-container-highest text-on-surface"}`}>
+                            {p}
+                          </button>
+                        )
+                      )}
+                      <button onClick={() => setPageTransactions((p) => Math.min(totalPagesTx, p + 1))} disabled={pageTransactions === totalPagesTx}
+                        className="w-7 h-7 rounded-lg bg-surface-container-high hover:bg-surface-container-highest disabled:opacity-40 flex items-center justify-center transition-all">
+                        <ChevronRight className="w-3.5 h-3.5 text-on-surface" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import {
-  User, Mail, Lock, Shield, Save, Eye, EyeOff,
+  User, Mail, Phone, Lock, Shield, Save, Eye, EyeOff,
   Trophy, Flag, TrendingUp, Wallet, AlertCircle, CheckCircle2,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
@@ -247,13 +247,22 @@ export default function SpectatorProfilePage() {
               <h2 className="text-sm font-bold text-on-surface mb-4">Personal Details</h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2">
+                <div>
                   <FieldLabel>Display Name</FieldLabel>
                   <InputField
                     icon={User}
                     value={fullName}
                     onChange={e => setFullName(e.target.value)}
                     placeholder="Your display name"
+                  />
+                </div>
+                <div>
+                  <FieldLabel>Phone Number</FieldLabel>
+                  <InputField
+                    icon={Phone}
+                    value={phone ?? ''}
+                    onChange={e => setPhone(e.target.value)}
+                    placeholder="Your phone number"
                   />
                 </div>
                 <div className="sm:col-span-2">
