@@ -64,7 +64,7 @@ export default function RaceTrack({
       viewBox={`0 0 ${VIEW_W} ${height}`}
       className="w-full h-auto select-none"
       role="img"
-      aria-label="Đường đua mô phỏng"
+      aria-label="Simulated race track"
     >
       <defs>
         <linearGradient id="turf" x1="0" y1="0" x2="0" y2="1">

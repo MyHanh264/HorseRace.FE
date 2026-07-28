@@ -54,7 +54,12 @@ export function parseJwtPayload(token) {
   if (!token) return null
   try {
     const base64 = token.split('.')[1]?.replace(/-/g, '+').replace(/_/g, '/')
-    return JSON.parse(atob(base64))
+    // atob() only understands Latin-1 — each byte of a multi-byte UTF-8 sequence (e.g. Vietnamese
+    // diacritics in fullName) comes out as its own mangled character ("Trần" -> "Tráº§n") unless
+    // re-decoded as UTF-8 here.
+    const binary = atob(base64)
+    const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0))
+    return JSON.parse(new TextDecoder('utf-8').decode(bytes))
   } catch {
     return null
   }

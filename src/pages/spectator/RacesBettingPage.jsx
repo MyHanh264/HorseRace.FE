@@ -251,7 +251,9 @@ function BetPanel({ race, raceDetail, wallet, onBetPlaced }) {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="admin-table w-full text-sm">
+            {/* Only 3 columns and this panel is narrow — .admin-table's 820px min-width
+                (sized for wide Admin tables) would push Odds off-screen here, so override it. */}
+            <table className="admin-table w-full text-sm" style={{ minWidth: 0 }}>
               <thead>
                 <tr>
                   <th className="text-left">Gate</th>

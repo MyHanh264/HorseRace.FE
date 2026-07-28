@@ -96,7 +96,7 @@ export default function LiveRaceDetailPage() {
             <span className={`gs-badge ${meta.cls}`}>{meta.label}</span>
           </div>
           <p className="text-sm text-on-surface-variant mt-1">
-            {snapshot.tournamentName} · {snapshot.confirmedLegCount}/{snapshot.totalLegs} chặng đã xác nhận
+            {snapshot.tournamentName} · {snapshot.confirmedLegCount}/{snapshot.totalLegs} legs confirmed
           </p>
         </div>
 
@@ -104,8 +104,8 @@ export default function LiveRaceDetailPage() {
           className="text-xs flex items-center gap-1.5 text-on-surface-variant"
           title={
             connState === 'live'
-              ? 'Đang nhận cập nhật tức thời qua SignalR'
-              : 'Mất kết nối realtime — đang tự làm mới mỗi 30 giây'
+              ? 'Receiving live updates via SignalR'
+              : 'Realtime connection lost — auto-refreshing every 30 seconds'
           }
         >
           {connState === 'live' ? (
@@ -116,7 +116,7 @@ export default function LiveRaceDetailPage() {
           ) : (
             <>
               <WifiOff className="w-3.5 h-3.5 text-amber-400" />
-              Tự làm mới 30s
+              Auto-refresh 30s
             </>
           )}
         </span>
@@ -132,7 +132,7 @@ export default function LiveRaceDetailPage() {
               l.legNumber === activeLegNumber ? 'bg-surface-container-high' : 'hover:bg-surface-container'
             }`}
           >
-            Chặng {l.legNumber}
+            Leg {l.legNumber}
             {l.isConfirmed && ' ✓'}
             {legIsRunning(l) && ' •'}
           </button>
@@ -142,7 +142,7 @@ export default function LiveRaceDetailPage() {
             onClick={() => setSelectedLeg(null)}
             className="text-xs text-on-surface-variant underline underline-offset-2 hover:text-on-surface"
           >
-            bám chặng hiện tại
+            Jump to current leg
           </button>
         )}
       </div>
@@ -169,7 +169,7 @@ function BackLink() {
       className="text-sm text-on-surface-variant hover:text-on-surface flex items-center gap-1.5 w-fit"
     >
       <ArrowLeft className="w-4 h-4" />
-      Tất cả cuộc đua
+      All Races
     </Link>
   )
 }
@@ -185,11 +185,11 @@ function ProvisionalStandings({ standings, highlightEntryId }) {
   return (
     <aside className="gs-card overflow-hidden">
       <div className="px-4 py-3 border-b border-outline-variant/40">
-        <h2 className="font-serif text-base text-on-surface">Xếp hạng tạm tính</h2>
+        <h2 className="font-serif text-base text-on-surface">Provisional Standings</h2>
       </div>
 
       {standings.length === 0 ? (
-        <p className="px-4 py-6 text-sm text-on-surface-variant text-center">Chưa có chặng nào được xác nhận.</p>
+        <p className="px-4 py-6 text-sm text-on-surface-variant text-center">No legs confirmed yet.</p>
       ) : (
         <ul className="divide-y divide-outline-variant/30">
           {standings.map((s) => {
@@ -219,8 +219,8 @@ function ProvisionalStandings({ standings, highlightEntryId }) {
       <p className="px-4 py-2.5 text-[11px] text-on-surface-variant border-t border-outline-variant/40 flex gap-1.5">
         <Info className="w-3.5 h-3.5 flex-shrink-0 mt-px" />
         <span>
-          Chỉ tính các chặng đã xác nhận và <strong>chưa áp dụng</strong> án phạt DQ hay tie-break chặng cuối.
-          Kết quả chính thức được chốt khi Admin công bố.
+          Only counts confirmed legs and <strong>does not yet apply</strong> DQ penalties or final-leg
+          tie-breaks. Official results are finalized once Admin publishes.
         </span>
       </p>
     </aside>

@@ -15,6 +15,7 @@ import {
   getRaceResults,
 } from '../../api/referee'
 import { validateLegPositions, getLegPoints } from '../../utils/legValidation'
+import { getAccessToken, parseJwtPayload } from '../../utils/token'
 import RaceResultsModal from '../../components/RaceResultsModal'
 
 // Store a session key for each (userId, raceId, legIndex) that has been submitted, to prevent
@@ -443,12 +444,8 @@ export default function LegSubmissionPage() {
   // BUG FIX: Read userId from localStorage token to include in sessionStorage key.
   // Without this, two different referees using the same browser share the same flag.
   const currentUserId = (() => {
-    try {
-      const token = localStorage.getItem('auth_access_token')
-      if (!token) return null
-      const payload = JSON.parse(atob(token.split('.')[1]))
-      return payload.userId ?? payload.sub ?? payload.nameid ?? null
-    } catch { return null }
+    const payload = parseJwtPayload(getAccessToken())
+    return payload?.userId ?? payload?.sub ?? payload?.nameid ?? null
   })()
 
   // Local lock flag — set immediately when the user clicks submit (before the API responds).
