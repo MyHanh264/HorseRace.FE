@@ -18,6 +18,22 @@ import OddsManagementModal from '../../components/OddsManagementModal'
 
 const EXECUTION_RACE_STATUSES = ['Scheduled', 'InProgress', 'Paused', 'PendingResult', 'Finished']
 
+// Same map as AdminViolationsPage/RefereeViolationsPage — BE stores the Vietnamese enum code
+// (e.g. "KhoiDongSom"), so any place displaying violationType needs this to show it in English.
+const VIOLATION_TYPES = {
+  KhoiDongSom:        'Early Start',
+  CuoiNguaNguyHiem:   'Dangerous Riding',
+  ViPhamRoi:          'Whip Violation',
+  CanDuongDoiThu:     'Obstruction',
+  ViPhamDoping:       'Doping Violation',
+  ViPhamTrangBi:      'Equipment Violation',
+  ViPhamDiemCan:      'Weight Violation',
+  Khac:               'Other',
+}
+function violationTypeLabel(code) {
+  return VIOLATION_TYPES[code] || code || '—'
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtDate(s) {
@@ -44,8 +60,8 @@ function buildScoreBreakdown(entryId, execution, approvedViolations) {
     const penaltyNote = !legViolation
       ? ''
       : legViolation.penalty === 'Warning'
-        ? ` — Warning noted (${legViolation.violationType})`
-        : ` — ${legViolation.penalty} applied (${legViolation.violationType})`
+        ? ` — Warning noted (${violationTypeLabel(legViolation.violationType)})`
+        : ` — ${legViolation.penalty} applied (${violationTypeLabel(legViolation.violationType)})`
     lines.push(`Leg ${leg.legNumber}: ${result.points}p (${posLabel})${penaltyNote}`)
     // Warning doesn't touch score/position (by design — BE: "Warning: không đổi standings"),
     // but Admin still needs visible confirmation it was recorded, not silence. Flagged with
@@ -54,8 +70,8 @@ function buildScoreBreakdown(entryId, execution, approvedViolations) {
     if (legViolation) {
       penaltyLines.push({
         text: legViolation.penalty === 'Warning'
-          ? `Leg ${leg.legNumber}: Warning noted (${legViolation.violationType})`
-          : `Leg ${leg.legNumber}: ${legViolation.penalty} — now ${posLabel} (${legViolation.violationType})`,
+          ? `Leg ${leg.legNumber}: Warning noted (${violationTypeLabel(legViolation.violationType)})`
+          : `Leg ${leg.legNumber}: ${legViolation.penalty} — now ${posLabel} (${violationTypeLabel(legViolation.violationType)})`,
         scoreAffected: legViolation.penalty !== 'Warning',
       })
     }

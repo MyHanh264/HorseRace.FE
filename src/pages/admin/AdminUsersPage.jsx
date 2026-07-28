@@ -83,7 +83,9 @@ function getRoleLabel(role) {
 }
 
 function getStatusBadgeClass(status) {
-  switch (status) {
+  // BE sends Title Case ("Locked", "Active"...) — normalize so the switch below
+  // actually matches instead of silently falling through to the default case.
+  switch (String(status || "").toUpperCase()) {
     case "ACTIVE":
     case "APPROVED":
       return "gs-badge gs-badge-success";
@@ -101,7 +103,7 @@ function getStatusBadgeClass(status) {
 }
 
 function getStatusLabel(status) {
-  switch (status) {
+  switch (String(status || "").toUpperCase()) {
     case "ACTIVE":
       return "Active";
     case "LOCKED":
@@ -487,7 +489,9 @@ function UserDetailModal({
 }) {
   if (!user) return null;
 
-  const isDeleted = user.status === "DELETED";
+  // BE sends Title Case ("Locked", "Deleted", "Active"...) — normalize before comparing.
+  const normalizedStatus = String(user.status || "").toUpperCase();
+  const isDeleted = normalizedStatus === "DELETED";
 
   return (
     <div
@@ -629,7 +633,7 @@ function UserDetailModal({
               </button>
             ) : (
               <>
-                {user.status === "LOCKED" ? (
+                {normalizedStatus === "LOCKED" ? (
                   <button
                     onClick={onUnlock}
                     disabled={loading}
