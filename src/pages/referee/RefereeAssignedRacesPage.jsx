@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import {
   ClipboardList, AlertCircle, SlidersHorizontal,
   ChevronLeft, ChevronRight, X, CheckSquare, Square,
-  Zap, Flag, Users, ArrowUpDown,
+  Zap, Flag, Users, ArrowUpDown, Lock,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import {
   getAllRaces, getRaceDetail, getAllTournaments, getAllUsers,
-  getAllEntries, getAllHorses, startRace,
+  getAllEntries, getAllHorses, startRace, lockRaceBetting,
 } from '../../api/referee'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -53,6 +53,10 @@ function RaceControlModal({ race, tournament, coReferee, userMap, onClose, onSta
   const [starting,  setStarting]  = useState(false)
   const [startErr,  setStartErr]  = useState('')
   const [loadingEntries, setLoadingEntries] = useState(true)
+  // Sổ cược phải đóng trước khi xuất phát (Flow 7) — BE trả 400 nếu chưa. Trọng tài khóa
+  // được ngay tại đây thay vì phải đợi Admin có mặt.
+  const [bettingLockedAt, setBettingLockedAt] = useState(race.bettingLockedAt ?? null)
+  const [locking, setLocking] = useState(false)
 
   const allChecked = Object.values(checklist).every(Boolean)
 
@@ -72,6 +76,22 @@ function RaceControlModal({ race, tournament, coReferee, userMap, onClose, onSta
 
   const toggle = (key) => setChecklist(p => ({ ...p, [key]: !p[key] }))
 
+  const handleLockBetting = async () => {
+    setLocking(true)
+    setStartErr('')
+    try {
+      const res = await lockRaceBetting(race.raceId)
+      setBettingLockedAt(res?.bettingLockedAt ?? new Date().toISOString())
+    } catch (err) {
+      setStartErr(
+        err?.response?.data?.detail || err?.response?.data?.message || err?.message
+        || 'Could not lock betting',
+      )
+    } finally {
+      setLocking(false)
+    }
+  }
+
   const handleStart = async () => {
     setStarting(true)
     setStartErr('')
@@ -79,7 +99,10 @@ function RaceControlModal({ race, tournament, coReferee, userMap, onClose, onSta
       await startRace(race.raceId)
       onStarted()
     } catch (err) {
-      setStartErr(err?.response?.data?.message || err?.message || 'Could not start race')
+      setStartErr(
+        err?.response?.data?.detail || err?.response?.data?.message || err?.message
+        || 'Could not start race',
+      )
     } finally {
       setStarting(false)
     }
@@ -175,11 +198,24 @@ function RaceControlModal({ race, tournament, coReferee, userMap, onClose, onSta
               <p className="text-xs text-error text-center">{startErr}</p>
             )}
 
+            {/* Khóa cược trước, start sau — cùng thứ tự BE ép. */}
+            {!bettingLockedAt && (
+              <button
+                onClick={handleLockBetting}
+                disabled={locking}
+                className="w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-white transition-all disabled:opacity-60"
+              >
+                <Lock size={15} />
+                {locking ? 'Locking…' : 'Lock Betting'}
+              </button>
+            )}
+
             <button
               onClick={handleStart}
-              disabled={!allChecked || starting}
+              disabled={!allChecked || starting || !bettingLockedAt}
+              title={bettingLockedAt ? '' : 'Lock betting before starting the race'}
               className={`w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all
-                ${allChecked
+                ${allChecked && bettingLockedAt
                   ? 'bg-yellow-400 text-black hover:bg-yellow-300'
                   : 'bg-surface-container-high text-on-surface-variant cursor-not-allowed'
                 } disabled:opacity-60`}
@@ -188,9 +224,13 @@ function RaceControlModal({ race, tournament, coReferee, userMap, onClose, onSta
               {starting ? 'Starting…' : 'Start Race'}
             </button>
 
-            {!allChecked && (
+            {!bettingLockedAt ? (
+              <p className="text-[11px] text-on-surface-variant text-center">
+                Betting is still open — lock it so no bet lands after the horses leave the gate.
+              </p>
+            ) : !allChecked ? (
               <p className="text-[11px] text-on-surface-variant text-center">Complete all checklist items first.</p>
-            )}
+            ) : null}
           </div>
         </div>
 

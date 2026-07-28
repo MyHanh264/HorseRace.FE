@@ -427,11 +427,45 @@ export async function closeRegistration(raceId) {
   return res.data
 }
 
+// ─── Odds: đề xuất → công bố → khóa cược (Flow 3 + 7) ────────────────────────
+// Đóng đăng ký sinh ra 2 con số cho mỗi ngựa: ODDS ĐỀ XUẤT (máy tính từ lịch sử thắng, chỉ
+// Admin thấy) và ODDS CÔNG BỐ (= đề xuất − 10% biên nhà cái, là giá spectator thật sự cược).
+// Admin sửa lại trong modal → Publish Odds (mở cửa cược) → Lock Betting (đóng sổ, bắt buộc
+// trước khi Start Race).
+
+/** GET /api/races/{raceId}/odds-board — bảng odds cho modal điều chỉnh. */
+export async function getRaceOddsBoard(raceId) {
+  const res = await api.get(`/api/races/${raceId}/odds-board`)
+  return res.data
+}
+
+/**
+ * PUT /api/races/{raceId}/odds
+ * entries: [{ entryId, suggestedOdds?, publishedOdds? }]
+ * Bỏ trống publishedOdds = nhờ BE tính lại theo công thức mặc định (đề xuất − 10%).
+ */
+export async function updateRaceOdds(raceId, entries) {
+  const res = await api.put(`/api/races/${raceId}/odds`, { entries })
+  return res.data
+}
+
+/** POST /api/races/{raceId}/publish-odds — mở cửa cược cho spectator. */
+export async function publishRaceOdds(raceId) {
+  const res = await api.post(`/api/races/${raceId}/publish-odds`)
+  return res.data
+}
+
+/** POST /api/races/{raceId}/lock-betting — đóng sổ cược; điều kiện bắt buộc để Start Race. */
+export async function lockRaceBetting(raceId) {
+  const res = await api.post(`/api/races/${raceId}/lock-betting`)
+  return res.data
+}
+
 // ─── Race Execution ──────────────────────────────────────────────────────────
 
 /**
  * POST /api/races/{raceId}/start
- * Admin starts the race → locks bets.
+ * BE từ chối (400) nếu chưa gọi lock-betting — khóa sổ cược là bước bắt buộc trước.
  */
 export async function startRace(raceId, payload = {}) {
   const res = await api.post(`/api/races/${raceId}/start`, payload)
