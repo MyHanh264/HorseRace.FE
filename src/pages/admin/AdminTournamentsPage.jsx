@@ -104,7 +104,6 @@ function TournamentModal({ tournament, onClose, onSubmit, submitting, error }) {
     location: tournament?.location ?? "",
     startDate: toInputDate(tournament?.startDate),
     endDate: toInputDate(tournament?.endDate),
-    logoUrl: tournament?.logoUrl ?? "",
     status: tournament?.status ?? "Draft",
     cancelReason: tournament?.cancelReason ?? "",
   });
@@ -119,7 +118,6 @@ function TournamentModal({ tournament, onClose, onSubmit, submitting, error }) {
       location: form.location.trim() || null,
       startDate: form.startDate,
       endDate: form.endDate,
-      logoUrl: form.logoUrl.trim() || null,
       status: form.status,
       cancelReason:
         form.status === "Cancelled" ? form.cancelReason.trim() || null : null,
@@ -227,20 +225,6 @@ function TournamentModal({ tournament, onClose, onSubmit, submitting, error }) {
               onChange={set("description")}
               placeholder="Optional description..."
               className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40 resize-none"
-            />
-          </div>
-
-          {/* Logo URL */}
-          <div>
-            <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1.5">
-              Logo URL
-            </label>
-            <input
-              type="url"
-              value={form.logoUrl}
-              onChange={set("logoUrl")}
-              placeholder="https://..."
-              className="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2.5 text-sm text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40"
             />
           </div>
 
@@ -552,15 +536,7 @@ export default function AdminTournamentsPage() {
                           className="flex items-center gap-3 text-left group"
                         >
                           <div className="w-9 h-9 rounded-lg bg-secondary/10 border border-secondary/20 flex items-center justify-center shrink-0">
-                            {t.logoUrl ? (
-                              <img
-                                src={t.logoUrl}
-                                alt=""
-                                className="w-6 h-6 object-contain rounded"
-                              />
-                            ) : (
-                              <Trophy className="w-4 h-4 text-secondary" />
-                            )}
+                            <Trophy className="w-4 h-4 text-secondary" />
                           </div>
                           <div>
                             <div className="font-semibold text-on-surface text-sm leading-snug group-hover:text-secondary group-hover:underline transition-colors">

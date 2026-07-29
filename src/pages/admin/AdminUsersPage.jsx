@@ -32,6 +32,7 @@ import {
   ChevronRight,
   UserX,
   UserCheck,
+  Filter,
 } from "lucide-react";
 
 function formatDate(value) {
@@ -81,6 +82,30 @@ function getRoleLabel(role) {
       return role || "—";
   }
 }
+
+// Resolve a user's role code no matter which shape BE returned it in:
+// GET /api/users gives `roleId`, the detail/pending endpoints may already give
+// `roleCode`/`role`. Used by both the role filter and the table row.
+function getUserRoleCode(item) {
+  return (
+    item.roleCode ||
+    item.role ||
+    (item.roleId !== undefined ? getRoleCodeById(item.roleId) : null) ||
+    "UNKNOWN"
+  );
+}
+
+// Filter options — all 5 seeded roles (RoleConfiguration.cs). Unlike ROLE_OPTIONS
+// below (Create modal), ADMIN and SPECTATOR are listed here: filtering is read-only,
+// so there's no reason to hide accounts that already exist.
+const ROLE_FILTERS = [
+  { value: "ALL", label: "All roles" },
+  { value: "HORSE_OWNER", label: "Horse Owner" },
+  { value: "JOCKEY", label: "Jockey" },
+  { value: "REFEREE", label: "Referee" },
+  { value: "SPECTATOR", label: "Spectator" },
+  { value: "ADMIN", label: "Admin" },
+];
 
 function getStatusBadgeClass(status) {
   // BE sends Title Case ("Locked", "Active"...) — normalize so the switch below
@@ -854,6 +879,11 @@ export default function AdminUsersPage() {
     return () => clearTimeout(t);
   }, [searchQuery]);
 
+  // ── Role filter ──
+  // Client-side (same as search) because the page already holds the full user
+  // list in `allUsersCache`; sending `role` to BE would only re-fetch the same rows.
+  const [roleFilter, setRoleFilter] = useState("ALL");
+
   // ── Modals ──
   const [showUserModal, setShowUserModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
@@ -986,7 +1016,10 @@ export default function AdminUsersPage() {
       if (activeTab === "pending") {
         const data = await getPendingUsers();
         if (myId !== dataRequestIdRef.current) return;
-        const items = extractUsers(data);
+        let items = extractUsers(data);
+        if (roleFilter !== "ALL") {
+          items = items.filter((u) => getUserRoleCode(u) === roleFilter);
+        }
         setUsers(items);
         setTotalUsers(items.length);
         return;
@@ -1036,6 +1069,10 @@ export default function AdminUsersPage() {
         filtered = [];
       }
 
+      if (roleFilter !== "ALL") {
+        filtered = filtered.filter((u) => getUserRoleCode(u) === roleFilter);
+      }
+
       if (debouncedSearch.trim()) {
         const q = debouncedSearch.toLowerCase();
         filtered = filtered.filter(
@@ -1062,16 +1099,16 @@ export default function AdminUsersPage() {
         setLoading(false);
       }
     }
-  }, [activeTab, page, pageSize, debouncedSearch]);
+  }, [activeTab, page, pageSize, debouncedSearch, roleFilter]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  // Reset page when tab or debounced search changes
+  // Reset page when tab, debounced search, or role filter changes
   useEffect(() => {
     setPage(1);
-  }, [activeTab, debouncedSearch]);
+  }, [activeTab, debouncedSearch, roleFilter]);
 
   // ── Refresh helper ──
   // After any mutation: bump request tokens (so any in-flight load is ignored),
@@ -1299,11 +1336,7 @@ export default function AdminUsersPage() {
     // Backend returns: { userId, email, fullName, roleId, isActive }
     // Backend pending users might have different fields
     // Backend detail returns: { userId, email, fullName, phoneNumber, roleId, isActive, ... }
-    const userRole =
-      item.roleCode ||
-      item.role ||
-      (item.roleId !== undefined ? getRoleCodeById(item.roleId) : null) ||
-      "UNKNOWN";
+    const userRole = getUserRoleCode(item);
 
     // Derive status: backend doesn't return a "status" string, only isActive
     let userStatus = item.status;
@@ -1552,19 +1585,60 @@ export default function AdminUsersPage() {
         })}
       </div>
 
-      {/* Search & Filters (only for paginated tabs) */}
-      {activeTab !== "pending" && (
-        <div className="mb-5 relative max-w-md">
-          <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/50" />
-          <input
-            type="text"
-            placeholder="Search by name, email..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-surface-container-lowest border border-outline-variant/40 text-sm rounded-xl pl-11 pr-4 py-3 text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40"
-          />
+      {/* Search & Filters */}
+      {/* Search stays on the paginated tabs only (Pending is a short unpaginated
+          list), but the role filter applies everywhere — filtering pending
+          approvals down to e.g. jockeys is one of its main uses. */}
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        {activeTab !== "pending" && (
+          <div className="relative flex-1 min-w-[240px] max-w-md">
+            <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/50" />
+            <input
+              type="text"
+              placeholder="Search by name, email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-surface-container-lowest border border-outline-variant/40 text-sm rounded-xl pl-11 pr-4 py-3 text-on-surface focus:outline-none focus:border-secondary transition-all placeholder:text-on-surface-variant/40"
+            />
+          </div>
+        )}
+
+        <div className="relative">
+          <Filter className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant/50 pointer-events-none" />
+          <select
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+            aria-label="Filter by role"
+            className="appearance-none bg-surface-container-lowest border border-outline-variant/40 text-sm rounded-xl pl-11 pr-10 py-3 text-on-surface focus:outline-none focus:border-secondary transition-all cursor-pointer"
+          >
+            {ROLE_FILTERS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <ChevronRight className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-on-surface-variant/50 pointer-events-none" />
         </div>
-      )}
+
+        {roleFilter !== "ALL" && (
+          <button
+            type="button"
+            onClick={() => setRoleFilter("ALL")}
+            className="gs-btn gs-btn-ghost gs-btn-sm flex items-center gap-1.5"
+          >
+            <X className="w-3.5 h-3.5" />
+            Clear filter
+          </button>
+        )}
+
+        {!loading && (
+          <span className="text-xs text-on-surface-variant ml-auto">
+            {totalUsers} {totalUsers === 1 ? "user" : "users"}
+            {roleFilter !== "ALL" &&
+              ` · ${ROLE_FILTERS.find((r) => r.value === roleFilter)?.label}`}
+          </span>
+        )}
+      </div>
 
 {/* Table */}
       {loading ? (
@@ -1582,11 +1656,13 @@ export default function AdminUsersPage() {
             <Users className="w-8 h-8 text-on-surface-variant/60" />
           </div>
           <h3 className="font-serif text-xl font-bold text-on-surface mb-2">
-            {searchQuery ? "No results found" : `No ${activeTab} users`}
+            {searchQuery || roleFilter !== "ALL"
+              ? "No results found"
+              : `No ${activeTab} users`}
           </h3>
           <p className="text-on-surface-variant text-sm">
-            {searchQuery
-              ? "Try different search criteria."
+            {searchQuery || roleFilter !== "ALL"
+              ? "Try different search or filter criteria."
               : activeTab === "pending"
               ? "No accounts are awaiting approval."
               : activeTab === "deleted"
