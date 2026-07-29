@@ -36,6 +36,24 @@ import {
 //   Approved  → "Resolved" (approved, penalty applied)
 //   Rejected  → "Dismissed" (rejected)
 
+// Rút message lỗi ra khỏi response của BE.
+//
+// ⚠️ BE trả `ProblemDetails` — `{ title, detail, status, instance, traceId }` — và câu giải thích
+// thật của handler nằm ở **`detail`**. BE **không có** field `message`, nên đọc
+// `err.response.data.message` sẽ luôn ra `undefined` rồi rơi xuống `err.message` của axios, tức
+// là "Request failed with status code 400". Người dùng mất sạch lý do, dù BE đã ghi hẳn một câu
+// hướng dẫn phải làm gì — vd khi Demote một ngựa đang về chót:
+//   "This entry finished last (2) in leg 1 — there is nobody below to swap with, so a Demote
+//    penalty cannot be applied. Use Warning or DQ instead."
+// `errors` là dạng lỗi validate model-binding của ASP.NET Core: { field: ["msg", …] }.
+function errorText(e, fallback) {
+  const data = e?.response?.data;
+  const firstValidationError = data?.errors
+    ? Object.values(data.errors).flat().find(Boolean)
+    : null;
+  return data?.detail || firstValidationError || data?.title || e?.message || fallback;
+}
+
 // UI label → domain value (BE's UpdateViolationCommandHandler only accepts the domain strings).
 const STATUS_UI_TO_DOMAIN = {
   Pending: "Pending",
@@ -266,7 +284,7 @@ function ApproveViolationModal({ item, siblings = [], onClose, onApproved }) {
       await approveViolation(item.violationId, { penalty, adminNote: adminNote.trim() || null });
       onApproved();
     } catch (e) {
-      setErr(e?.response?.data?.message || e?.message || "Failed to approve violation.");
+      setErr(errorText(e, "Failed to approve violation."));
     } finally {
       setSaving(false);
       setConfirmDQ(false);
@@ -429,7 +447,7 @@ function RejectViolationModal({ item, onClose, onRejected }) {
       await rejectViolation(item.violationId, reason.trim());
       onRejected();
     } catch (e) {
-      setErr(e?.response?.data?.message || e?.message || "Failed to reject.");
+      setErr(errorText(e, "Failed to reject."));
     } finally {
       setSaving(false);
     }
@@ -545,11 +563,7 @@ function EditViolationModal({ item, onClose, onSaved }) {
       });
       onSaved();
     } catch (e) {
-      const detail = e?.response?.data?.detail || e?.response?.data?.title;
-      const firstError = e?.response?.data?.errors
-        ? Object.values(e.response.data.errors).flat()[0]
-        : null;
-      setErr(detail || firstError || e?.message || "Update failed.");
+      setErr(errorText(e, "Update failed."));
     } finally {
       setSaving(false);
     }
@@ -737,7 +751,7 @@ export default function AdminViolationsPage() {
       const dismissed = Math.max(0, (data?.total || 0) - (data?.pendingCount || 0) - (data?.resolvedCount || 0));
       setDismissedCount(dismissed);
     } catch (err) {
-      setError(err?.response?.data?.message || err?.message || "Failed to load violation list.");
+      setError(errorText(err, "Failed to load violation list."));
     } finally {
       setLoading(false);
     }

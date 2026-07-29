@@ -703,6 +703,18 @@ server: {
 
 **Ghi chú kiến trúc:** để hiện "Admin đã xử tranh chấp thế nào", FE dùng **`GET /api/legs/{raceId}/{legNumber}`** (`getLegDetail`, `LegsController` cho cả REFEREE lẫn ADMIN) — nó chỉ trả **quyết định cuối cùng** (`adminOverrideReason`, `confirmedAt`, `confirmationType`), không lộ bản nhập blind của trọng tài kia. Đây là lựa chọn có chủ đích, giữ Blind Double-Entry.
 
+### 🆕 2026-07-29 — `AdminViolationsPage` nuốt mất message lỗi của BE (T-31, **vá cục bộ**)
+
+**Triệu chứng:** modal Approve Violation chỉ hiện *"Request failed with status code 400"*, không lý do gì.
+
+**Nguyên nhân:** BE trả `ProblemDetails` — `{ title, detail, status, traceId }` — câu giải thích của handler nằm ở **`detail`**. FE lại đọc `err.response.data.message`, **field BE không bao giờ gửi** ⇒ luôn `undefined` ⇒ rơi xuống `err.message` của axios.
+
+**Đã vá:** thêm helper cục bộ `errorText(e, fallback)` **trong chính `AdminViolationsPage.jsx`** (`detail` → `errors` validate model-binding → `title` → `err.message` → fallback), dùng ở 4 chỗ: approve · reject · load list · update. Không thêm file mới, không đụng file nào khác.
+
+> ⚠️ **Lỗi này còn ở ~19 chỗ khác trong `src/`** (danh sách + cách sửa: [T-31](../.claude/TASKS.md)). **Cố ý hoãn** — sát ngày demo, đổi 21 file để chữa một triệu chứng chỉ gặp ở màn Violation là rủi ro không đáng. Bản refactor gom về `src/utils/apiError.js` đã làm xong và **nằm trong `git stash`** của repo FE (`stash@{0}`, message *"T-31 full refactor (option 2) - backup 2026-07-29"*) — demo xong thì `git stash pop` rồi build lại.
+>
+> **Khi viết code mới:** đọc `err.response.data.detail` (**không** phải `.message`). Trong file `AdminViolationsPage.jsx` thì dùng `errorText`.
+
 ### ✅ Đã đóng 2026-07-29 — T-13…T-16 (dọn FE)
 
 | Mã | Đã làm |
