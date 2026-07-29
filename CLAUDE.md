@@ -771,6 +771,8 @@ server: {
 - `Position` là **mã hóa** (`-1` DNF, `-2` DQ) — luôn `decodePosition` trước khi sort/animate.
 - Ngựa DNF chỉ lộ (mờ + nhãn) **từ `dropoutTime`**, không phải từ giây 0.
 - `vite.config.js` phải giữ **`ws: true`** ở proxy `/api`, nếu không SignalR âm thầm tụt xuống long-polling.
+- 🆕 **Effect chọn phase trong `RaceReplayPlayer` phải so `legSignature`, không được chỉ dựa vào identity của `leg`** (sửa 2026-07-29). `useRaceLiveHub` gọi `setSnapshot` với JSON vừa nhận nên `leg` là object **mới** sau mỗi push SignalR / mỗi lần poll 30s. Trước đây effect chạy lại theo identity → rơi vào nhánh `alreadySeen` (autoplay đánh dấu `seen` ngay lúc bắt đầu đếm ngược) → `seek(RACE_DURATION_S)` + `phase = 'finished'` ⇒ **replay đang chạy bị cắt ngang, ngựa nhảy phắt về đích**. Replay dài 29s mà poll 30s nên gần như lần nào cũng bị cắt, ở một điểm ngẫu nhiên.
+- 🆕 **`visibilitychange` chỉ skip tới cuối khi vắng mặt ≥ `HIDDEN_SKIP_MS` (5s)** (sửa cùng đợt). Trước đây skip vô điều kiện: liếc sang cửa sổ khác một giây là mất replay. Vòng lặp rAF vốn đã đóng băng đồng hồ khi `document.hidden` nên vắng ngắn thì chạy tiếp chỗ cũ mới đúng.
 - Bảng `standings` từ `GetRaceLive` là **tạm tính** (không xử lý DQ, không tie-break chặng cuối) — BE yêu cầu FE gắn nhãn rõ.
 
 **Payload `GET /api/races/{id}/live` (cũng là payload push SignalR) — cập nhật 2026-07-25 sau revert BE**

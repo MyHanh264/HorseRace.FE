@@ -17,6 +17,9 @@ const LANE_H = 66
 const TOP_PAD = 34
 const BOTTOM_PAD = 20
 
+// Số đoạn chia cột mốc trên đường đua (START · 1/5 … 4/5 · FINISH).
+const MARKER_SEGMENTS = 5
+
 /**
  * Đường đua SVG. Nhận `progress` (0→1) cho từng entry và chỉ lo phần hình ảnh:
  * lane, camera, vạch đích, cột tên. Không chứa logic mô phỏng.
@@ -87,14 +90,14 @@ export default function RaceTrack({
       {/* ── Vùng đường đua (trượt theo camera) ── */}
       <g clipPath="url(#trackClip)">
         <g transform={`translate(${-cameraX},0)`}>
-          {/* Cột mốc mỗi 1/8 quãng đường */}
-          {Array.from({ length: 9 }, (_, i) => {
-            const x = START_X + (i / 8) * WORLD_LEN
+          {/* Cột mốc mỗi 1/5 quãng đường */}
+          {Array.from({ length: MARKER_SEGMENTS + 1 }, (_, i) => {
+            const x = START_X + (i / MARKER_SEGMENTS) * WORLD_LEN
             return (
               <g key={`m${i}`}>
                 <line x1={x} y1={TOP_PAD - 12} x2={x} y2={height - BOTTOM_PAD} stroke="#ffffff" strokeOpacity="0.05" />
                 <text x={x + 5} y={TOP_PAD - 16} fontSize="10" fill="#6f7a71" fontFamily="'JetBrains Mono Variable', monospace">
-                  {i === 0 ? 'START' : i === 8 ? 'FINISH' : `${i}/8`}
+                  {i === 0 ? 'START' : i === MARKER_SEGMENTS ? 'FINISH' : `${i}/${MARKER_SEGMENTS}`}
                 </text>
               </g>
             )

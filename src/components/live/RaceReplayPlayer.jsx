@@ -14,6 +14,9 @@ const COUNTDOWN_S = 3
 // Chỉ tự phát khi leg vừa chốt xong. Bỏ điều kiện này thì mở một race cũ sẽ
 // phát lại leg 1 từ tuần trước như thể nó vừa diễn ra.
 const AUTOPLAY_WINDOW_MS = 2 * 60 * 1000
+// Rời tab lâu hơn ngần này thì quay lại nhảy thẳng tới kết quả; ngắn hơn thì
+// chạy tiếp chỗ cũ (đồng hồ đã đóng băng sẵn trong lúc tab ẩn).
+const HIDDEN_SKIP_MS = 5000
 
 function prefersReducedMotion() {
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
@@ -65,6 +68,7 @@ export default function RaceReplayPlayer({ raceId, leg, entries, highlightEntryI
   const clockRef = useRef(0)
   const seenRef = useRef(loadSeen(raceId))
   const reduced = useRef(prefersReducedMotion())
+  const hiddenAtRef = useRef(0)
 
   // Đồng hồ sống ở cả ref (vòng lặp rAF đọc/ghi) lẫn state (để render). Luôn đổi
   // qua hàm này để hai nơi không lệch nhau.
@@ -83,6 +87,20 @@ export default function RaceReplayPlayer({ raceId, leg, entries, highlightEntryI
   const legNumber = leg?.legNumber
   const isConfirmed = Boolean(leg?.isConfirmed)
   const results = useMemo(() => leg?.results ?? [], [leg])
+
+  // Chữ ký của những gì máy trạng thái bên dưới thực sự quan tâm ở `leg`.
+  //
+  // BẮT BUỘC phải có: `useRaceLiveHub` gọi `setSnapshot` với JSON vừa nhận được, nên
+  // sau MỖI lần SignalR push hoặc poll dự phòng 30s, `leg` là một object MỚI dù nội
+  // dung y hệt. Effect chọn trạng thái phía dưới có `leg` trong deps ⇒ chạy lại, rơi
+  // vào nhánh `alreadySeen` (autoplay đã đánh dấu seen ngay lúc bắt đầu đếm ngược)
+  // ⇒ `seek(RACE_DURATION_S)` + `setPhase('finished')` ⇒ replay đang chạy bị cắt
+  // ngang, đàn ngựa nhảy phắt về vạch đích. Replay dài 29s (3s đếm ngược + 26s đua)
+  // mà poll 30s nên gần như lần nào cũng bị cắt, ở một điểm ngẫu nhiên.
+  const legSignature = leg
+    ? [leg.legNumber, leg.isConfirmed, leg.isConflicted, leg.startedAt, leg.confirmedAt].join('|')
+    : null
+  const appliedSignatureRef = useRef(null)
 
   // Quỹ đạo chỉ dựng lại khi leg hoặc kết quả thật sự đổi.
   const trajectory = useMemo(() => {
@@ -114,6 +132,10 @@ export default function RaceReplayPlayer({ raceId, leg, entries, highlightEntryI
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!leg) return
+
+    // Snapshot mới nhưng leg không đổi gì → giữ nguyên phase đang chạy.
+    if (appliedSignatureRef.current === legSignature) return
+    appliedSignatureRef.current = legSignature
 
     if (leg.isConflicted) {
       setPhase('conflicted')
@@ -149,7 +171,7 @@ export default function RaceReplayPlayer({ raceId, leg, entries, highlightEntryI
     }
 
     setPhase('waiting')
-  }, [leg, isConfirmed, raceId, seek])
+  }, [leg, legSignature, isConfirmed, raceId, seek])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // ─── Vòng lặp animation ─────────────────────────────────────────────────────
@@ -196,20 +218,30 @@ export default function RaceReplayPlayer({ raceId, leg, entries, highlightEntryI
     return () => cancelAnimationFrame(rafRef.current)
   }, [phase, speed])
 
-  // Quay lại tab giữa lúc đang phát → nhảy thẳng tới kết quả thay vì phát lại
-  // một cuộc đua đã cũ.
+  // Rời tab lâu rồi quay lại → nhảy thẳng tới kết quả thay vì xem nốt một cuộc đua
+  // đã cũ. Trước đây nhảy VÔ ĐIỀU KIỆN, nên chỉ cần liếc sang cửa sổ khác một giây
+  // (hoặc điện thoại khóa màn hình rồi mở lại) là replay đang chạy chết ngay giữa
+  // chừng. Vòng lặp rAF vốn đã đóng băng đồng hồ khi `document.hidden`, nên vắng mặt
+  // ngắn thì chạy tiếp đúng chỗ cũ là hành vi đúng.
   useEffect(() => {
-    const onVisible = () => {
-      if (document.hidden) return
+    const onVisibility = () => {
+      if (document.hidden) {
+        hiddenAtRef.current = Date.now()
+        return
+      }
+
       setNowMs(Date.now())
+      const awayMs = hiddenAtRef.current ? Date.now() - hiddenAtRef.current : 0
+      hiddenAtRef.current = 0
+
       const p = phaseRef.current
-      if (p === 'running' || p === 'countdown') {
+      if ((p === 'running' || p === 'countdown') && awayMs >= HIDDEN_SKIP_MS) {
         seek(RACE_DURATION_S)
         setPhase('finished')
       }
     }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
   }, [seek])
 
   // Đồng hồ đếm khi leg đang chạy.
