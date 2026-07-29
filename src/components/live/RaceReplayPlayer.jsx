@@ -367,17 +367,6 @@ export default function RaceReplayPlayer({ raceId, leg, entries, highlightEntryI
           </div>
         )}
 
-        {/* Lớp phủ khi đang đua — lý do vì sao chưa có thứ hạng */}
-        {phase === 'pack' && (
-          <div className="absolute inset-x-0 bottom-0 px-4 py-2.5 bg-gradient-to-t from-surface-container-lowest via-surface-container-lowest/85 to-transparent">
-            <p className="text-xs text-amber-400 flex items-center gap-2">
-              <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
-              Racing — rankings only appear once <strong>both referees</strong> submit matching results.
-              Horse positions on screen right now <strong>do not reflect</strong> the real order.
-            </p>
-          </div>
-        )}
-
         {phase === 'waiting' && (
           <div className="absolute inset-0 flex items-center justify-center bg-surface-container-lowest/60">
             <p className="text-sm text-on-surface-variant">Leg hasn't started</p>
@@ -398,6 +387,20 @@ export default function RaceReplayPlayer({ raceId, leg, entries, highlightEntryI
       </div>
 
       {/* ── Nhãn trung thực + bảng kết quả ── */}
+      {/* Đang đua: giải thích vì sao chưa có thứ hạng. Đặt DƯỚI đường đua chứ không
+          overlay lên track — overlay che mất ngựa ở lane cuối. */}
+      {phase === 'pack' && (
+        <div className="px-4 py-2.5 border-t border-outline-variant/40 bg-amber-500/[0.06]">
+          <p className="text-xs text-amber-400/90 flex items-start gap-2 leading-relaxed">
+            <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+            <span>
+              Racing — rankings only appear once <strong>both referees</strong> submit matching results.
+              Horse positions on screen right now <strong>do not reflect</strong> the real order.
+            </span>
+          </p>
+        </div>
+      )}
+
       {(phase === 'running' || phase === 'finished') && (
         <div className="px-4 py-2 border-t border-outline-variant/40">
           <p className="text-[11px] text-on-surface-variant">
