@@ -23,14 +23,8 @@ export async function getPredictionDetail(predictionId) {
   return res.data
 }
 
-// Bảng xếp hạng cược — CHỈ số liệu tổng hợp mỗi khán giả (rank, tên, số lệnh, thắng,
-// win rate, tổng đặt, tổng thắng). Không có lệnh cược lẻ nào trong response.
-// Trước đây trang Leaderboard tải cả `GET /api/predictions` về rồi tự gom; BE nay giới hạn
-// endpoint đó về "chỉ cược của mình" nên phải dùng nguồn tổng hợp này.
-export async function getSpectatorBettingLeaderboard() {
-  const res = await api.get('/api/leaderboards/spectators')
-  return Array.isArray(res.data) ? res.data : []
-}
+// NOTE: `getSpectatorBettingLeaderboard` (GET /api/leaderboards/spectators) đã gỡ 2026-07-29
+// cùng trang `LeaderboardPage` của Spectator. Endpoint BE vẫn còn nhưng không ai gọi.
 
 // ─── Cược race-level (Flow 7) ───────────────────────────────────────────────
 // Spectator cược 1 Entry về 1st của cả Race.
@@ -116,8 +110,8 @@ export async function getWalletTransactions() {
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
-// NOTE: `getAllUsers` (GET /api/users?pageSize=1000) đã gỡ. Chỗ duy nhất dùng nó là
-// `LeaderboardPage` — chỉ để tra tên theo `spectatorId` — nay tên đã đi kèm trong
-// `GET /api/leaderboards/spectators`. Kéo cả bảng user về phía Spectator là thừa và lộ
-// email/SĐT của mọi người: `GET /api/users` chỉ có class-level `[Authorize]`, không khóa role.
+// NOTE: `getAllUsers` (GET /api/users?pageSize=1000) đã gỡ. Chỗ duy nhất từng dùng nó là
+// `LeaderboardPage` — chỉ để tra tên theo `spectatorId` — và trang đó nay cũng đã bị xóa.
+// Kéo cả bảng user về phía Spectator là thừa và lộ email/SĐT của mọi người:
+// `GET /api/users` chỉ có class-level `[Authorize]`, không khóa role.
 // (Bản thân endpoint đó vẫn mở cho mọi role — vấn đề BE riêng, xem T-26 trong .claude/TASKS.md.)

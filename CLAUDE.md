@@ -93,7 +93,6 @@ HorseRace.FE/
 │   │   │   ├── LiveRaceDetailPage.jsx
 │   │   │   ├── MyPredictionsPage.jsx
 │   │   │   ├── PointWalletPage.jsx
-│   │   │   ├── LeaderboardPage.jsx
 │   │   │   └── SpectatorProfilePage.jsx
 │   │   ├── jockey/          # Jockey pages
 │   │   │   ├── JockeyDashboard.jsx
@@ -193,7 +192,6 @@ Routes được định nghĩa trong `src/App.jsx` sử dụng React Router v7:
       <Route path="live/:raceId" element={<LiveRaceDetailPage />} />
       <Route path="predictions" element={<MyPredictionsPage />} />
       <Route path="wallet" element={<PointWalletPage />} />
-      <Route path="leaderboard" element={<LeaderboardPage />} />
       <Route path="profile" element={<SpectatorProfilePage />} />
     </Route>
 
@@ -322,7 +320,7 @@ api.interceptors.response.use(
 |------|-----------|
 | `auth.js` | `loginUser`, `registerUser`, `logoutUser`, `getMyProfile`, `refreshAuthToken`, `forgotPassword`, `resetPassword` |
 | `admin.js` | User/horse/entry management, points, discrepancies, violations |
-| `spectator.js` | Predictions, wallet, leaderboard |
+| `spectator.js` | Predictions, wallet |
 | `referee.js` | Race execution, leg submission, violations |
 | `jockey.js` | Profile, invitations, races |
 | `horseOwner.js` | Horses, entries, invitations, tournaments |
@@ -467,7 +465,6 @@ return (
 | `LiveRaceDetailPage` | Theo dõi trực tiếp + mô phỏng đua (SignalR) |
 | `MyPredictionsPage` | Lịch sử predictions |
 | `PointWalletPage` | Quản lý ví điểm |
-| `LeaderboardPage` | Bảng xếp hạng — dùng `GET /api/leaderboards/spectators` |
 
 ### Jockey Pages
 | Page | Mô tả |
@@ -687,7 +684,7 @@ server: {
 | **`RacesBettingPage`** | `bettingOpen = race.status === 'Scheduled' && raceOdds.oddsComputedAt != null && raceStatus === 'scheduled'`. Nút **Cancel Bet** dùng chung `bettingOpen`. `Est. Payout = betAmount × odds` **giữ nguyên** |
 | **`JockeyRacesPage`** | `publishedOdds` → `odds` (cả entry của nài lẫn danh sách contenders). `oddsLocked = !!race.oddsComputedAt` **giữ nguyên** — trang này vốn chưa từng migrate sang `oddsPublishedAt` nên nay lại thành đúng |
 
-**Không phải sửa** (đã rà): `LiveRaceDetailPage`/`LiveRacesPage`/`components/live/*`/`useRaceLiveHub`/`raceSim` không đọc `odds`; `MyPredictionsPage`/`SpectatorDashboard` đọc `oddsLocked1` — **field này không đổi**; `PointWalletPage`/`LeaderboardPage` không đụng odds.
+**Không phải sửa** (đã rà): `LiveRaceDetailPage`/`LiveRacesPage`/`components/live/*`/`useRaceLiveHub`/`raceSim` không đọc `odds`; `MyPredictionsPage`/`SpectatorDashboard` đọc `oddsLocked1` — **field này không đổi**; `PointWalletPage` không đụng odds.
 
 **Trạng thái:** `npm run build` **pass**. `npx eslint src` = 79 vấn đề — **mức nền có sẵn của repo** (39 `no-unused-vars` rải khắp nơi + các rule `react-hooks/*` là idiom chung của codebase), không phải do đợt này; 2 unused-vars còn lại trong `RefereeAssignedRacesPage` (`userMap` prop, `horseMap`) là nợ có từ trước, không nằm trong phạm vi đợt.
 
@@ -702,6 +699,24 @@ server: {
 | `d421935` *fix delete button report…* | Gỡ nút **"Report Emergency"** giả trong `RefereeLayout`; chỉnh `useRefereeNotifications` |
 
 **Ghi chú kiến trúc:** để hiện "Admin đã xử tranh chấp thế nào", FE dùng **`GET /api/legs/{raceId}/{legNumber}`** (`getLegDetail`, `LegsController` cho cả REFEREE lẫn ADMIN) — nó chỉ trả **quyết định cuối cùng** (`adminOverrideReason`, `confirmedAt`, `confirmationType`), không lộ bản nhập blind của trọng tài kia. Đây là lựa chọn có chủ đích, giữ Blind Double-Entry.
+
+### 🗑 2026-07-29 — Gỡ Leaderboard của Spectator và Horse Owner
+
+Theo yêu cầu: bỏ hẳn trang bảng xếp hạng ở **2 role**. **Leaderboard của Jockey giữ nguyên.**
+
+| Bỏ | Chi tiết |
+|---|---|
+| 2 trang | `pages/spectator/LeaderboardPage.jsx` · `pages/horse-owner/HorseOwnerLeaderboardPage.jsx` |
+| 2 route | `/spectator/leaderboard` · `/horse-owner/leaderboard` (+ 2 import trong `App.jsx`) |
+| 2 mục sidebar | `SpectatorLayout` · `HorseOwnerLayout` (+ icon `BarChart2` nay không còn dùng ở 2 file đó) |
+| 2 helper API mồ côi | `getSpectatorBettingLeaderboard` (`api/spectator.js`) · `getCareerLeaderboard` (`api/horseOwner.js`) — thay bằng NOTE ghi rõ đã gỡ, theo đúng cách T-14 đã làm |
+| 1 câu chữ sai | `SpectatorProfilePage`: *"Display Name is visible on the leaderboard"* — không còn leaderboard để hiện |
+
+⚠️ **`getCareerLeaderboard` của Jockey (`api/jockey.js`) KHÔNG đụng tới** — cùng gọi `GET /api/leaderboards/career`, chỉ khác tham số `role`. Xóa nhầm là vỡ `JockeyLeaderboardPage`.
+
+🟡 **Phía BE chưa gỡ gì.** `GET /api/leaderboards/spectators` nay **không ai gọi** (nó chỉ sinh ra để phục vụ đúng trang vừa xóa) — ghi nhận ở [TASKS.md](../.claude/TASKS.md), cố ý chưa xóa để khỏi phải build/deploy lại BE sát ngày demo. `GET /api/leaderboards/career` vẫn dùng (role JOCKEY).
+
+**Verify:** `npm run build` pass · `npx eslint src` = **78**, đúng bằng baseline đo trên HEAD.
 
 ### 🆕 2026-07-29 — `AdminViolationsPage` nuốt mất message lỗi của BE (T-31, **vá cục bộ**)
 
@@ -740,12 +755,12 @@ server: {
 `GET /api/point-wallets`, `/api/wallet-transactions`, `/api/predictions` (list **và** `/{id}`) nay chỉ trả dữ liệu **của chính người gọi** (ADMIN vẫn thấy tất cả). Trước đây chúng trả toàn bộ bảng và FE tự lọc — tức mọi khán giả đọc được ví & lệnh cược của người khác.
 - `getMyWallet` / `getMyPredictions` / `getWalletTransactions` **giữ nguyên** — phần lọc client-side nay là no-op vô hại, cứ để lại làm lớp phòng thủ.
 - ⚠️ **Đừng viết trang nào dựa vào việc các endpoint này trả dữ liệu người khác.** Cần số liệu nhiều người → dùng endpoint tổng hợp.
-- `LeaderboardPage` đã chuyển sang **`GET /api/leaderboards/spectators`** (`getSpectatorBettingLeaderboard`) — trả sẵn `rank/fullName/totalBets/wonBets/winRate/totalStaked/totalWinnings`, không còn tự gom từ `/api/predictions` và không còn gọi `getAllUsers`.
+- ~~`LeaderboardPage` đã chuyển sang `GET /api/leaderboards/spectators`~~ — **trang này đã bị xóa 2026-07-29** cùng leaderboard của Horse Owner (xem mục ngay dưới). `getAllUsers` cũng đã gỡ từ trước và không quay lại.
 
 ### 🔗 Endpoint BE có sẵn nhưng FE chưa nối
 > Rà lại 2026-07-26. **Đã nối rồi** (bỏ khỏi danh sách này): `GET /api/jockeys/search` → `getJockeys` trong `api/horseOwner.js`; `POST /api/horses/{id}/resubmit` → `MyHorsesPage` + `HorseDetailPage`.
 - `GET`/`PUT /api/admin/points/{userId}` (xem ví + 20 giao dịch gần nhất / đặt thẳng số dư).
-- `GET /api/leaderboards/tournament/{tournamentId}` (chỉ `career` + `spectators` đang được dùng).
+- `GET /api/leaderboards/tournament/{tournamentId}` và **`GET /api/leaderboards/spectators`** — nay chỉ còn `career` được dùng (trang leaderboard của Spectator + Horse Owner đã gỡ 2026-07-29).
 - `POST /api/admin/points/daily-topup` (nạp bù ví < 10 điểm lên 10 — chỉ trigger thủ công).
 - `GET /api/admin/races/{id}/publication-review` — trả `pendingViolationCount` + `hasUnresolvedTie`. ⚠️ BE **không còn** chặn Publish khi còn vi phạm Pending, nên nếu muốn khóa nút Publish thì FE phải tự dùng cờ này.
 - `GET /api/races/{id}/pause?legNumber=n` **cho REFEREE** (leg đã `Resolved`) — mới 2026-07-26, FE đang dùng `getLegDetail` thay thế.

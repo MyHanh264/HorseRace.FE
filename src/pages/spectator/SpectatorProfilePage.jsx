@@ -367,8 +367,8 @@ export default function SpectatorProfilePage() {
             {/* Info box */}
             <div className="p-4 rounded-xl bg-secondary/5 border border-secondary/20">
               <p className="text-xs text-on-surface-variant leading-relaxed">
-                Your <span className="text-on-surface font-semibold">Display Name</span> is visible on the leaderboard.
-                Keep it updated to stand out among other spectators.
+                Your <span className="text-on-surface font-semibold">Display Name</span> is what other
+                roles see next to your activity. Keep it up to date.
               </p>
             </div>
 

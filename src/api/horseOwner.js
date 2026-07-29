@@ -5,12 +5,9 @@ export async function getRaceResults() {
   return Array.isArray(res.data) ? res.data : [];
 }
 
-// GET /api/leaderboards/career?role=HORSE_OWNER — same endpoint jockey.js's
-// getCareerLeaderboard uses, just role-filtered for owners instead.
-export async function getCareerLeaderboard(role) {
-  const res = await api.get("/api/leaderboards/career", { params: role ? { role } : {} });
-  return Array.isArray(res.data) ? res.data : [];
-}
+// NOTE: `getCareerLeaderboard` (GET /api/leaderboards/career?role=HORSE_OWNER) đã gỡ 2026-07-29
+// cùng trang `HorseOwnerLeaderboardPage`. Bản dùng cho Jockey vẫn còn ở `api/jockey.js` —
+// cùng một endpoint BE, chỉ khác tham số `role`.
 
 // Standings has HorseName/JockeyName embedded — needed because /api/entries only returns
 // this owner's own rows for HORSE_OWNER (BE scopes it), so it can't be used to see competitors.

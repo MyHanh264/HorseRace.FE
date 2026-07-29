@@ -1,7 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import {
   LayoutDashboard, Target, BookOpen, Wallet,
-  BarChart2, User, LogOut, Radio,
+  User, LogOut, Radio,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import NotificationBell from '../NotificationBell'
@@ -14,7 +14,6 @@ const navItems = [
   { to: '/spectator/live',        label: 'Live Race',       icon: Radio },
   { to: '/spectator/predictions', label: 'My Predictions',  icon: BookOpen },
   { to: '/spectator/wallet',      label: 'Point Wallet',    icon: Wallet },
-  { to: '/spectator/leaderboard', label: 'Leaderboard',     icon: BarChart2 },
   { to: '/spectator/profile',     label: 'Profile',         icon: User },
 ]
 
