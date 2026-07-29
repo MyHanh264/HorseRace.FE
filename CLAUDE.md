@@ -53,6 +53,7 @@ HorseRace.FE/
 │   │   │   ├── RaceTrack.jsx
 │   │   │   ├── HorseSprite.jsx
 │   │   │   └── RaceReplayPlayer.jsx
+│   │   ├── OddsBoardModal.jsx     # Bảng odds READ-ONLY cho Admin (3 trang admin dùng chung)
 │   │   ├── AuthSessionSync.jsx    # Sync auth state with tab
 │   │   ├── RequireRole.jsx        # Role-based route guard
 │   │   ├── NotificationBell.jsx   # Dropdown chuông thông báo (mọi role)
@@ -104,7 +105,6 @@ HorseRace.FE/
 │   │   │   ├── RefereeAssignedRacesPage.jsx
 │   │   │   ├── RefereeRaceDashboard.jsx
 │   │   │   ├── LegSubmissionPage.jsx
-│   │   │   ├── RefereeDashboard.jsx        # ⚠️ MỒ CÔI — không import ở đâu
 │   │   │   ├── RefereeViolationsPage.jsx
 │   │   │   └── RefereeProfilePage.jsx
 │   │   ├── horse-owner/     # Horse owner pages
@@ -487,7 +487,7 @@ return (
 | `RefereeViolationsPage` | Report violations |
 | `RefereeProfilePage` | Profile — lưu qua `PUT /api/auth/profile` (T-24) |
 | ~~`RefereeResultEntryPage`~~ | **Đã xóa** cùng route `/referee/result-entry` |
-| `RefereeDashboard` | ⚠️ File tồn tại nhưng **không được import ở đâu** (mồ côi) |
+| ~~`RefereeDashboard`~~ | **Đã xóa** 2026-07-29 (mồ côi — T-16) |
 
 ### Horse Owner Pages
 | Page | Mô tả |
@@ -668,26 +668,28 @@ server: {
 - **Audit trail** — `AdminAuditLogPage` + route `/admin/audit-log`, nối `GET /api/admin/review-history`.
 - **Race:** form Tạo/Sửa Race gửi **`scheduledEndTime`** (ISO, bắt buộc — thiếu → 400). BE chống trùng lịch trả lỗi ở `error.response.data.detail`.
 - **Live Race:** `GET /api/races/{id}/live` + SignalR; replay dùng `startedAt`/`confirmedAt` (không còn `executionStatus`).
-- **Đặt cược:** `POST /api/predictions/races/{raceId}` body **`{ entryId, betAmount }`** — ⚠️ tên field phải đúng `entryId` (ASP.NET Core bind case-insensitive nhưng **không** đồng nghĩa; `FirstEntryId` từng làm hỏng cả tính năng — T-23). Odds khóa vào lệnh = `entry.publishedOdds`, đúng bằng số hiện trên bảng.
+- **Đặt cược:** `POST /api/predictions/races/{raceId}` body **`{ entryId, betAmount }`** — ⚠️ tên field phải đúng `entryId` (ASP.NET Core bind case-insensitive nhưng **không** đồng nghĩa; `FirstEntryId` từng làm hỏng cả tính năng — T-23). Odds khóa vào lệnh = `entry.odds`, đúng bằng số hiện trên bảng.
 
-### 🆕 Đợt 2026-07-28 — ODDS HAI TẦNG + KHÓA CƯỢC
+### 🆕 Đợt 2026-07-28 (đợt 2) — ODDS RÚT VỀ **MỘT CON SỐ TĨNH**
 
-**Component mới: `src/components/OddsManagementModal.jsx`** — modal Admin điều chỉnh odds sau khi đóng đăng ký. Nối 4 endpoint mới trong `api/admin.js`: `getRaceOddsBoard` · `updateRaceOdds` · `publishRaceOdds` · `lockRaceBetting`. Nhúng ở **cả 3 trang** có bảng entry (`AdminRacesPage`, `AdminRaceExecutionPage`, `AdminRaceEntriesPage`) qua nút **Manage Odds** trong banner "Registration Closed".
+> ⚠️ Đợt này **thay thế hoàn toàn** mô hình "odds hai tầng + khóa cược" ban hành sáng cùng ngày (mô tả cũ đã gỡ khỏi file này). Mọi thứ liên quan tới `publishedOdds` · `suggestedOdds` · `oddsPublishedAt` · `bettingLockedAt` · `isBettingOpen` · `canEdit` · `houseMarginPercent` đều **không còn tồn tại ở cả BE lẫn FE**.
 
-**Hai cột odds thay cho một cột "Base Odds"** ở cả 3 trang admin:
-- **Suggested** = `entry.currentOdds` (`Entry.Odds`) — giá máy tính, **nội bộ**.
-- **Published** = `entry.publishedOdds` (`Entry.PublishedOdds`) — **giá spectator thật sự cược**, mặc định = suggested − 10%.
+**Mô hình:** đóng đăng ký sinh **một** con số `odds` cho mỗi ngựa (máy tính từ lịch sử thắng), rồi giữ nguyên tới hết cuộc đua. Không biên nhà cái, không ai sửa được, mọi role nhìn cùng một số — và đó cũng là số khóa vào lệnh cược. **Cửa cược mở ngay khi đóng đăng ký, tự đóng khi race start.**
 
-**Trang cược của Spectator (`RacesBettingPage`) — đã hết cảnh "bảng 4.00x, khóa 2.00x":**
-- `getRaceOdds(raceId)` **bỏ tham số `betAmount`**; response mỗi entry chỉ còn **`odds`** (thay `baseOdds`/`currentOdds`/`effectiveOdds` — cả ba **không còn tồn tại**).
-- Bỏ hẳn effect debounce 350ms hỏi lại giá theo số tiền — giá không phụ thuộc số tiền nữa. `Est. Payout = betAmount × odds`.
-- **Cửa cược mới:** `race.status === 'Scheduled' && raceOdds.oddsPublishedAt != null && raceOdds.bettingLockedAt == null`. ⚠️ **Đóng đăng ký KHÔNG còn tự mở cược** — Admin phải bấm Publish Odds. Nút Cancel Bet cũng ẩn khi đã khóa.
+| Thay đổi | Chi tiết |
+|---|---|
+| **`OddsManagementModal` → `OddsBoardModal`** | File cũ **đã xóa**. Bản mới `src/components/OddsBoardModal.jsx` là bảng **read-only** 5 cột (Gate · Horse/Jockey · Career 1st · Odds · Bets) — không ô nhập, không Save/Publish/Lock/Reset. Vẫn nhúng ở cả 3 trang admin, nút đổi tên **View Odds** |
+| **`api/admin.js`** | **Xóa** `updateRaceOdds`, `publishRaceOdds`, `lockRaceBetting`. Giữ mỗi `getRaceOddsBoard` |
+| **`api/referee.js`** | **Xóa** `lockRaceBetting` |
+| **3 trang admin** | Hai cột odds → **một cột `Odds`** đọc `entry.odds` (BE đổi tên `currentOdds` → `odds`, bỏ `publishedOdds`). `minOdds` (chip "Fav") đọc `odds`. Banner "Registration Closed" từ **3 trạng thái xuống 1 câu**. `regInfo` chỉ còn `oddsComputedAt` |
+| **Start Race** | Điều kiện **duy nhất** là `oddsComputedAt != null` (đăng ký đã đóng) — ở cả 3 trang admin lẫn `RefereeAssignedRacesPage`. Tooltip đổi thành *"Close registration first"* |
+| **`RefereeAssignedRacesPage`** | **Xóa nút "Lock Betting"** + state `bettingLockedAt`/`locking` + handler. Panel start nay nói rõ: *"Starting the race closes betting automatically"* |
+| **`RacesBettingPage`** | `bettingOpen = race.status === 'Scheduled' && raceOdds.oddsComputedAt != null && raceStatus === 'scheduled'`. Nút **Cancel Bet** dùng chung `bettingOpen`. `Est. Payout = betAmount × odds` **giữ nguyên** |
+| **`JockeyRacesPage`** | `publishedOdds` → `odds` (cả entry của nài lẫn danh sách contenders). `oddsLocked = !!race.oddsComputedAt` **giữ nguyên** — trang này vốn chưa từng migrate sang `oddsPublishedAt` nên nay lại thành đúng |
 
-**Start Race nay phụ thuộc `bettingLockedAt`:** cả 3 trang admin + `RefereeAssignedRacesPage` disable nút Start kèm tooltip khi chưa khóa cược (BE trả 400). Referee có nút **Lock Betting** riêng trong `RaceControlModal` (`lockRaceBetting` trong `api/referee.js`) — chặn họ ở bước này thì trận đấu kẹt chờ Admin.
+**Không phải sửa** (đã rà): `LiveRaceDetailPage`/`LiveRacesPage`/`components/live/*`/`useRaceLiveHub`/`raceSim` không đọc `odds`; `MyPredictionsPage`/`SpectatorDashboard` đọc `oddsLocked1` — **field này không đổi**; `PointWalletPage`/`LeaderboardPage` không đụng odds.
 
-**`raceRegMap`/`regInfo` ở 3 trang admin nay mang thêm `oddsPublishedAt` + `bettingLockedAt`** (BE thêm vào `GET /api/races`). Banner "Registration Closed" hiện luôn đang ở bước nào: *chưa publish odds* → *đã publish, cược mở* → *đã khóa cược, sẵn sàng start*.
-
-**`JockeyRacesPage`** đổi từ `currentOdds` sang `publishedOdds` — nài nên thấy đúng con số công khai, không phải giá đề xuất nội bộ của Admin.
+**Trạng thái:** `npm run build` **pass**. `npx eslint src` = 79 vấn đề — **mức nền có sẵn của repo** (39 `no-unused-vars` rải khắp nơi + các rule `react-hooks/*` là idiom chung của codebase), không phải do đợt này; 2 unused-vars còn lại trong `RefereeAssignedRacesPage` (`userMap` prop, `horseMap`) là nợ có từ trước, không nằm trong phạm vi đợt.
 
 ### 🆕 Đợt 2026-07-26 (5 commit: `9523820` → `d421935`)
 
@@ -701,11 +703,14 @@ server: {
 
 **Ghi chú kiến trúc:** để hiện "Admin đã xử tranh chấp thế nào", FE dùng **`GET /api/legs/{raceId}/{legNumber}`** (`getLegDetail`, `LegsController` cho cả REFEREE lẫn ADMIN) — nó chỉ trả **quyết định cuối cùng** (`adminOverrideReason`, `confirmedAt`, `confirmationType`), không lộ bản nhập blind của trọng tài kia. Đây là lựa chọn có chủ đích, giữ Blind Double-Entry.
 
-### ⚠️ Lệch FE↔BE cũ (vẫn còn)
-**Điều kiện xóa/hủy Race** — `AdminRacesPage.jsx`, `DeleteConfirmModal`:
-- FE cho phép xóa khi `status ∈ ['Scheduled', 'Cancelled', 'Finished']` (`CAN_DELETE_STATUSES`), kèm comment sai *"Soft-delete — BE handles the IsDeleted flag internally"*.
-- **BE thực tế:** `DELETE /api/races/{id}` là **soft-cancel** — chỉ chấp nhận khi `Status == Scheduled`, set `Status = Cancelled` **và cascade** Entry → `Withdrawn`, Invitation → `Cancelled`. **Không có** cột `IsDeleted` nào trong domain.
-- Hậu quả: bấm Delete trên race `Finished`/`Cancelled` → 400 *"Only scheduled races can be cancelled."* Xem [T-13](../.claude/TASKS.md).
+### ✅ Đã đóng 2026-07-29 — T-13…T-16 (dọn FE)
+
+| Mã | Đã làm |
+|---|---|
+| **T-13** | `AdminRacesPage.jsx` → `DeleteConfirmModal`: `CAN_DELETE_STATUSES` từ `['Scheduled','Cancelled','Finished']` về **`['Scheduled']`**, khớp BE (`DELETE /api/races/{id}` là **soft-cancel**, chỉ nhận `Scheduled`). Comment sai *"BE handles the IsDeleted flag internally"* thay bằng mô tả đúng: set `Status = Cancelled`, cascade Entry → `Withdrawn` + Invitation → `Cancelled` + **hoàn 100% điểm cược**; domain **không có** cột `IsDeleted`, và **không có** đường khôi phục |
+| **T-14** | Xóa **10 helper API mồ côi**: `api/admin.js` (`getUsersByStatus`, `getAllInvalidUser`, `getInvalidUserById`, `approveInvalidUser`, `rejectInvalidUser`, `getUserHistory`, `approveRace`, `rejectRace`, `finishRace`) + `api/referee.js` (`submitLegResult_legacy`). Verify 0 nơi gọi trước khi xóa; endpoint BE tương ứng vẫn còn |
+| **T-15** | `api/admin.js → getRacePauseInfo`: bỏ câu sai *"ADMIN-only per spec — Referee must NOT call this"*, thay bằng mô tả đúng (ADMIN + REFEREE được gán; referee **bắt buộc** `?legNumber=` và leg phải `Resolved`). Kèm sửa comment `getLegDetail` nói *"BE hasn't added Leg to ReviewHistory yet"* — BE đã thêm từ `5b65328` |
+| **T-16** | Xóa `src/pages/referee/RefereeDashboard.jsx` (mồ côi; khác `RefereeRaceDashboard.jsx` đang dùng thật) |
 
 ### 🆕 Hành vi BE mới cần biết khi làm UI (2026-07-26)
 - **Race tự hủy:** race `Scheduled` sẽ bị worker hủy khi qua `scheduledEndTime`, hoặc qua `scheduledStartTime` mà có < 2 entry `Pending`/`Approved`. UI nên chấp nhận việc một race đang xem đột ngột thành `Cancelled` sau lần refetch.
@@ -713,14 +718,11 @@ server: {
 - **Vi phạm sau khi Publish:** tạo/duyệt/từ chối/sửa vi phạm đều bị chặn khi race `Finished` (*"Race already published — unpublish it first."*) → nên disable nút thay vì để người dùng nhận 400.
 - **`GET /api/races/{id}/pause` nay REFEREE cũng gọi được** với `?legNumber=n` cho leg đã `Resolved`. FE hiện **chưa dùng** đường này (dùng `getLegDetail` thay thế) — nếu wire vào thì nhớ truyền `legNumber`.
 
-### 🟡 Dọn dẹp FE (không cần BE)
-- **10 helper mồ côi** (verify 2026-07-26, grep `src/pages` + `src/components` + `src/hooks` = 0 usage):
-  - `api/admin.js`: `getAllInvalidUser`, `getInvalidUserById`, `approveInvalidUser`, `rejectInvalidUser`, `getUserHistory`, `getUsersByStatus`, `approveRace`, `rejectRace`, `finishRace`.
-  - `api/referee.js`: `submitLegResult_legacy` (đã đánh dấu `@deprecated`).
-  - Các endpoint BE tương ứng (Task 12/13/14 cũ) cũng chưa page nào dùng → cân nhắc gỡ **cả 2 phía**.
-- **Comment lỗi thời:** `api/admin.js → getRacePauseInfo` ghi *"⚠️ ADMIN-only per spec — Referee must NOT call this"*. BE đã đổi (xem trên); câu này giờ mô tả sai contract, dễ khiến người sau kết luận nhầm.
-- **File mồ côi:** `src/pages/referee/RefereeDashboard.jsx` không được import ở đâu.
-- **Mock data còn lại:** `customer/Dashboard.jsx`, `customer/LandingDashboard.jsx` (landing tĩnh); `EditHorseModal` upload ảnh còn TODO (BE chưa có endpoint upload).
+### 🟡 Dọn dẹp FE còn lại
+> T-14/T-15/T-16 **đã làm xong** 2026-07-29 (xem bảng ở trên). Còn lại:
+- **Mock data:** `customer/Dashboard.jsx`, `customer/LandingDashboard.jsx` (landing tĩnh); `EditHorseModal` upload ảnh còn TODO (BE chưa có endpoint upload).
+- **Unused vars có sẵn** ở `RefereeAssignedRacesPage.jsx`: prop `userMap` truyền vào `RaceControlModal` nhưng không dùng, `horseMap` set mà không đọc.
+- Nhóm endpoint BE tương ứng với 10 helper vừa xóa (`/api/admin/users/invalid/*`, `/api/admin/races/{id}/approve|reject|finish`, `/api/admin/users/{id}/history`) **vẫn còn ở `AdminController`** và chưa trang nào dùng → cân nhắc gỡ nốt phía BE.
 
 ### 🔒 Scope dữ liệu cá nhân (BE đã siết 2026-07-26 — T-25)
 `GET /api/point-wallets`, `/api/wallet-transactions`, `/api/predictions` (list **và** `/{id}`) nay chỉ trả dữ liệu **của chính người gọi** (ADMIN vẫn thấy tất cả). Trước đây chúng trả toàn bộ bảng và FE tự lọc — tức mọi khán giả đọc được ví & lệnh cược của người khác.

@@ -15,7 +15,7 @@ import {
 import api from '../../services/api'
 import { validateOverrideReason } from '../../utils/validation'
 import RaceResultsModal from '../../components/RaceResultsModal'
-import OddsManagementModal from '../../components/OddsManagementModal'
+import OddsBoardModal from '../../components/OddsBoardModal'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -415,11 +415,15 @@ function RaceModal({ race, tournaments, users, allRaces, selectedTournamentId, o
 }
 
 // ─── Delete Confirm Modal ──────────────────────────────────────────────────────
-// Soft-delete — BE handles the IsDeleted flag internally.
-// No reason required since this is reversible (admin can ask BE to restore).
+// Soft-cancel, KHÔNG phải xóa: BE set Status = Cancelled và cascade Entry → Withdrawn,
+// JockeyInvitation → Cancelled, đồng thời hoàn 100% điểm cược đang treo. Domain không có
+// cột IsDeleted nào, và không có đường khôi phục — race đã Cancelled là chốt.
+//
+// BE chỉ nhận race còn `Scheduled` (`CancelRaceAsync`); mọi status khác trả 400
+// "Only scheduled races can be cancelled." nên danh sách dưới phải khớp đúng một giá trị.
 
 function DeleteConfirmModal({ race, entryCount, onClose, onConfirm, submitting, error }) {
-  const CAN_DELETE_STATUSES = ['Scheduled', 'Cancelled', 'Finished']
+  const CAN_DELETE_STATUSES = ['Scheduled']
   const canDelete = CAN_DELETE_STATUSES.includes(race.status)
 
   return (
@@ -623,7 +627,7 @@ export default function AdminRacesPage() {
   const [regLoading, setRegLoading] = useState(null) // raceId currently being processed
   // raceId → { registrationOpenAt, registrationCloseAt } from the list endpoint (detail endpoint is missing these 2 fields)
   const [raceRegMap, setRaceRegMap] = useState({})
-  // Race đang mở modal điều chỉnh odds (Flow 3+7).
+  // Race đang mở bảng odds (Flow 3+7) — chỉ để xem.
   const [oddsRace, setOddsRace] = useState(null)
 
   const buildRegMap = (raceList) => {
@@ -632,10 +636,9 @@ export default function AdminRacesPage() {
       map[r.raceId] = {
         registrationOpenAt:  r.registrationOpenAt  ?? null,
         registrationCloseAt: r.registrationCloseAt ?? null,
-        // Flow 7: đóng đăng ký ≠ mở cược. Cửa cược chỉ mở khi Admin publish odds, và đóng
-        // lại khi Admin khóa cược (điều kiện bắt buộc để Start Race).
-        oddsPublishedAt:     r.oddsPublishedAt     ?? null,
-        bettingLockedAt:     r.bettingLockedAt     ?? null,
+        // Flow 7: đóng đăng ký = sinh odds = MỞ CƯỢC luôn, và cũng là điều kiện duy nhất để
+        // Start Race. Cược tự đóng khi race xuất phát — không có bước bấm tay nào.
+        oddsComputedAt:      r.oddsComputedAt      ?? null,
       }
     })
     return map
@@ -1337,7 +1340,7 @@ export default function AdminRacesPage() {
     : 'text-on-surface-variant'
 
   const approvedActiveCount = raceEntries.filter(e => e.status === 'Approved').length
-  const minOdds = Math.min(...raceEntries.filter(e => e.currentOdds).map(e => e.currentOdds))
+  const minOdds = Math.min(...raceEntries.filter(e => e.odds).map(e => e.odds))
   const fmtDate = (s) => {
     if (!s) return '—'
     const d = new Date(s)
@@ -1355,34 +1358,25 @@ export default function AdminRacesPage() {
         <ArrowLeft className="w-4 h-4" /> Back to Race Management
       </button>
 
-      {/* Closed banner — đóng đăng ký mới chỉ TÍNH giá đề xuất; spectator chưa thấy gì cho
-          tới khi Admin publish odds. */}
+      {/* Closed banner — đóng đăng ký là sinh odds và mở cược luôn. */}
       {isRegClosed && (
         <div className="flex items-center gap-2.5 bg-amber-500/10 border border-amber-500/25 rounded-xl px-5 py-3 mb-5 text-amber-400 text-sm font-semibold">
           <Lock className="w-4 h-4 shrink-0" />
-          <span>
-            Registration Closed ·{' '}
-            {regInfo.bettingLockedAt
-              ? 'Betting locked — ready to start'
-              : regInfo.oddsPublishedAt
-                ? 'Odds published — betting open'
-                : 'Odds not published yet — spectators cannot bet'}
-          </span>
+          <span>Registration Closed · Odds locked in — betting is open until the race starts</span>
           <button
             onClick={() => setOddsRace(activeRace)}
             className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold transition-all"
           >
-            <TrendingUp size={12} /> Manage Odds
+            <TrendingUp size={12} /> View Odds
           </button>
         </div>
       )}
 
       {oddsRace && (
-        <OddsManagementModal
+        <OddsBoardModal
           raceId={oddsRace.raceId}
           raceName={oddsRace.name}
           onClose={() => setOddsRace(null)}
-          onChanged={loadAll}
         />
       )}
 
@@ -1432,13 +1426,13 @@ export default function AdminRacesPage() {
                 Needs ≥2 approved entries ({approvedActiveCount} now)
               </p>
             )}
-            {/* Khóa cược là điều kiện BE ép trước khi start (Flow 7) — disable kèm lý do
-                thay vì để Admin bấm rồi nhận 400. */}
+            {/* Đóng đăng ký là điều kiện DUY NHẤT BE ép trước khi start (Flow 7) — disable kèm
+                lý do thay vì để Admin bấm rồi nhận 400. */}
             {isRegClosed && activeRace?.status === 'Scheduled' && (
               <button
                 onClick={() => handleStartRace(activeRace.raceId)}
-                disabled={regLoading === activeRace?.raceId || !regInfo.bettingLockedAt}
-                title={regInfo.bettingLockedAt ? '' : 'Lock betting first (Manage Odds → Lock Betting)'}
+                disabled={regLoading === activeRace?.raceId || !regInfo.oddsComputedAt}
+                title={regInfo.oddsComputedAt ? '' : 'Close registration first'}
                 className="gs-btn gs-btn-secondary flex items-center gap-2 px-5 py-2.5 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {regLoading === activeRace?.raceId
@@ -1515,13 +1509,9 @@ export default function AdminRacesPage() {
                   <th>Horse / Jockey</th>
                   <th>Owner</th>
                   <th>Submitted</th>
-                  {/* Hai cột odds: Suggested = giá máy tính (nội bộ), Published = giá spectator
-                      thật sự cược và bị khóa vào lệnh. */}
+                  {/* MỘT cột odds — cùng con số cho mọi role, khóa vào lệnh cược. */}
                   <th>
-                    <span className="flex flex-col leading-tight">Suggested<span className="text-[10px] font-normal text-on-surface-variant normal-case tracking-normal">{isRegClosed ? '(internal)' : '(calculated on close)'}</span></span>
-                  </th>
-                  <th>
-                    <span className={`flex flex-col leading-tight ${isRegClosed ? 'text-amber-400' : ''}`}>Published<span className="text-[10px] font-normal text-on-surface-variant normal-case tracking-normal">(spectators bet this)</span></span>
+                    <span className={`flex flex-col leading-tight ${isRegClosed ? 'text-amber-400' : ''}`}>Odds<span className="text-[10px] font-normal text-on-surface-variant normal-case tracking-normal">{isRegClosed ? '(spectators bet this)' : '(calculated on close)'}</span></span>
                   </th>
                   <th>Status</th>
                   {!isRegClosed && <th>Action</th>}
@@ -1531,7 +1521,7 @@ export default function AdminRacesPage() {
                 {raceEntries.map((entry, i) => {
                   const meta     = ENTRY_STATUS_META[entry.status] ?? ENTRY_STATUS_META.Pending
                   const isActing = entryAction?.id === entry.entryId
-                  const isFav    = isRegClosed && entry.currentOdds && entry.currentOdds === minOdds
+                  const isFav    = isRegClosed && entry.odds && entry.odds === minOdds
                   const isDim    = entry.status === 'Rejected'
 
                   return (
@@ -1561,22 +1551,12 @@ export default function AdminRacesPage() {
                       {/* Submitted */}
                       <td className="text-sm text-on-surface-variant whitespace-nowrap">{fmtDate(entry.submittedAt)}</td>
 
-                      {/* Suggested odds (nội bộ) */}
+                      {/* Odds — một con số, spectator cược đúng số này */}
                       <td>
-                        {isRegClosed && entry.currentOdds
+                        {isRegClosed && entry.odds
                           ? <span className="flex items-center gap-1.5">
-                              <span className="text-on-surface-variant font-mono">{Number(entry.currentOdds).toFixed(2)}</span>
+                              <span className="font-bold text-secondary font-mono">{Number(entry.odds).toFixed(2)}</span>
                               {isFav && <span className="text-[10px] bg-primary/15 text-primary border border-primary/25 px-1.5 py-0.5 rounded font-semibold">Fav</span>}
-                            </span>
-                          : <span className="text-on-surface-variant">—</span>}
-                      </td>
-
-                      {/* Published odds (spectator cược số này) */}
-                      <td>
-                        {isRegClosed && entry.publishedOdds
-                          ? <span className="flex items-center gap-1.5">
-                              <span className="font-bold text-secondary font-mono">{Number(entry.publishedOdds).toFixed(2)}</span>
-                              {regInfo.bettingLockedAt && <Lock className="w-3 h-3 text-amber-400" />}
                             </span>
                           : <span className="text-on-surface-variant">—</span>}
                       </td>
@@ -1640,9 +1620,8 @@ export default function AdminRacesPage() {
             </table>
             {isRegClosed && (
               <p className="text-center text-xs text-on-surface-variant py-3 border-t border-outline-variant/30">
-                Suggested odds calculated from historical win rates at {fmtDate(regInfo.registrationCloseAt)}.
-                Published odds default to suggested − 10% and are what spectators bet against.
-                Spectators see a different number — their price moves with the betting pool.
+                Odds calculated from historical win rates at {fmtDate(regInfo.registrationCloseAt)} and
+                fixed for the rest of the race. Spectators bet against exactly these numbers.
               </p>
             )}
           </div>

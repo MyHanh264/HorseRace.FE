@@ -18,16 +18,10 @@ export async function getRaceDetail(id) {
   return res.data
 }
 
-// BE từ chối (400) nếu sổ cược chưa khóa — gọi lockRaceBetting trước.
+// Chỉ cần đăng ký đã đóng (race.oddsComputedAt != null). Không còn bước khóa sổ cược riêng —
+// cược tự chuyển Pending → Locked ngay trong lệnh start này.
 export async function startRace(raceId, payload = {}) {
   const res = await api.post(`/api/races/${raceId}/start`, payload)
-  return res.data
-}
-
-// POST /api/races/{raceId}/lock-betting — mở cho cả ADMIN và REFEREE: trọng tài là người bấm
-// Start Race, chặn họ ở bước khóa cược thì trận đấu kẹt lại chờ Admin có mặt.
-export async function lockRaceBetting(raceId) {
-  const res = await api.post(`/api/races/${raceId}/lock-betting`)
   return res.data
 }
 
@@ -100,17 +94,6 @@ export async function getRaceResults() {
  */
 export async function getLegDetail(raceId, legNumber) {
   const res = await api.get(`/api/legs/${raceId}/${legNumber}`)
-  return res.data
-}
-
-// ─── Legacy alias (kept for backward compatibility) ─────────────────────────
-
-/**
- * @deprecated Use submitLegResult(raceId, legIndex, entries) instead.
- * payload: { raceId, legNumber, results: [{ entryId, finishPosition }] }
- */
-export async function submitLegResult_legacy(payload) {
-  const res = await api.post('/api/race-results', payload)
   return res.data
 }
 

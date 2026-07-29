@@ -86,14 +86,6 @@ export async function getAllUser({ page = 1, pageSize = 10, search = "", sort = 
   return res.data
 }
 
-// Get users by status (filter client-side from getAllUser)
-export async function getUsersByStatus(status, { page = 1, pageSize = 10, search = "" } = {}) {
-  const params = { page, pageSize, search }
-  if (status) params.status = status
-  const res = await api.get('/api/users', { params })
-  return res.data
-}
-
 export async function getUserById(id) {
   const res = await api.get(`/api/users/${id}`)
   return res.data
@@ -168,27 +160,6 @@ export async function createUser(data) {
   return res.data
 }
 
-export async function getAllInvalidUser({ page = 1, pageSize = 10, search = "", sort = "createdAt", sortDirection = "desc" } = {}) {
-  const params = { page, pageSize, search, sort, sortDirection }
-  const res = await api.get('/api/admin/users/invalid', { params })
-  return res.data
-}
-
-export async function getInvalidUserById(id) {
-  const res = await api.get(`/api/admin/users/invalid/${id}`)
-  return res.data
-}
-
-export async function approveInvalidUser(id) {
-  const res = await api.post(`/api/admin/users/invalid/${id}/approve`)
-  return res.data
-}
-
-export async function rejectInvalidUser(id, reason) {
-  const res = await api.post(`/api/admin/users/invalid/${id}/reject`, { reason: reason || null })
-  return res.data
-}
-
 // ─── User Lock/Unlock ────────────────────────────────────────────────────────
 export async function lockUser(userId, reason) {
   const res = await api.post(`/api/admin/users/${userId}/lock`, { reason: reason || null })
@@ -197,11 +168,6 @@ export async function lockUser(userId, reason) {
 
 export async function unlockUser(userId) {
   const res = await api.post(`/api/admin/users/${userId}/unlock`)
-  return res.data
-}
-
-export async function getUserHistory(userId, { page = 1, pageSize = 20 } = {}) {
-  const res = await api.get(`/api/admin/users/${userId}/history`, { params: { page, pageSize } })
   return res.data
 }
 
@@ -288,21 +254,6 @@ export async function updateRace(id, payload) {
 
 export async function deleteRace(id) {
   const res = await api.delete(`/api/races/${id}`)
-  return res.data
-}
-
-export async function approveRace(id) {
-  const res = await api.post(`/api/admin/races/${id}/approve`)
-  return res.data
-}
-
-export async function rejectRace(id, reason) {
-  const res = await api.post(`/api/admin/races/${id}/reject`, { reason: reason || null })
-  return res.data
-}
-
-export async function finishRace(id) {
-  const res = await api.post(`/api/admin/races/${id}/finish`)
   return res.data
 }
 
@@ -432,37 +383,14 @@ export async function closeRegistration(raceId) {
   return res.data
 }
 
-// ─── Odds: đề xuất → công bố → khóa cược (Flow 3 + 7) ────────────────────────
-// Đóng đăng ký sinh ra 2 con số cho mỗi ngựa: ODDS ĐỀ XUẤT (máy tính từ lịch sử thắng, chỉ
-// Admin thấy) và ODDS CÔNG BỐ (= đề xuất − 10% biên nhà cái, là giá spectator thật sự cược).
-// Admin sửa lại trong modal → Publish Odds (mở cửa cược) → Lock Betting (đóng sổ, bắt buộc
-// trước khi Start Race).
+// ─── Odds (Flow 3 + 7) ───────────────────────────────────────────────────────
+// Đóng đăng ký sinh ra MỘT con số cho mỗi ngựa (máy tính từ lịch sử thắng) rồi giữ nguyên
+// tới hết cuộc đua. Không có bước công bố/khóa/sửa: cửa cược mở ngay khi đóng đăng ký và
+// tự đóng khi race xuất phát. Mọi role nhìn cùng một con số.
 
-/** GET /api/races/{raceId}/odds-board — bảng odds cho modal điều chỉnh. */
+/** GET /api/races/{raceId}/odds-board — bảng odds cho Admin XEM (read-only). */
 export async function getRaceOddsBoard(raceId) {
   const res = await api.get(`/api/races/${raceId}/odds-board`)
-  return res.data
-}
-
-/**
- * PUT /api/races/{raceId}/odds
- * entries: [{ entryId, suggestedOdds?, publishedOdds? }]
- * Bỏ trống publishedOdds = nhờ BE tính lại theo công thức mặc định (đề xuất − 10%).
- */
-export async function updateRaceOdds(raceId, entries) {
-  const res = await api.put(`/api/races/${raceId}/odds`, { entries })
-  return res.data
-}
-
-/** POST /api/races/{raceId}/publish-odds — mở cửa cược cho spectator. */
-export async function publishRaceOdds(raceId) {
-  const res = await api.post(`/api/races/${raceId}/publish-odds`)
-  return res.data
-}
-
-/** POST /api/races/{raceId}/lock-betting — đóng sổ cược; điều kiện bắt buộc để Start Race. */
-export async function lockRaceBetting(raceId) {
-  const res = await api.post(`/api/races/${raceId}/lock-betting`)
   return res.data
 }
 
@@ -470,7 +398,7 @@ export async function lockRaceBetting(raceId) {
 
 /**
  * POST /api/races/{raceId}/start
- * BE từ chối (400) nếu chưa gọi lock-betting — khóa sổ cược là bước bắt buộc trước.
+ * Chỉ cần đăng ký đã đóng (race.oddsComputedAt != null). Cược tự chuyển Pending → Locked.
  */
 export async function startRace(raceId, payload = {}) {
   const res = await api.post(`/api/races/${raceId}/start`, payload)
@@ -504,8 +432,16 @@ export async function getRaceExecutionStatus(raceId) {
 /**
  * GET /api/races/{raceId}/pause
  * Get conflict info → side-by-side comparison.
- * ⚠️ ADMIN-only per spec — Referee must NOT call this, to preserve Blind Double-Entry.
- * Frontend must not import this function from referee files.
+ *
+ * Role: ADMIN + REFEREE (BE mở cho referee từ commit `10685c9`, 2026-07-26). Blind
+ * Double-Entry vẫn được giữ ở tầng handler chứ không phải ở tầng route:
+ *   • ADMIN   — bỏ trống `legNumber` = tự tìm leg `Conflicted` đầu tiên, hoặc chỉ định leg bất kỳ.
+ *   • REFEREE — BẮT BUỘC `?legNumber=n`, phải là referee được gán cho race, và leg phải đã
+ *     `Resolved`. Sai điều kiện → 401/403. Tức trọng tài chỉ xem được bản nhập của đồng nghiệp
+ *     SAU khi Admin đã xử xong tranh chấp, không phải trong lúc còn đang xử.
+ *
+ * Wrapper này chưa truyền `legNumber` nên chỉ dùng được cho ADMIN. Muốn dùng cho referee thì
+ * thêm tham số. Hiện phía referee đang dùng `getLegDetail` thay thế.
  */
 export async function getRacePauseInfo(raceId) {
   const res = await api.get(`/api/races/${raceId}/pause`)
@@ -534,8 +470,11 @@ export async function resumeRace(raceId) {
 /**
  * GET /api/legs/{raceId}/{legNumber} — leg detail, has AdminOverrideReason/ConfirmedAt
  * for legs resolved via Admin override. Used to show past-resolution history on the
- * Conflict Resolution page without needing the ReviewHistory/Audit Log entity (BE
- * hasn't added Leg to that yet).
+ * Conflict Resolution page.
+ *
+ * Vẫn dùng endpoint này thay vì audit log dù BE đã có `ReviewEntity.Leg` (commit `5b65328`,
+ * 2026-07-26): nó trả thẳng quyết định cuối cùng của leg, không phải lọc jsonb before/after.
+ * Cần xem lịch sử override đầy đủ thì mới dùng `GET /api/admin/review-history?entity=Leg`.
  */
 export async function getLegDetail(raceId, legNumber) {
   const res = await api.get(`/api/legs/${raceId}/${legNumber}`)

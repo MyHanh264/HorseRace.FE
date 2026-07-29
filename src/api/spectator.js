@@ -33,14 +33,14 @@ export async function getSpectatorBettingLeaderboard() {
 }
 
 // ─── Cược race-level (Flow 7) ───────────────────────────────────────────────
-// Spectator cược 1 Entry về 1st của cả Race; cửa mở khi race Scheduled và odds đã khóa.
+// Spectator cược 1 Entry về 1st của cả Race.
 
-// Mỗi entry trả về ĐÚNG MỘT giá: `odds` = odds công bố Admin đã duyệt, cũng chính là giá sẽ
-// khóa vào lệnh cược ⇒ Est. Payout = betAmount × odds, không cần hỏi lại server theo số tiền.
-// (Trước 2026-07-28 odds động theo pool: bảng hiện 4.00x nhưng lệnh khóa 2.00x — xem
-// `currentOdds`/`effectiveOdds` cũ. Cả hai field đó KHÔNG còn tồn tại.)
-// Response cũng mang `oddsPublishedAt` / `bettingLockedAt` / `isBettingOpen` để biết cửa cược
-// đang mở hay đã đóng.
+// Mỗi entry trả về ĐÚNG MỘT giá: `odds` — máy tính từ lịch sử thắng lúc đóng đăng ký rồi đứng
+// yên, cũng chính là giá sẽ khóa vào lệnh cược ⇒ Est. Payout = betAmount × odds, nhân thẳng ở
+// client, không cần hỏi lại server theo số tiền.
+// Cửa cược suy từ `raceStatus === 'Scheduled' && oddsComputedAt != null` — response KHÔNG có
+// field `isBettingOpen`, và cũng không còn `oddsPublishedAt`/`bettingLockedAt` (đã bỏ hai bước
+// Publish Odds / Lock Betting).
 export async function getRaceOdds(raceId) {
   const res = await api.get(`/api/predictions/races/${raceId}/odds`)
   return res.data
